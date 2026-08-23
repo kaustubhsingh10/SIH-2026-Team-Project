@@ -1,0 +1,15 @@
+================================================================================
+CYBER & DIGITAL FORENSICS EXTRACTION MEMO
+CYBER POLICE LAB, NEW DELHI
+DOCUMENT ID: DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf
+CASE REF: CASE_101
+================================================================================
+
+EXAMINED ARTIFACT:
+Device Type: Encrypted Dual-SIM Field Handset (Burner)
+Recovered Line: +91-9876543210 (PHONE_042)
+
+FORENSIC EXTRACTION FINDINGS:
+1. Contact logs, localized cache, and chat remnants confirm device line +91-9876543210 was actively held and operated by Aarav Verma (PERSON_017) during the Delhi operational phase.
+2. Signal triangulation places the handset moving along Mathura Road toward Sector 18 Rohini safehouse (LOC_003).
+3. The burner handset maintained recurring short-duration encrypted voice sessions to a cell tower located in South Mumbai (Kalbadevi / Zaveri Bazaar sector).

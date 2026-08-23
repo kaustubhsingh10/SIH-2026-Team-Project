@@ -1,0 +1,11 @@
+================================================================================
+TECHNICAL SURVEILLANCE & INTERCEPT SUMMARY
+CENTRAL INTELLIGENCE DESK / MUMBAI BRANCH
+DOCUMENT ID: DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf
+CASE REF: CASE_204
+================================================================================
+
+INTERCEPT ANALYSIS:
+1. Target line +91-9876543210 (PHONE_042) registered multiple voice and encrypted communications from a handset physically held by Vikram Malhotra (PERSON_089) in Mumbai.
+2. The same IMSI and MSISDN +91-9876543210 was previously flagged in Delhi NCR during the Operation Midnight Shadow (CASE_101) logistics heist.
+3. This constitutes direct cross-case physical link between the Delhi heist team (Aarav Verma / PERSON_017) and the Mumbai fencing syndicate (Vikram Malhotra / PERSON_089).

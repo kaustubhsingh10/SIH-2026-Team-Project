@@ -1,0 +1,769 @@
+"""Deterministic synthetic investigation dataset generator for CrimeGraph AI.
+
+Generates realistic multi-case synthetic entities, relationships, evidence records,
+and source documents strictly conforming to DATA_SCHEMA.md and PROJECT_SPEC.md.
+"""
+
+from typing import Dict, Any
+from crimegraph.graph.store import KnowledgeGraphStore
+
+
+def generate_synthetic_investigation_data() -> KnowledgeGraphStore:
+    """Creates and returns a KnowledgeGraphStore populated with deterministic synthetic data.
+    
+    Contains the required SIH Demo connection path:
+    CASE_101 ←[INVOLVED_IN]— PERSON_017 —[USES]→ PHONE_042 ←[USES]— PERSON_089 —[INVOLVED_IN]→ CASE_204
+    """
+    store = KnowledgeGraphStore()
+
+    # ==========================================
+    # 1. EVIDENCE RECORDS (Source Provenance)
+    # ==========================================
+    evidence_data = [
+        {
+            "evidence_id": "EVID_101_01",
+            "source_document_id": "DOC_CASE_101_FIR_REPORT.pdf",
+            "source_text": "CCTV review and transit manifests identify Aarav Verma (PERSON_017) actively supervising the unmanifested cargo unloading during the incident window.",
+            "page_number": 2,
+            "timestamp": "2026-06-15T08:30:00Z",
+            "extraction_method": "AI_NER",
+            "confidence": 0.97
+        },
+        {
+            "evidence_id": "EVID_101_02",
+            "source_document_id": "DOC_CASE_101_WITNESS_STATEMENTS.pdf",
+            "source_text": "Security guard stated that suspect Aarav Verma was operating the White Bolero Pickup (DL-01-AB-1234) near Gate 3.",
+            "page_number": 5,
+            "timestamp": "2026-06-15T11:15:00Z",
+            "extraction_method": "AI_STATEMENT_EXTRACTION",
+            "confidence": 0.94
+        },
+        {
+            "evidence_id": "EVID_101_03",
+            "source_document_id": "DOC_TOLL_ANPR_LOGS_JUN2026.csv",
+            "source_text": "ANPR Camera #4 captured license plate DL-01-AB-1234 entering ICD Tughlakabad Logistics Yard at 21:42:10.",
+            "page_number": 1,
+            "timestamp": "2026-06-14T21:42:10Z",
+            "extraction_method": "ANPR_OCR",
+            "confidence": 0.99
+        },
+        {
+            "evidence_id": "EVID_101_04",
+            "source_document_id": "DOC_CASE_101_CDR_DUMP.xlsx",
+            "source_text": "Call record shows 14 voice calls and 28 SMS exchanges between PERSON_017 and Rohan Gupta (PERSON_005) preceding the cargo breach.",
+            "page_number": 12,
+            "timestamp": "2026-06-14T23:00:00Z",
+            "extraction_method": "CDR_PARSER",
+            "confidence": 0.95
+        },
+        {
+            "evidence_id": "EVID_101_05",
+            "source_document_id": "DOC_CASE_101_FIR_REPORT.pdf",
+            "source_text": "Co-conspirator Rohan Gupta confessed to disabling internal yard cameras under instructions from Verma.",
+            "page_number": 4,
+            "timestamp": "2026-06-16T14:00:00Z",
+            "extraction_method": "STATEMENT_EXTRACTION",
+            "confidence": 0.92
+        },
+        {
+            "evidence_id": "EVID_101_06",
+            "source_document_id": "DOC_SURVEILLANCE_LOGS_DELHI.pdf",
+            "source_text": "Physical surveillance confirmed Aarav Verma regularly accessing safehouse at Pocket B, Rohini Sector 18.",
+            "page_number": 3,
+            "timestamp": "2026-06-18T17:30:00Z",
+            "extraction_method": "SURVEILLANCE_LOG",
+            "confidence": 0.91
+        },
+        # Bridge Evidence for PHONE_042
+        {
+            "evidence_id": "EVID_042_01",
+            "source_document_id": "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf",
+            "source_text": "Handset triage recovered encrypted messaging sessions identifying Aarav Verma (PERSON_017) using burner line +91-9876543210 (PHONE_042) to coordinate dispatch.",
+            "page_number": 7,
+            "timestamp": "2026-06-17T10:00:00Z",
+            "extraction_method": "DIGITAL_FORENSICS",
+            "confidence": 0.95
+        },
+        {
+            "evidence_id": "EVID_042_02",
+            "source_document_id": "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf",
+            "source_text": "Lawful signal intelligence intercept confirmed Vikram Malhotra (PERSON_089) utilizing the same burner line +91-9876543210 (PHONE_042) to negotiate bullion disposal.",
+            "page_number": 3,
+            "timestamp": "2026-07-29T16:20:00Z",
+            "extraction_method": "TELCO_INTERCEPT",
+            "confidence": 0.93
+        },
+        # Case 204 Evidence
+        {
+            "evidence_id": "EVID_204_01",
+            "source_document_id": "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
+            "source_text": "Financial trail and bullion seizure at Zaveri Bazaar directly incriminate Vikram Malhotra (PERSON_089) as primary receiver.",
+            "page_number": 2,
+            "timestamp": "2026-07-30T10:15:00Z",
+            "extraction_method": "AI_NER",
+            "confidence": 0.96
+        },
+        {
+            "evidence_id": "EVID_204_02",
+            "source_document_id": "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
+            "source_text": "Informant debrief confirmed Vikram 'VK' Malhotra manages front organization Malhotra Bullion & Logistics.",
+            "page_number": 6,
+            "timestamp": "2026-07-30T15:45:00Z",
+            "extraction_method": "HUMINT_REPORT",
+            "confidence": 0.94
+        },
+        {
+            "evidence_id": "EVID_204_03",
+            "source_document_id": "DOC_RTO_VEHICLE_REGISTRATION_MH.pdf",
+            "source_text": "Vahan database registration records confirm Vikram Malhotra as registered owner of Black Scorpio SUV MH-02-CD-5678.",
+            "page_number": 1,
+            "timestamp": "2026-07-28T12:00:00Z",
+            "extraction_method": "REGISTRY_VERIFICATION",
+            "confidence": 0.99
+        },
+        {
+            "evidence_id": "EVID_204_04",
+            "source_document_id": "DOC_ZAVERI_CCTV_LOGS.pdf",
+            "source_text": "CCTV camera #12 captured Scorpio MH-02-CD-5678 parked behind Zaveri Bazaar vault facility on night of incident.",
+            "page_number": 8,
+            "timestamp": "2026-07-28T20:10:00Z",
+            "extraction_method": "CCTV_REVIEW",
+            "confidence": 0.92
+        },
+        {
+            "evidence_id": "EVID_204_05",
+            "source_document_id": "DOC_ROC_COMPANY_FILINGS_MUMBAI.pdf",
+            "source_text": "Ministry of Corporate Affairs filings list Vikram Malhotra as Managing Director of Malhotra Bullion & Logistics (ORG_002).",
+            "page_number": 1,
+            "timestamp": "2026-01-15T00:00:00Z",
+            "extraction_method": "REGISTRY_VERIFICATION",
+            "confidence": 0.98
+        },
+        # Financial / Banking Evidence
+        {
+            "evidence_id": "EVID_ACC_01",
+            "source_document_id": "DOC_HDFC_BANK_KYC_RECORD.pdf",
+            "source_text": "Bank KYC documentation identifies Aarav Verma as single signatory for account HDFC-0019283746.",
+            "page_number": 1,
+            "timestamp": "2025-11-20T11:00:00Z",
+            "extraction_method": "BANKING_KYC",
+            "confidence": 0.99
+        },
+        {
+            "evidence_id": "EVID_ACC_02",
+            "source_document_id": "DOC_ICICI_BANK_KYC_RECORD.pdf",
+            "source_text": "Bank KYC documentation identifies Vikram Malhotra as account holder for ICICI-9988776655.",
+            "page_number": 1,
+            "timestamp": "2025-08-10T14:30:00Z",
+            "extraction_method": "BANKING_KYC",
+            "confidence": 0.99
+        },
+        # Case 102 and Case 305 Evidence
+        {
+            "evidence_id": "EVID_102_01",
+            "source_document_id": "DOC_CASE_102_CYBER_CRIME_UNIT.pdf",
+            "source_text": "Forensic audit detected illicit crypto-to-fiat routing handled by Meera Sen (PERSON_044) under Case 102.",
+            "page_number": 3,
+            "timestamp": "2026-05-12T16:00:00Z",
+            "extraction_method": "FORENSIC_AUDIT",
+            "confidence": 0.95
+        },
+        {
+            "evidence_id": "EVID_102_02",
+            "source_document_id": "DOC_CASE_102_CYBER_CRIME_UNIT.pdf",
+            "source_text": "Encrypted ledger reveals regular escrow settlements between Meera Sen and Aarav Verma.",
+            "page_number": 9,
+            "timestamp": "2026-05-15T18:20:00Z",
+            "extraction_method": "LEDGER_ANALYSIS",
+            "confidence": 0.89
+        },
+        {
+            "evidence_id": "EVID_305_01",
+            "source_document_id": "DOC_CASE_305_BLR_POLICE_REPORT.pdf",
+            "source_text": "Bengaluru Police incident log recorded Kabir Singhania (PERSON_056) as warehouse custodian during the breach.",
+            "page_number": 2,
+            "timestamp": "2026-04-03T09:00:00Z",
+            "extraction_method": "POLICE_REPORT",
+            "confidence": 0.93
+        },
+        {
+            "evidence_id": "EVID_EV_01",
+            "source_document_id": "DOC_CASE_101_INCIDENT_SUMMARY.pdf",
+            "source_text": "Incident event summary detailing Aarav Verma driving Bolero Pickup DL-01-AB-1234 out of ICD Tughlakabad.",
+            "page_number": 1,
+            "timestamp": "2026-06-14T21:50:00Z",
+            "extraction_method": "EVENT_EXTRACTION",
+            "confidence": 0.96
+        }
+    ]
+
+    for ev in evidence_data:
+        store.add_evidence(ev)
+
+    # ==========================================
+    # 2. ENTITIES (Matching DATA_SCHEMA.md)
+    # ==========================================
+    entities_data = [
+        # --- Cases ---
+        {
+            "id": "CASE_101",
+            "entity_type": "CASE",
+            "case_number": "FIR-2026-DEL-101",
+            "title": "Operation Midnight Shadow — Logistics Yard Cargo Hijack",
+            "description": "Armed hijacking and diversion of multi-crore imported electronics shipment from ICD Tughlakabad.",
+            "status": "UNDER_INVESTIGATION",
+            "incident_date": "2026-06-14T22:30:00Z",
+            "location_id": "LOC_001",
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf", "EVID_101_01"]
+        },
+        {
+            "id": "CASE_204",
+            "entity_type": "CASE",
+            "case_number": "FIR-2026-MUM-204",
+            "title": "Operation Golden Falcon — Zaveri Bazaar Fencing Syndicate",
+            "description": "Cross-state liquidation network distributing hijacked electronics and illicit bullion through front jewellers.",
+            "status": "UNDER_INVESTIGATION",
+            "incident_date": "2026-07-28T19:45:00Z",
+            "location_id": "LOC_005",
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf", "EVID_204_01"]
+        },
+        {
+            "id": "CASE_102",
+            "entity_type": "CASE",
+            "case_number": "FIR-2026-DEL-102",
+            "title": "Cyber Syndicate Hawala Routing",
+            "description": "High-frequency cyber theft funds funneled through mule accounts and decentralized liquidity pools.",
+            "status": "ACTIVE",
+            "incident_date": "2026-05-10T14:15:00Z",
+            "location_id": "LOC_002",
+            "source_ids": ["DOC_CASE_102_CYBER_CRIME_UNIT.pdf", "EVID_102_01"]
+        },
+        {
+            "id": "CASE_305",
+            "entity_type": "CASE",
+            "case_number": "FIR-2026-BLR-305",
+            "title": "Warehouse Depot Break-in",
+            "description": "Physical security breach and inventory theft at Electronic City electronics storage facility.",
+            "status": "CLOSED",
+            "incident_date": "2026-04-02T03:00:00Z",
+            "location_id": "LOC_006",
+            "source_ids": ["DOC_CASE_305_BLR_POLICE_REPORT.pdf", "EVID_305_01"]
+        },
+
+        # --- Persons ---
+        {
+            "id": "PERSON_017",
+            "entity_type": "PERSON",
+            "name": "Aarav Verma",
+            "aliases": ["A. Verma", "Shadow", "Rocky"],
+            "age": 34,
+            "gender": "Male",
+            "phone_ids": ["PHONE_042", "PHONE_017"],
+            "vehicle_ids": ["VEHICLE_017"],
+            "address_ids": ["LOC_003"],
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf", "EVID_101_01", "EVID_042_01"],
+            "confidence": 0.96
+        },
+        {
+            "id": "PERSON_089",
+            "entity_type": "PERSON",
+            "name": "Vikram Malhotra",
+            "aliases": ["V. Malhotra", "VK", "The Broker"],
+            "age": 41,
+            "gender": "Male",
+            "phone_ids": ["PHONE_042", "PHONE_089"],
+            "vehicle_ids": ["VEHICLE_042", "VEHICLE_089"],
+            "address_ids": ["LOC_007"],
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf", "EVID_204_01", "EVID_042_02"],
+            "confidence": 0.95
+        },
+        {
+            "id": "PERSON_005",
+            "entity_type": "PERSON",
+            "name": "Rohan Gupta",
+            "aliases": ["R. Gupta", "Ronnie"],
+            "age": 29,
+            "gender": "Male",
+            "phone_ids": ["PHONE_005"],
+            "vehicle_ids": ["VEHICLE_005"],
+            "address_ids": ["LOC_001"],
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf", "EVID_101_04"],
+            "confidence": 0.92
+        },
+        {
+            "id": "PERSON_044",
+            "entity_type": "PERSON",
+            "name": "Meera Sen",
+            "aliases": ["M. Sen", "Maya"],
+            "age": 36,
+            "gender": "Female",
+            "phone_ids": ["PHONE_044"],
+            "vehicle_ids": [],
+            "address_ids": ["LOC_002"],
+            "source_ids": ["DOC_CASE_102_CYBER_CRIME_UNIT.pdf", "EVID_102_01"],
+            "confidence": 0.93
+        },
+        {
+            "id": "PERSON_056",
+            "entity_type": "PERSON",
+            "name": "Kabir Singhania",
+            "aliases": ["K. Singhania"],
+            "age": 48,
+            "gender": "Male",
+            "phone_ids": [],
+            "vehicle_ids": [],
+            "address_ids": ["LOC_006"],
+            "source_ids": ["DOC_CASE_305_BLR_POLICE_REPORT.pdf", "EVID_305_01"],
+            "confidence": 0.91
+        },
+
+        # --- Phones ---
+        {
+            "id": "PHONE_042",
+            "entity_type": "PHONE",
+            "phone_number": "+91-9876543210",
+            "owner_ids": ["PERSON_017", "PERSON_089"],
+            "source_ids": ["DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf", "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf", "EVID_042_01", "EVID_042_02"],
+            "confidence": 0.94
+        },
+        {
+            "id": "PHONE_017",
+            "entity_type": "PHONE",
+            "phone_number": "+91-9811001100",
+            "owner_ids": ["PERSON_017"],
+            "source_ids": ["DOC_CASE_101_CDR_DUMP.xlsx"],
+            "confidence": 0.98
+        },
+        {
+            "id": "PHONE_089",
+            "entity_type": "PHONE",
+            "phone_number": "+91-9822002200",
+            "owner_ids": ["PERSON_089"],
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"],
+            "confidence": 0.97
+        },
+        {
+            "id": "PHONE_005",
+            "entity_type": "PHONE",
+            "phone_number": "+91-9833003300",
+            "owner_ids": ["PERSON_005"],
+            "source_ids": ["DOC_CASE_101_CDR_DUMP.xlsx"],
+            "confidence": 0.95
+        },
+        {
+            "id": "PHONE_044",
+            "entity_type": "PHONE",
+            "phone_number": "+91-9844004400",
+            "owner_ids": ["PERSON_044"],
+            "source_ids": ["DOC_CASE_102_CYBER_CRIME_UNIT.pdf"],
+            "confidence": 0.96
+        },
+
+        # --- Vehicles ---
+        {
+            "id": "VEHICLE_017",
+            "entity_type": "VEHICLE",
+            "registration_number": "DL-01-AB-1234",
+            "type": "Bolero Pickup Truck",
+            "owner_id": "PERSON_017",
+            "source_ids": ["DOC_CASE_101_WITNESS_STATEMENTS.pdf", "EVID_101_02"],
+            "confidence": 0.95
+        },
+        {
+            "id": "VEHICLE_042",
+            "entity_type": "VEHICLE",
+            "registration_number": "MH-02-CD-5678",
+            "type": "Scorpio SUV",
+            "owner_id": "PERSON_089",
+            "source_ids": ["DOC_RTO_VEHICLE_REGISTRATION_MH.pdf", "EVID_204_03"],
+            "confidence": 0.96
+        },
+        {
+            "id": "VEHICLE_089",
+            "entity_type": "VEHICLE",
+            "registration_number": "MH-01-EF-9012",
+            "type": "Fortuner SUV",
+            "owner_id": "PERSON_089",
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"],
+            "confidence": 0.97
+        },
+        {
+            "id": "VEHICLE_005",
+            "entity_type": "VEHICLE",
+            "registration_number": "DL-04-GH-3456",
+            "type": "Eicher Delivery Van",
+            "owner_id": "PERSON_005",
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf"],
+            "confidence": 0.93
+        },
+
+        # --- Locations ---
+        {
+            "id": "LOC_001",
+            "entity_type": "LOCATION",
+            "name": "ICD Tughlakabad Logistics Yard",
+            "latitude": 28.5024,
+            "longitude": 77.2912,
+            "address": "Inland Container Depot, Tughlakabad, New Delhi, Delhi 110044",
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf", "EVID_101_03"]
+        },
+        {
+            "id": "LOC_002",
+            "entity_type": "LOCATION",
+            "name": "Nehru Place Financial Complex",
+            "latitude": 28.5494,
+            "longitude": 77.2528,
+            "address": "Nehru Place Commercial Center, New Delhi 110019",
+            "source_ids": ["DOC_CASE_102_CYBER_CRIME_UNIT.pdf"]
+        },
+        {
+            "id": "LOC_003",
+            "entity_type": "LOCATION",
+            "name": "Rohini Sector 18 Safehouse",
+            "latitude": 28.7382,
+            "longitude": 77.1184,
+            "address": "Pocket B, Sector 18, Rohini, Delhi 110089",
+            "source_ids": ["DOC_SURVEILLANCE_LOGS_DELHI.pdf", "EVID_101_06"]
+        },
+        {
+            "id": "LOC_004",
+            "entity_type": "LOCATION",
+            "name": "Nhava Sheva Freight Terminal",
+            "latitude": 18.9502,
+            "longitude": 72.9504,
+            "address": "JNPT Port Area, Navi Mumbai, Maharashtra 400707",
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"]
+        },
+        {
+            "id": "LOC_005",
+            "entity_type": "LOCATION",
+            "name": "Zaveri Bazaar Precious Metal Hub",
+            "latitude": 18.9511,
+            "longitude": 72.8315,
+            "address": "Sheikh Memon Street, Kalbadevi, Mumbai, Maharashtra 400002",
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf", "EVID_204_04"]
+        },
+        {
+            "id": "LOC_006",
+            "entity_type": "LOCATION",
+            "name": "Electronic City Warehouse Depot",
+            "latitude": 12.8452,
+            "longitude": 77.6652,
+            "address": "Phase 1, Electronic City, Bengaluru, Karnataka 560100",
+            "source_ids": ["DOC_CASE_305_BLR_POLICE_REPORT.pdf"]
+        },
+        {
+            "id": "LOC_007",
+            "entity_type": "LOCATION",
+            "name": "Worli Sea Face Luxury Apartments",
+            "latitude": 19.0065,
+            "longitude": 72.8153,
+            "address": "Worli Sea Face Road, Worli, Mumbai, Maharashtra 400030",
+            "source_ids": ["DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"]
+        },
+
+        # --- Organizations ---
+        {
+            "id": "ORG_001",
+            "entity_type": "ORGANIZATION",
+            "name": "Apex Cargo Express Ltd",
+            "aliases": ["Apex Cargo", "Apex Logistics"],
+            "address": "Inland Container Depot, Tughlakabad, Delhi",
+            "source_ids": ["DOC_CASE_101_FIR_REPORT.pdf"]
+        },
+        {
+            "id": "ORG_002",
+            "entity_type": "ORGANIZATION",
+            "name": "Malhotra Bullion & Logistics",
+            "aliases": ["MBL Corp", "Malhotra Trading"],
+            "address": "Sheikh Memon Street, Zaveri Bazaar, Mumbai",
+            "source_ids": ["DOC_ROC_COMPANY_FILINGS_MUMBAI.pdf", "EVID_204_05"]
+        },
+
+        # --- Accounts ---
+        {
+            "id": "ACC_001",
+            "entity_type": "ACCOUNT",
+            "account_type": "BANK_ACCOUNT",
+            "identifier": "HDFC-0019283746",
+            "owner_id": "PERSON_017",
+            "source_ids": ["DOC_HDFC_BANK_KYC_RECORD.pdf", "EVID_ACC_01"]
+        },
+        {
+            "id": "ACC_002",
+            "entity_type": "ACCOUNT",
+            "account_type": "BANK_ACCOUNT",
+            "identifier": "ICICI-9988776655",
+            "owner_id": "PERSON_089",
+            "source_ids": ["DOC_ICICI_BANK_KYC_RECORD.pdf", "EVID_ACC_02"]
+        },
+        {
+            "id": "ACC_003",
+            "entity_type": "ACCOUNT",
+            "account_type": "UPI",
+            "identifier": "shadowpay@okhdfc",
+            "owner_id": "PERSON_017",
+            "source_ids": ["DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf"]
+        },
+        {
+            "id": "ACC_004",
+            "entity_type": "ACCOUNT",
+            "account_type": "CRYPTO_WALLET",
+            "identifier": "0x71C83A20B34De590Ac31eD59E15B520847b2B29F",
+            "owner_id": "PERSON_044",
+            "source_ids": ["DOC_CASE_102_CYBER_CRIME_UNIT.pdf"]
+        },
+
+        # --- Events ---
+        {
+            "id": "EVENT_001",
+            "entity_type": "EVENT",
+            "event_type": "VEHICLE_SIGHTING",
+            "timestamp": "2026-06-14T21:45:00Z",
+            "location_id": "LOC_001",
+            "description": "White Bolero Pickup DL-01-AB-1234 observed exiting logistics yard gate.",
+            "source_id": "EVID_EV_01"
+        },
+        {
+            "id": "EVENT_002",
+            "entity_type": "EVENT",
+            "event_type": "CALL_LOG",
+            "timestamp": "2026-06-15T02:10:00Z",
+            "location_id": "LOC_003",
+            "description": "Incoming call on burner PHONE_042 originating from Mumbai cell tower.",
+            "source_id": "EVID_042_01"
+        },
+        {
+            "id": "EVENT_003",
+            "entity_type": "EVENT",
+            "event_type": "TRANSACTION",
+            "timestamp": "2026-07-29T11:00:00Z",
+            "location_id": "LOC_005",
+            "description": "Inter-account wire transfer of INR 4,500,000 between ICICI-9988776655 and HDFC-0019283746.",
+            "source_id": "EVID_204_01"
+        }
+    ]
+
+    for ent in entities_data:
+        store.add_entity(ent)
+
+    # ==========================================
+    # 3. RELATIONSHIPS (Matching DATA_SCHEMA.md)
+    # ==========================================
+    relationships_data = [
+        # --- Core Discovery Chain: CASE_101 -> PERSON_017 -> PHONE_042 -> PERSON_089 -> CASE_204 ---
+        {
+            "id": "REL_001",
+            "source_id": "PERSON_017",
+            "relationship": "INVOLVED_IN",
+            "target_id": "CASE_101",
+            "confidence": 0.97,
+            "evidence_ids": ["EVID_101_01"],
+            "properties": {"role": "Primary Field Coordinator"}
+        },
+        {
+            "id": "REL_002",
+            "source_id": "PERSON_017",
+            "relationship": "USES",
+            "target_id": "PHONE_042",
+            "confidence": 0.95,
+            "evidence_ids": ["EVID_042_01"],
+            "properties": {"usage_type": "Burner Device"}
+        },
+        {
+            "id": "REL_003",
+            "source_id": "PERSON_089",
+            "relationship": "USES",
+            "target_id": "PHONE_042",
+            "confidence": 0.93,
+            "evidence_ids": ["EVID_042_02"],
+            "properties": {"usage_type": "Burner Device"}
+        },
+        {
+            "id": "REL_004",
+            "source_id": "PERSON_089",
+            "relationship": "INVOLVED_IN",
+            "target_id": "CASE_204",
+            "confidence": 0.96,
+            "evidence_ids": ["EVID_204_01"],
+            "properties": {"role": "Fencing Coordinator / Bullion Buyer"}
+        },
+
+        # --- Additional Case 101 Relationships ---
+        {
+            "id": "REL_005",
+            "source_id": "PERSON_017",
+            "relationship": "USES",
+            "target_id": "VEHICLE_017",
+            "confidence": 0.94,
+            "evidence_ids": ["EVID_101_02"]
+        },
+        {
+            "id": "REL_006",
+            "source_id": "VEHICLE_017",
+            "relationship": "SEEN_AT",
+            "target_id": "LOC_001",
+            "confidence": 0.99,
+            "evidence_ids": ["EVID_101_03"]
+        },
+        {
+            "id": "REL_007",
+            "source_id": "PERSON_017",
+            "relationship": "CONTACTED",
+            "target_id": "PERSON_005",
+            "confidence": 0.95,
+            "evidence_ids": ["EVID_101_04"]
+        },
+        {
+            "id": "REL_008",
+            "source_id": "PERSON_005",
+            "relationship": "INVOLVED_IN",
+            "target_id": "CASE_101",
+            "confidence": 0.92,
+            "evidence_ids": ["EVID_101_05"],
+            "properties": {"role": "Inside Accomplice / Yard Security"}
+        },
+        {
+            "id": "REL_009",
+            "source_id": "PERSON_017",
+            "relationship": "VISITED",
+            "target_id": "LOC_003",
+            "confidence": 0.91,
+            "evidence_ids": ["EVID_101_06"]
+        },
+        {
+            "id": "REL_010",
+            "source_id": "PERSON_017",
+            "relationship": "OWNS",
+            "target_id": "PHONE_017",
+            "confidence": 0.98,
+            "evidence_ids": ["EVID_101_04"]
+        },
+
+        # --- Additional Case 204 Relationships ---
+        {
+            "id": "REL_011",
+            "source_id": "PERSON_089",
+            "relationship": "OWNS",
+            "target_id": "VEHICLE_042",
+            "confidence": 0.98,
+            "evidence_ids": ["EVID_204_03"]
+        },
+        {
+            "id": "REL_012",
+            "source_id": "VEHICLE_042",
+            "relationship": "SEEN_AT",
+            "target_id": "LOC_005",
+            "confidence": 0.92,
+            "evidence_ids": ["EVID_204_04"]
+        },
+        {
+            "id": "REL_013",
+            "source_id": "PERSON_089",
+            "relationship": "WORKS_FOR",
+            "target_id": "ORG_002",
+            "confidence": 0.97,
+            "evidence_ids": ["EVID_204_05"],
+            "properties": {"position": "Managing Director"}
+        },
+        {
+            "id": "REL_014",
+            "source_id": "PERSON_089",
+            "relationship": "OWNS",
+            "target_id": "PHONE_089",
+            "confidence": 0.97,
+            "evidence_ids": ["EVID_204_01"]
+        },
+        {
+            "id": "REL_015",
+            "source_id": "PERSON_089",
+            "relationship": "VISITED",
+            "target_id": "LOC_007",
+            "confidence": 0.95,
+            "evidence_ids": ["EVID_204_01"]
+        },
+
+        # --- Financial / Banking Relationships ---
+        {
+            "id": "REL_016",
+            "source_id": "ACC_001",
+            "relationship": "OWNED_BY",
+            "target_id": "PERSON_017",
+            "confidence": 0.99,
+            "evidence_ids": ["EVID_ACC_01"]
+        },
+        {
+            "id": "REL_017",
+            "source_id": "ACC_002",
+            "relationship": "OWNED_BY",
+            "target_id": "PERSON_089",
+            "confidence": 0.99,
+            "evidence_ids": ["EVID_ACC_02"]
+        },
+
+        # --- Case 102 & Case 305 Relationships ---
+        {
+            "id": "REL_018",
+            "source_id": "PERSON_044",
+            "relationship": "INVOLVED_IN",
+            "target_id": "CASE_102",
+            "confidence": 0.95,
+            "evidence_ids": ["EVID_102_01"]
+        },
+        {
+            "id": "REL_019",
+            "source_id": "PERSON_044",
+            "relationship": "ASSOCIATED_WITH",
+            "target_id": "PERSON_017",
+            "confidence": 0.89,
+            "evidence_ids": ["EVID_102_02"],
+            "properties": {"connection": "Hawala / Escrow Settlement"}
+        },
+        {
+            "id": "REL_020",
+            "source_id": "PERSON_056",
+            "relationship": "INVOLVED_IN",
+            "target_id": "CASE_305",
+            "confidence": 0.93,
+            "evidence_ids": ["EVID_305_01"]
+        },
+
+        # --- Event Relationships ---
+        {
+            "id": "REL_021",
+            "source_id": "EVENT_001",
+            "relationship": "INVOLVES",
+            "target_id": "PERSON_017",
+            "confidence": 0.96,
+            "evidence_ids": ["EVID_EV_01"]
+        },
+        {
+            "id": "REL_022",
+            "source_id": "EVENT_001",
+            "relationship": "OCCURRED_AT",
+            "target_id": "LOC_001",
+            "confidence": 0.98,
+            "evidence_ids": ["EVID_EV_01"]
+        },
+        {
+            "id": "REL_023",
+            "source_id": "EVENT_002",
+            "relationship": "OCCURRED_AT",
+            "target_id": "LOC_003",
+            "confidence": 0.91,
+            "evidence_ids": ["EVID_042_01"]
+        },
+        {
+            "id": "REL_024",
+            "source_id": "EVENT_003",
+            "relationship": "OCCURRED_AT",
+            "target_id": "LOC_005",
+            "confidence": 0.95,
+            "evidence_ids": ["EVID_204_01"]
+        }
+    ]
+
+    for rel in relationships_data:
+        store.add_relationship(rel)
+
+    return store

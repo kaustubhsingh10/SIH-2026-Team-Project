@@ -1,0 +1,14 @@
+================================================================================
+MUMBAI POLICE — CRIME BRANCH INVESTIGATION REPORT
+UNIT 3, SOUTH REGION, MUMBAI
+CASE REF: FIR-2026-MUM-204 | CASE_204
+TITLE: Operation Golden Falcon — Zaveri Bazaar Fencing Syndicate
+================================================================================
+
+CASE OVERVIEW:
+An extensive cross-state fencing ring operating out of Zaveri Bazaar was uncovered following the seizure of unmarked high-value semiconductor trays and gold bullion lots.
+
+KEY SUSPECT FINDINGS:
+1. Target Vikram 'VK' Malhotra (PERSON_089) operates Malhotra Bullion & Logistics (ORG_002) at Sheikh Memon Street, Zaveri Bazaar (LOC_005).
+2. Physical and electronic surveillance verified Vikram Malhotra utilizing personal Scorpio SUV (MH-02-CD-5678 / VEHICLE_042) to transport liquidations between Nhava Sheva (LOC_004) and Zaveri Bazaar vault facilities.
+3. Financial records demonstrate multi-million rupee transfers to intermediary accounts immediately after high-value cargo deliveries.

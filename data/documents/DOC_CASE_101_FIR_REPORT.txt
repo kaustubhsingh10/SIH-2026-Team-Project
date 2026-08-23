@@ -1,0 +1,18 @@
+================================================================================
+FIRST INFORMATION REPORT & SPECIAL INVESTIGATION REPORT
+DELHI POLICE — CRIME BRANCH (SPECIAL CELL)
+CASE REF: FIR-2026-DEL-101 | CASE_101
+TITLE: Operation Midnight Shadow — Logistics Yard Cargo Hijack
+================================================================================
+
+INCIDENT OVERVIEW:
+On the night of 14-June-2026 at approximately 22:30 hours, an armed contingent intercepted and hijacked a high-value transit container containing imported electronics components and computing hardware at the Inland Container Depot (ICD), Tughlakabad logistics corridor.
+
+PRIMARY SUSPECT INVOLVEMENT:
+1. CCTV footage analysis from Gate #3 and yard surveillance cameras identifies suspect Aarav Verma (PERSON_017, alias "Shadow") coordinating the unmanifested cargo offloading.
+2. Inside yard accomplice Rohan Gupta (PERSON_005) deliberately manipulated power breakers to disable perimeter spotlights between 22:15 and 22:45.
+3. Logistics transport vehicle Bolero Pickup (Registration: DL-01-AB-1234 / VEHICLE_017) was captured exiting the depot toward Badarpur border at high speed.
+
+RECOVERED LEADS:
+Digital triage indicates suspect Aarav Verma utilized an untraceable burner line for operational dispatch instructions.
+Investigation transferred to multi-jurisdiction intelligence desk for cross-state receiver tracing.
