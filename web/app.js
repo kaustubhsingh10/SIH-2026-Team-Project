@@ -1,602 +1,581 @@
 /**
  * CrimeGraph AI — Frontend Application Logic
- * SIH 2026 Judge-Ready Prototype
+ * Day 1 Foundation (Shruti — Frontend, Data & Integration Lead)
+ * Strictly compatible with DATA_SCHEMA.md and API_CONTRACT.md
  */
 
-const API_BASE_URL = "http://localhost:8000";
-
 let networkInstance = null;
-let graphDataStore = null;
+let currentGraphNodes = [];
+let currentGraphEdges = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-    initTabNavigation();
-    initEventListeners();
-    loadDashboardMetrics();
-    loadActiveCases();
-    initGraphExplorer("CASE_101");
-    loadCrossCaseDiscovery();
-    loadEntityResolutions();
-    loadTimelineEvents();
+    initNavigation();
+    initCaseExplorer();
+    initGraphWorkspace();
+    initAIInvestigator();
+    initTimeline();
+    initEvidenceExplorer();
 });
 
 /* ----------------------------------------------------
-   Tab Navigation
+   1. NAVIGATION & TAB ROUTING
 ---------------------------------------------------- */
-function initTabNavigation() {
-    const tabs = document.querySelectorAll(".nav-tab");
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-            tabs.forEach(t => t.classList.remove("active"));
-            tab.classList.add("active");
-
-            const targetTabId = tab.getAttribute("data-tab");
-            document.querySelectorAll(".tab-content").forEach(content => {
-                content.classList.add("hidden");
-                content.classList.remove("active");
-            });
-
-            const targetSection = document.getElementById(targetTabId);
-            if (targetSection) {
-                targetSection.classList.remove("hidden");
-                targetSection.classList.add("active");
-            }
-
-            if (targetTabId === "tab-graph" && networkInstance) {
-                setTimeout(() => networkInstance.fit(), 100);
-            }
-        });
-    });
-}
-
-/* ----------------------------------------------------
-   Event Listeners
----------------------------------------------------- */
-function initEventListeners() {
-    // Case Selector for Graph
-    const caseSelect = document.getElementById("case-select");
-    if (caseSelect) {
-        caseSelect.addEventListener("change", (e) => {
-            initGraphExplorer(e.target.value);
-        });
-    }
-
-    // Refresh Dataset Button
-    const refreshBtn = document.getElementById("refresh-btn");
-    if (refreshBtn) {
-        refreshBtn.addEventListener("click", () => {
-            loadDashboardMetrics();
-            loadActiveCases();
-            initGraphExplorer(document.getElementById("case-select")?.value || "CASE_101");
-        });
-    }
-
-    // Extraction Button
-    const extractBtn = document.getElementById("run-extract-btn");
-    if (extractBtn) {
-        extractBtn.addEventListener("click", handleDocumentExtraction);
-    }
-
-    // Cross-Case Discovery Button
-    const crossBtn = document.getElementById("run-cross-discovery-btn");
-    if (crossBtn) {
-        crossBtn.addEventListener("click", loadCrossCaseDiscovery);
-    }
-
-    // AI Investigator Preset Buttons
-    document.querySelectorAll(".preset-query-btn").forEach(btn => {
+function initNavigation() {
+    const navButtons = document.querySelectorAll(".nav-item");
+    navButtons.forEach(btn => {
         btn.addEventListener("click", () => {
-            const text = btn.innerText.replace(/"/g, "").trim();
-            document.getElementById("ai-query-input").value = text;
-            handleAIQuery(text);
+            const targetPane = btn.getAttribute("data-tab");
+            switchTab(targetPane);
         });
     });
 
-    // AI Investigator Send Button
-    const sendAiBtn = document.getElementById("send-ai-query-btn");
-    if (sendAiBtn) {
-        sendAiBtn.addEventListener("click", () => {
-            const queryInput = document.getElementById("ai-query-input");
-            if (queryInput && queryInput.value.trim()) {
-                handleAIQuery(queryInput.value.trim());
+    const headerCaseSelect = document.getElementById("header-case-select");
+    if (headerCaseSelect) {
+        headerCaseSelect.addEventListener("change", (e) => {
+            renderGraph(e.target.value);
+        });
+    }
+}
+
+function switchTab(paneId) {
+    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+    const activeBtn = document.querySelector(`.nav-item[data-tab="${paneId}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
+
+    document.querySelectorAll(".tab-pane").forEach(pane => {
+        pane.classList.add("hidden");
+        pane.classList.remove("active");
+    });
+
+    const target = document.getElementById(paneId);
+    if (target) {
+        target.classList.remove("hidden");
+        target.classList.add("active");
+    }
+
+    if (paneId === "pane-graph" && networkInstance) {
+        setTimeout(() => networkInstance.fit(), 100);
+    }
+}
+
+/* ----------------------------------------------------
+   2. SYNTHETIC GRAPH DATA (DATA_SCHEMA.md Compatible)
+---------------------------------------------------- */
+const SYNTHETIC_GRAPH_DATA = {
+    nodes: [
+        { id: "CASE_101", name: "Operation Midnight Shadow", type: "CASE", confidence: 1.0, details: "Logistics Yard Cargo Hijack" },
+        { id: "CASE_204", name: "Operation Golden Falcon", type: "CASE", confidence: 1.0, details: "Zaveri Bazaar Fencing Syndicate" },
+        { id: "CASE_102", name: "Operation Silver Shield", type: "CASE", confidence: 1.0, details: "Cyber Financial Fraud Ring" },
+        { id: "CASE_305", name: "Operation Falcon Eye", type: "CASE", confidence: 1.0, details: "Cross-Border Hawala Network" },
+
+        { id: "PERSON_017", name: "Aarav Verma", type: "PERSON", confidence: 0.96, details: "Logistics Dispatch Supervisor" },
+        { id: "PERSON_089", name: "Vikram Malhotra", type: "PERSON", confidence: 0.94, details: "Bullion Receiver & Fencer" },
+        { id: "PERSON_044", name: "Devansh Mehta", type: "PERSON", confidence: 0.91, details: "Warehouse Gate Keeper" },
+        { id: "PERSON_056", name: "Karan Shah", type: "PERSON", confidence: 0.88, details: "Hawala Courier Operator" },
+
+        { id: "PHONE_042", name: "+91-9876543210", type: "PHONE", confidence: 0.95, details: "Encrypted Burner Line" },
+        { id: "PHONE_017", name: "+91-9820011223", type: "PHONE", confidence: 0.92, details: "Personal Cell" },
+        { id: "PHONE_089", name: "+91-9811099887", type: "PHONE", confidence: 0.90, details: "Shop Landline" },
+
+        { id: "VEHICLE_042", name: "MH-01-AB-1234", type: "VEHICLE", confidence: 0.94, details: "Black SUV" },
+        { id: "VEHICLE_017", name: "MH-04-XY-9999", type: "VEHICLE", confidence: 0.89, details: "Commercial Delivery Van" },
+
+        { id: "LOC_001", name: "Nhava Sheva Hub", type: "LOCATION", confidence: 1.0, details: "Logistics Transit Yard" },
+        { id: "LOC_003", name: "Zaveri Bazaar", type: "LOCATION", confidence: 1.0, details: "Bullion Trading Vault" },
+        { id: "LOC_007", name: "Tower 14 Relay", type: "LOCATION", confidence: 1.0, details: "Cellular Base Station" },
+
+        { id: "ACC_001", name: "ACC_AXIS_9941", type: "ACCOUNT", confidence: 0.93, details: "Escrow Bank Account" }
+    ],
+
+    edges: [
+        { id: "REL_101_017", source: "CASE_101", target: "PERSON_017", relationship: "INVOLVED_IN", confidence: 0.97, evidence_id: "EVID_101_01" },
+        { id: "REL_017_042", source: "PERSON_017", target: "PHONE_042", relationship: "USES", confidence: 0.95, evidence_id: "EVID_042_01" },
+        { id: "REL_042_089", source: "PHONE_042", target: "PERSON_089", relationship: "USES", confidence: 0.93, evidence_id: "EVID_042_02" },
+        { id: "REL_089_204", source: "PERSON_089", target: "CASE_204", relationship: "INVOLVED_IN", confidence: 0.96, evidence_id: "EVID_204_01" },
+
+        { id: "REL_017_V042", source: "PERSON_017", target: "VEHICLE_042", relationship: "USES", confidence: 0.94, evidence_id: "EVID_V042_01" },
+        { id: "REL_V042_L001", source: "VEHICLE_042", target: "LOC_001", relationship: "SEEN_AT", confidence: 0.92, evidence_id: "EVID_L001_01" },
+        { id: "REL_089_L003", source: "PERSON_089", target: "LOC_003", relationship: "VISITED", confidence: 0.95, evidence_id: "EVID_L003_01" },
+        { id: "REL_044_101", source: "PERSON_044", target: "CASE_101", relationship: "INVOLVED_IN", confidence: 0.89, evidence_id: "EVID_044_01" },
+        { id: "REL_056_305", source: "PERSON_056", target: "CASE_305", relationship: "INVOLVED_IN", confidence: 0.91, evidence_id: "EVID_056_01" },
+        { id: "REL_089_ACC", source: "PERSON_089", target: "ACC_001", relationship: "OWNED_BY", confidence: 0.93, evidence_id: "EVID_ACC_01" }
+    ],
+
+    evidence: {
+        "EVID_101_01": {
+            evidence_id: "EVID_101_01",
+            source_document: "DOC_CASE_101_FIR_REPORT.pdf",
+            page_number: 2,
+            source_text: "CCTV review and transit manifests identify Aarav Verma (PERSON_017) actively supervising the unmanifested cargo unloading.",
+            timestamp: "2026-08-10T19:15:00Z",
+            extraction_method: "AI_NER",
+            confidence: 0.97,
+            relationship: "CASE_101 --INVOLVED_IN--> PERSON_017"
+        },
+        "EVID_042_01": {
+            evidence_id: "EVID_042_01",
+            source_document: "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf",
+            page_number: 7,
+            source_text: "Handset triage recovered encrypted messaging sessions identifying Aarav Verma (PERSON_017) using burner line +91-9876543210 (PHONE_042).",
+            timestamp: "2026-08-11T09:30:00Z",
+            extraction_method: "DIGITAL_FORENSICS",
+            confidence: 0.95,
+            relationship: "PERSON_017 --USES--> PHONE_042"
+        },
+        "EVID_042_02": {
+            evidence_id: "EVID_042_02",
+            source_document: "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf",
+            page_number: 3,
+            source_text: "Lawful signal intelligence intercept confirmed Vikram Malhotra (PERSON_089) utilizing the same burner line +91-9876543210 (PHONE_042).",
+            timestamp: "2026-08-12T21:15:00Z",
+            extraction_method: "TELCO_INTERCEPT",
+            confidence: 0.93,
+            relationship: "PHONE_042 --USES--> PERSON_089"
+        },
+        "EVID_204_01": {
+            evidence_id: "EVID_204_01",
+            source_document: "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
+            page_number: 2,
+            source_text: "Financial trail and bullion seizure at Zaveri Bazaar directly incriminate Vikram Malhotra (PERSON_089) as primary receiver.",
+            timestamp: "2026-08-14T11:45:00Z",
+            extraction_method: "AI_NER",
+            confidence: 0.96,
+            relationship: "PERSON_089 --INVOLVED_IN--> CASE_204"
+        }
+    }
+};
+
+/* ----------------------------------------------------
+   3. NETWORK GRAPH WORKSPACE & VIS.JS ENGINE
+---------------------------------------------------- */
+function initGraphWorkspace() {
+    renderGraph("CASE_101");
+
+    // Controls
+    document.getElementById("graph-zoom-in")?.addEventListener("click", () => {
+        if (networkInstance) {
+            const scale = networkInstance.getScale();
+            networkInstance.moveTo({ scale: scale * 1.25 });
+        }
+    });
+
+    document.getElementById("graph-zoom-out")?.addEventListener("click", () => {
+        if (networkInstance) {
+            const scale = networkInstance.getScale();
+            networkInstance.moveTo({ scale: scale * 0.8 });
+        }
+    });
+
+    document.getElementById("graph-reset")?.addEventListener("click", () => {
+        if (networkInstance) networkInstance.fit();
+    });
+
+    document.getElementById("graph-highlight-path")?.addEventListener("click", highlightDemoPath);
+}
+
+function renderGraph(caseId = "CASE_101") {
+    const container = document.getElementById("graph-canvas");
+    if (!container) return;
+
+    let filteredNodes = SYNTHETIC_GRAPH_DATA.nodes;
+    let filteredEdges = SYNTHETIC_GRAPH_DATA.edges;
+
+    if (caseId !== "ALL") {
+        // Find connected node IDs
+        const connectedNodeIds = new Set([caseId]);
+        SYNTHETIC_GRAPH_DATA.edges.forEach(e => {
+            if (e.source === caseId || e.target === caseId) {
+                connectedNodeIds.add(e.source);
+                connectedNodeIds.add(e.target);
             }
         });
+
+        // 2nd degree
+        SYNTHETIC_GRAPH_DATA.edges.forEach(e => {
+            if (connectedNodeIds.has(e.source) || connectedNodeIds.has(e.target)) {
+                connectedNodeIds.add(e.source);
+                connectedNodeIds.add(e.target);
+            }
+        });
+
+        filteredNodes = SYNTHETIC_GRAPH_DATA.nodes.filter(n => connectedNodeIds.has(n.id));
+        filteredEdges = SYNTHETIC_GRAPH_DATA.edges.filter(e => connectedNodeIds.has(e.source) && connectedNodeIds.has(e.target));
     }
 
-    // Generate Report Button
-    const genReportBtn = document.getElementById("generate-report-btn");
-    if (genReportBtn) {
-        genReportBtn.addEventListener("click", handleGenerateReport);
-    }
-}
-
-/* ----------------------------------------------------
-   API Fetch Helpers with Failover
----------------------------------------------------- */
-async function fetchAPI(endpoint, options = {}) {
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (err) {
-        console.warn(`API call to ${endpoint} failed, using local mock data fallback.`, err);
-    }
-    return null;
-}
-
-/* ----------------------------------------------------
-   Dashboard Metrics & Cases
----------------------------------------------------- */
-async function loadDashboardMetrics() {
-    document.getElementById("stat-node-count").innerText = "30";
-    document.getElementById("stat-edge-count").innerText = "24";
-    document.getElementById("stat-evidence-count").innerText = "19";
-}
-
-function loadActiveCases() {
-    const container = document.getElementById("cases-cards-container");
-    if (!container) return;
-
-    const mockCases = [
-        {
-            id: "CASE_101",
-            title: "Operation Midnight Shadow — Logistics Yard Cargo Hijack",
-            desc: "Armed hijack of unmanifested electronics cargo at Nhava Sheva logistics hub. Primary suspects identified via CCTV and burner cell logs.",
-            date: "2026-08-10",
-            status: "ACTIVE",
-            entities: 8
-        },
-        {
-            id: "CASE_204",
-            title: "Operation Golden Falcon — Zaveri Bazaar Fencing Syndicate",
-            desc: "Bullion recycling and illicit precious metals fencing syndicate operating across South Mumbai.",
-            date: "2026-08-14",
-            status: "ACTIVE",
-            entities: 9
-        },
-        {
-            id: "CASE_102",
-            title: "Operation Silver Shield — Cyber Financial Fraud",
-            desc: "Phishing ring targeting PSU bank accounts using unauthorized UPI gateways.",
-            date: "2026-08-05",
-            status: "OPEN",
-            entities: 6
-        },
-        {
-            id: "CASE_305",
-            title: "Operation Falcon Eye — Hawala Intercept",
-            desc: "Cross-border illicit financial transfers routed through shell accounts.",
-            date: "2026-08-18",
-            status: "INVESTIGATING",
-            entities: 7
-        }
-    ];
-
-    container.innerHTML = mockCases.map(c => `
-        <div class="case-card bg-slate-950 border border-slate-800/80 hover:border-cyan-700/60 rounded-xl p-4 transition-all flex flex-col justify-between space-y-3">
-            <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <span class="font-mono text-xs text-cyan-400 font-bold px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800">${c.id}</span>
-                    <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full">${c.status}</span>
-                </div>
-                <h3 class="text-xs font-bold text-white leading-snug">${c.title}</h3>
-                <p class="text-[11px] text-slate-400 line-clamp-2">${c.desc}</p>
-            </div>
-            
-            <div class="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px] text-slate-400">
-                <span><i class="fa-regular fa-calendar mr-1"></i> ${c.date}</span>
-                <button onclick="exploreCaseGraph('${c.id}')" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1">
-                    Explore Graph <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-        </div>
-    `).join("");
-}
-
-function exploreCaseGraph(caseId) {
-    const select = document.getElementById("case-select");
-    if (select) select.value = caseId;
-    
-    // Switch to Graph tab
-    const graphTab = document.querySelector('[data-tab="tab-graph"]');
-    if (graphTab) graphTab.click();
-
-    initGraphExplorer(caseId);
-}
-
-/* ----------------------------------------------------
-   AI Document Ingestion & Extraction
----------------------------------------------------- */
-async function handleDocumentExtraction() {
-    const docId = document.getElementById("ingest-doc-id")?.value || "DOC_NEW";
-    const text = document.getElementById("ingest-doc-text")?.value || "";
-
-    if (!text.trim()) return;
-
-    const res = await fetchAPI("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ document_id: docId, text: text })
-    });
-
-    const resultsDiv = document.getElementById("ingest-results");
-    const summaryText = document.getElementById("ingest-summary-text");
-
-    if (resultsDiv && summaryText) {
-        resultsDiv.classList.remove("hidden");
-        const entCount = res ? res.entities.length : 3;
-        const evCount = res ? res.evidence.length : 2;
-        summaryText.innerHTML = `Extracted <strong>${entCount} entities</strong>, <strong>${evCount} evidence records</strong> with confidence scores ≥ 0.92. Integrated into active graph store.`;
-    }
-}
-
-/* ----------------------------------------------------
-   Vis.js Knowledge Graph Explorer
----------------------------------------------------- */
-async function initGraphExplorer(caseId) {
-    const container = document.getElementById("network-canvas");
-    if (!container) return;
-
-    let apiData = await fetchAPI(`/api/cases/${caseId === 'ALL' ? 'CASE_101' : caseId}/graph`);
-
-    let rawNodes = apiData ? apiData.nodes : getMockNodes(caseId);
-    let rawEdges = apiData ? apiData.edges : getMockEdges(caseId);
-
-    const colorMap = {
-        "PERSON": { background: "#06b6d4", border: "#0891b2", highlight: "#22d3ee" },
-        "PHONE": { background: "#10b981", border: "#059669", highlight: "#34d399" },
-        "VEHICLE": { background: "#f59e0b", border: "#d97706", highlight: "#fbbf24" },
-        "LOCATION": { background: "#818cf8", border: "#6366f1", highlight: "#a5b4fc" },
-        "CASE": { background: "#f43f5e", border: "#e11d48", highlight: "#fb7185" },
-        "ORGANIZATION": { background: "#c084fc", border: "#a855f7", highlight: "#e879f9" }
+    const nodeColors = {
+        "PERSON": { background: "#3b82f6", border: "#1d4ed8" },
+        "PHONE": { background: "#10b981", border: "#047857" },
+        "VEHICLE": { background: "#f59e0b", border: "#b45309" },
+        "LOCATION": { background: "#8b5cf6", border: "#6d28d9" },
+        "CASE": { background: "#ef4444", border: "#b91c1c" },
+        "ACCOUNT": { background: "#06b6d4", border: "#0e7490" }
     };
 
-    const formattedNodes = rawNodes.map(n => ({
+    const visNodes = filteredNodes.map(n => ({
         id: n.id,
-        label: `${n.label}\n[${n.id}]`,
-        shape: n.type === "CASE" ? "diamond" : (n.type === "PHONE" ? "ellipse" : "box"),
-        color: colorMap[n.type] || { background: "#64748b", border: "#475569" },
-        font: { color: "#ffffff", size: 12, face: "Inter" },
-        margin: 10,
-        nodeData: n
+        label: `${n.name}\n[${n.id}]`,
+        shape: n.type === "CASE" ? "diamond" : "box",
+        color: nodeColors[n.type] || { background: "#64748b", border: "#334155" },
+        font: { color: "#ffffff", size: 11, face: "Inter" },
+        margin: 8,
+        nodeObj: n
     }));
 
-    const formattedEdges = rawEdges.map(e => ({
+    const visEdges = filteredEdges.map(e => ({
         id: e.id,
-        from: e.source || e.from,
-        to: e.target || e.to,
+        from: e.source,
+        to: e.target,
         label: e.relationship,
-        font: { color: "#94a3b8", size: 10, align: "horizontal" },
-        color: { color: "#334155", highlight: "#06b6d4" },
-        arrows: { to: { enabled: true, scaleFactor: 0.7 } },
-        edgeData: e
+        font: { color: "#8c90a1", size: 9, align: "horizontal" },
+        color: { color: "#424656", highlight: "#b3c5ff" },
+        arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+        edgeObj: e
     }));
 
     const data = {
-        nodes: new vis.DataSet(formattedNodes),
-        edges: new vis.DataSet(formattedEdges)
+        nodes: new vis.DataSet(visNodes),
+        edges: new vis.DataSet(visEdges)
     };
 
     const options = {
         nodes: { borderWidth: 2, shadow: true },
         edges: { smooth: { type: "continuous" } },
-        physics: {
-            stabilization: false,
-            barnesHut: { gravitationalConstant: -3000, springLength: 120 }
-        },
-        interaction: { hover: true, zoomView: true }
+        physics: { barnesHut: { springLength: 100, gravitationalConstant: -2000 } }
     };
 
     networkInstance = new vis.Network(container, data, options);
 
-    // Node click listener to populate inspector
+    // Node click -> Open Entity Details Panel
     networkInstance.on("selectNode", (params) => {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
-            const nodeObj = formattedNodes.find(n => n.id === nodeId);
-            if (nodeObj) {
-                renderEntityInspector(nodeObj.nodeData);
-            }
+            const nodeData = SYNTHETIC_GRAPH_DATA.nodes.find(n => n.id === nodeId);
+            if (nodeData) openEntityDetailsPanel(nodeData);
         }
     });
 
-    // Default select first node
-    if (formattedNodes.length > 0) {
-        renderEntityInspector(formattedNodes[0].nodeData);
-    }
+    // Edge click -> Open Evidence Panel
+    networkInstance.on("selectEdge", (params) => {
+        if (params.edges.length > 0 && params.nodes.length === 0) {
+            const edgeId = params.edges[0];
+            const edgeData = SYNTHETIC_GRAPH_DATA.edges.find(e => e.id === edgeId);
+            if (edgeData) openEvidencePanel(edgeData);
+        }
+    });
 }
 
-function renderEntityInspector(entity) {
-    const drawer = document.getElementById("entity-inspector");
+function highlightDemoPath() {
+    if (!networkInstance) return;
+    const demoNodes = ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"];
+    networkInstance.selectNodes(demoNodes);
+    alert("Highlighted Central Demo Chain: CASE_101 → PERSON_017 → PHONE_042 → PERSON_089 → CASE_204");
+}
+
+/* ----------------------------------------------------
+   4. REUSABLE ENTITY DETAILS PANEL (SECTION 6)
+---------------------------------------------------- */
+function openEntityDetailsPanel(entity) {
+    const drawer = document.getElementById("inspector-drawer");
     if (!drawer) return;
+
+    // Find relationships for entity
+    const rels = SYNTHETIC_GRAPH_DATA.edges.filter(e => e.source === entity.id || e.target === entity.id);
+    const connectedCases = new Set();
+    rels.forEach(r => {
+        if (r.source.startswith ? r.source.startswith("CASE_") : r.source.indexOf("CASE_") === 0) connectedCases.add(r.source);
+        if (r.target.startswith ? r.target.startswith("CASE_") : r.target.indexOf("CASE_") === 0) connectedCases.add(r.target);
+    });
+
+    const badgeClass = `badge-${entity.type.toLowerCase()}`;
 
     drawer.innerHTML = `
         <div class="space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span class="font-mono text-xs text-cyan-400 font-bold px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800">${entity.id}</span>
-                <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full">
-                    Conf: ${entity.confidence || 0.95}
-                </span>
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                <span class="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant">${entity.id}</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded ${badgeClass}">${entity.type}</span>
             </div>
 
-            <h3 class="text-sm font-bold text-white">${entity.label || entity.id}</h3>
-            <div class="text-[11px] text-slate-400 font-mono">Entity Type: <span class="text-cyan-300 font-semibold">${entity.type || "ENTITY"}</span></div>
+            <h3 class="text-sm font-bold text-white">${entity.name}</h3>
+            <p class="text-xs text-on-surface-variant">${entity.details}</p>
 
-            <div class="border-t border-slate-800 pt-3 space-y-2">
-                <h4 class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Supporting Evidence Provenance</h4>
-                <div class="bg-slate-950 border border-slate-800/80 rounded-lg p-2.5 text-[11px] space-y-1">
-                    <div class="text-cyan-400 font-mono font-medium">[EVID_042_01] High Confidence</div>
-                    <div class="text-slate-300 italic">"Observed operating burner line +91-9876543210 during cargo transit window."</div>
-                    <div class="text-slate-400 text-[10px]">Source: DOC_CASE_101_FORENSIC.pdf (Page 7)</div>
+            <div class="text-[11px] font-mono text-tertiary">
+                Extraction Confidence: <strong>${(entity.confidence * 100).toFixed(0)}%</strong>
+            </div>
+
+            <!-- Connected Cases -->
+            <div class="border-t border-surface-container-high pt-2 space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Linked Cases (${connectedCases.size})</div>
+                <div class="flex flex-wrap gap-1">
+                    ${Array.from(connectedCases).map(c => `<span class="px-1.5 py-0.5 rounded bg-error-container/30 text-error border border-error/30 text-[10px] font-mono font-bold">${c}</span>`).join("")}
                 </div>
             </div>
 
-            <div class="pt-2">
-                <button onclick="askAIAboutEntity('${entity.id}')" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-800/50 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-sparkles"></i> Analyze Connections with AI
-                </button>
+            <!-- Relationships List -->
+            <div class="border-t border-surface-container-high pt-2 space-y-1.5">
+                <div class="text-[10px] font-bold uppercase text-outline">Relationships (${rels.length})</div>
+                ${rels.map(r => `
+                    <div class="bg-surface-container-lowest p-2 rounded text-[11px] space-y-0.5 border border-surface-container-high">
+                        <div class="text-primary font-mono font-semibold">${r.source} --${r.relationship}--> ${r.target}</div>
+                        <div class="text-[10px] text-on-surface-variant">Confidence: ${(r.confidence * 100).toFixed(0)}% | Evidence: ${r.evidence_id}</div>
+                    </div>
+                `).join("")}
+            </div>
+
+            <!-- Action -->
+            <button onclick="askAIAboutEntity('${entity.id}')" class="w-full py-2 bg-primary-container text-white text-xs font-semibold rounded shadow flex items-center justify-center gap-1 mt-2">
+                <span class="material-symbols-outlined text-sm">auto_awesome</span> Query Entity in AI Investigator
+            </button>
+        </div>
+    `;
+}
+
+/* ----------------------------------------------------
+   5. REUSABLE EVIDENCE PANEL (SECTION 7)
+---------------------------------------------------- */
+function openEvidencePanel(edge) {
+    const drawer = document.getElementById("inspector-drawer");
+    if (!drawer) return;
+
+    const evid = SYNTHETIC_GRAPH_DATA.evidence[edge.evidence_id] || {
+        evidence_id: edge.evidence_id,
+        source_document: "DOC_INVESTIGATION_LOG.pdf",
+        page_number: 3,
+        source_text: `Observed relationship: ${edge.source} ${edge.relationship} ${edge.target}.`,
+        timestamp: "2026-08-11T12:00:00Z",
+        extraction_method: "AI_NER",
+        confidence: edge.confidence,
+        relationship: `${edge.source} --${edge.relationship}--> ${edge.target}`
+    };
+
+    drawer.innerHTML = `
+        <div class="space-y-3">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                <span class="font-mono text-xs font-bold text-tertiary px-2 py-0.5 rounded bg-tertiary-container/20 border border-tertiary/30">${evid.evidence_id}</span>
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-primary-container/30 text-primary border border-primary/40">EVIDENCE</span>
+            </div>
+
+            <div class="flex items-center gap-1.5 text-xs text-amber-300 bg-amber-950/40 p-1.5 rounded border border-amber-800/40">
+                <span class="material-symbols-outlined text-sm">lightbulb</span>
+                <span class="text-[11px]"><strong>Classification:</strong> Potential Investigative Lead</span>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Supported Relationship</div>
+                <div class="font-mono text-xs text-white font-bold bg-surface-container-lowest p-2 rounded border border-surface-container-high">${evid.relationship}</div>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Source Text Snippet</div>
+                <p class="text-xs text-on-surface italic bg-surface-container-lowest p-2.5 rounded border border-surface-container-high leading-relaxed">"${evid.source_text}"</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 font-mono">
+                <div>Source Doc: <span class="text-primary font-bold">${evid.source_document}</span></div>
+                <div>Page Ref: <span class="text-white font-bold">Pg. ${evid.page_number}</span></div>
+                <div>Timestamp: <span class="text-white font-bold">${evid.timestamp}</span></div>
+                <div>Confidence: <span class="text-tertiary font-bold">${(evid.confidence * 100).toFixed(0)}%</span></div>
+            </div>
+        </div>
+    `;
+}
+
+/* ----------------------------------------------------
+   6. AI INVESTIGATOR UI (SECTION 8 - MOCK INTERFACE)
+---------------------------------------------------- */
+function initAIInvestigator() {
+    document.querySelectorAll(".ai-preset-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const queryText = btn.innerText.replace(/"/g, "").trim();
+            runAIQueryMock(queryText);
+        });
+    });
+
+    document.getElementById("ai-submit-btn")?.addEventListener("click", () => {
+        const input = document.getElementById("ai-input-text");
+        if (input && input.value.trim()) {
+            runAIQueryMock(input.value.trim());
+        }
+    });
+}
+
+function runAIQueryMock(queryText) {
+    const container = document.getElementById("ai-response-container");
+    if (!container) return;
+
+    let mockResponse = {
+        question: queryText,
+        answer: "Automated graph analysis surfaced a 4-hop relationship chain linking CASE_101 and CASE_204 through shared burner line PHONE_042 (+91-9876543210).",
+        path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
+        confidence: "0.93 (High)",
+        evidence: "Supported by EVID_042_01 (Phone extraction) and EVID_042_02 (Telco signal intercept).",
+        lead: "Investigative Lead: Inspect bullion transactions linked to Vikram Malhotra (PERSON_089) at Zaveri Bazaar."
+    };
+
+    container.innerHTML = `
+        <div class="space-y-4">
+            <div class="border-b border-surface-container-high pb-2">
+                <div class="text-[10px] font-bold uppercase text-outline">User Query</div>
+                <div class="text-sm font-bold text-primary">${mockResponse.question}</div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="text-[10px] font-bold uppercase text-outline">Answer Summary</div>
+                <div class="text-xs text-white leading-relaxed font-sans">${mockResponse.answer}</div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="text-[10px] font-bold uppercase text-outline">Discovered Connection Path</div>
+                <div class="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+                    ${mockResponse.path.map((p, idx) => `
+                        <span class="px-2 py-0.5 rounded bg-surface-container-high text-tertiary border border-tertiary/30 font-bold">${p}</span>
+                        ${idx < mockResponse.path.length - 1 ? '<span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>' : ''}
+                    `).join("")}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <div class="bg-surface-container-low p-2.5 rounded border border-surface-container-high">
+                    <div class="text-[10px] font-bold uppercase text-outline">Confidence Score</div>
+                    <div class="text-xs text-tertiary font-bold">${mockResponse.confidence}</div>
+                </div>
+                <div class="bg-surface-container-low p-2.5 rounded border border-surface-container-high">
+                    <div class="text-[10px] font-bold uppercase text-outline">Evidence Citations</div>
+                    <div class="text-[11px] text-on-surface-variant">${mockResponse.evidence}</div>
+                </div>
+            </div>
+
+            <div class="p-3 bg-amber-950/40 border border-amber-800/40 rounded text-amber-300 text-xs">
+                <i class="material-symbols-outlined text-xs text-amber-400">lightbulb</i>
+                <strong>AI Lead:</strong> ${mockResponse.lead}
             </div>
         </div>
     `;
 }
 
 function askAIAboutEntity(entityId) {
-    const aiTab = document.querySelector('[data-tab="tab-ai-investigator"]');
-    if (aiTab) aiTab.click();
+    switchTab("pane-ai-investigator");
+    runAIQueryMock(`What connects ${entityId} to active cases?`);
+}
 
-    const queryInput = document.getElementById("ai-query-input");
-    if (queryInput) {
-        queryInput.value = `Who is connected to ${entityId}?`;
-        handleAIQuery(queryInput.value);
+/* ----------------------------------------------------
+   7. TIMELINE & CASE EXPLORER & REPORTS
+---------------------------------------------------- */
+function initCaseExplorer() {
+    const tableBody = document.getElementById("cases-table-body");
+    const dashContainer = document.getElementById("dashboard-cases-container");
+    if (!tableBody && !dashContainer) return;
+
+    const cases = [
+        { id: "CASE_101", title: "Operation Midnight Shadow — Cargo Hijack", date: "2026-08-10", status: "ACTIVE", location: "LOC_001 (Nhava Sheva Hub)", entities: 8 },
+        { id: "CASE_204", title: "Operation Golden Falcon — Zaveri Bazaar Fencing", date: "2026-08-14", status: "ACTIVE", location: "LOC_003 (Zaveri Bazaar Vault)", entities: 9 },
+        { id: "CASE_102", title: "Operation Silver Shield — Cyber Fraud", date: "2026-08-05", status: "OPEN", location: "LOC_004 (Cyber Cell)", entities: 6 },
+        { id: "CASE_305", title: "Operation Falcon Eye — Hawala Intercept", date: "2026-08-18", status: "INVESTIGATING", location: "LOC_007 (Tower Relay)", entities: 7 }
+    ];
+
+    if (tableBody) {
+        tableBody.innerHTML = cases.map(c => `
+            <tr class="hover:bg-surface-container transition">
+                <td class="p-3 font-mono font-bold text-error">${c.id}</td>
+                <td class="p-3 font-bold text-white">${c.title}</td>
+                <td class="p-3 font-mono text-on-surface-variant">${c.date}</td>
+                <td class="p-3"><span class="px-2 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">${c.status}</span></td>
+                <td class="p-3 text-on-surface-variant">${c.location}</td>
+                <td class="p-3">
+                    <button onclick="exploreCase('${c.id}')" class="px-2.5 py-1 bg-primary-container text-white text-[11px] font-semibold rounded flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">hub</span> View Graph
+                    </button>
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    if (dashContainer) {
+        dashContainer.innerHTML = cases.map(c => `
+            <div class="stitch-card stitch-card-interactive space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-mono text-xs text-error font-bold px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${c.id}</span>
+                    <span class="text-[10px] font-bold text-tertiary bg-tertiary-container/20 px-2 py-0.5 rounded">${c.status}</span>
+                </div>
+                <h4 class="text-xs font-bold text-white">${c.title}</h4>
+                <div class="text-[11px] text-on-surface-variant">${c.location}</div>
+                <div class="flex items-center justify-between pt-2 border-t border-surface-container-high text-[11px]">
+                    <span class="text-outline font-mono">${c.date}</span>
+                    <button onclick="exploreCase('${c.id}')" class="text-primary font-semibold flex items-center gap-0.5 hover:underline">
+                        Investigate <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        `).join("");
     }
 }
 
-/* ----------------------------------------------------
-   Cross-Case Discovery Showcase
----------------------------------------------------- */
-async function loadCrossCaseDiscovery() {
-    const container = document.getElementById("cross-case-evidence-steps");
+function exploreCase(caseId) {
+    const select = document.getElementById("header-case-select");
+    if (select) select.value = caseId;
+    switchTab("pane-graph");
+    renderGraph(caseId);
+}
+
+function initTimeline() {
+    const container = document.getElementById("timeline-container");
     if (!container) return;
 
-    const steps = [
-        {
-            step: "Step 1: CASE_101 → PERSON_017",
-            rel: "INVOLVED_IN (Confidence: 0.97)",
-            doc: "DOC_CASE_101_FIR_REPORT.pdf (Page 2)",
-            text: "CCTV review and transit manifests identify Aarav Verma (PERSON_017) actively supervising the unmanifested cargo unloading."
-        },
-        {
-            step: "Step 2: PERSON_017 → PHONE_042",
-            rel: "USES (Confidence: 0.95)",
-            doc: "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf (Page 7)",
-            text: "Handset triage recovered encrypted messaging sessions identifying Aarav Verma using burner line +91-9876543210."
-        },
-        {
-            step: "Step 3: PHONE_042 → PERSON_089",
-            rel: "USES (Confidence: 0.93)",
-            doc: "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf (Page 3)",
-            text: "Lawful signal intelligence intercept confirmed Vikram Malhotra (PERSON_089) utilizing the same burner line +91-9876543210."
-        },
-        {
-            step: "Step 4: PERSON_089 → CASE_204",
-            rel: "INVOLVED_IN (Confidence: 0.96)",
-            doc: "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf (Page 2)",
-            text: "Financial trail and bullion seizure at Zaveri Bazaar directly incriminate Vikram Malhotra as primary receiver."
-        }
-    ];
-
-    container.innerHTML = steps.map(s => `
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs space-y-1.5">
-            <div class="flex items-center justify-between text-cyan-400 font-semibold">
-                <span>${s.step}</span>
-                <span class="text-[10px] text-slate-400 font-mono">${s.rel}</span>
-            </div>
-            <p class="text-slate-300 italic text-[11px]">"${s.text}"</p>
-            <div class="text-[10px] text-slate-400">Document Source: <span class="text-slate-300 font-mono">${s.doc}</span></div>
-        </div>
-    `).join("");
-}
-
-/* ----------------------------------------------------
-   Entity Resolution Center
----------------------------------------------------- */
-async function loadEntityResolutions() {
-    const container = document.getElementById("entity-resolution-cards");
-    if (!container) return;
-
-    const resData = await fetchAPI("/api/entity-resolution/pending");
-    const candidates = (resData && resData.candidates) ? resData.candidates : [
-        {
-            id: "RES_PERSON_017_PERSON_092",
-            entity_a: { id: "PERSON_017", type: "PERSON", name: "Rahul Kumar" },
-            entity_b: { id: "PERSON_092", type: "PERSON", name: "R. Kumar" },
-            similarity: 0.92,
-            reasons: ["Similar name string", "Same phone (+91-9876543210)", "Same vehicle (MH-01-AB-1234)"],
-            status: "PENDING_REVIEW"
-        }
-    ];
-
-    container.innerHTML = candidates.map(c => `
-        <div class="bg-slate-950 border border-amber-800/40 rounded-xl p-4 space-y-3">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-mono text-amber-400 font-bold">Similarity Score: ${c.similarity * 100}%</span>
-                <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-950 text-amber-300 border border-amber-800 rounded-md">PENDING REVIEW</span>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 py-2 border-y border-slate-900 text-xs">
-                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-mono">${c.entity_a.id}</div>
-                    <div class="font-bold text-white">${c.entity_a.name}</div>
-                </div>
-                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-mono">${c.entity_b.id}</div>
-                    <div class="font-bold text-white">${c.entity_b.name}</div>
-                </div>
-            </div>
-
-            <div class="space-y-1 text-xs">
-                <div class="text-[11px] font-semibold text-slate-300">Match Reasons:</div>
-                <ul class="list-disc list-inside text-slate-400 text-[11px] space-y-0.5">
-                    ${c.reasons.map(r => `<li>${r}</li>`).join("")}
-                </ul>
-            </div>
-
-            <div class="flex items-center gap-2 pt-2">
-                <button onclick="handleResolutionAction('${c.id}', 'MERGE')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-check"></i> Approve & Merge
-                </button>
-                <button onclick="handleResolutionAction('${c.id}', 'DISMISS')" class="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg transition-colors">
-                    Dismiss
-                </button>
-            </div>
-        </div>
-    `).join("");
-}
-
-function handleResolutionAction(resId, action) {
-    alert(`Entity resolution candidate ${resId} marked as ${action}. Graph updated.`);
-    loadEntityResolutions();
-}
-
-/* ----------------------------------------------------
-   AI Investigator Assistant
----------------------------------------------------- */
-async function handleAIQuery(questionText) {
-    const chatContainer = document.getElementById("ai-chat-messages");
-    if (!chatContainer) return;
-
-    // Append user query message
-    chatContainer.innerHTML += `
-        <div class="flex gap-3 justify-end">
-            <div class="bg-cyan-950/80 border border-cyan-800/80 rounded-xl p-3 text-cyan-100 max-w-xl">
-                <p class="font-medium">${questionText}</p>
-            </div>
-            <div class="w-7 h-7 rounded-full bg-cyan-700 text-white flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-user-shield"></i>
-            </div>
-        </div>
-    `;
-
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-
-    // Fetch API response
-    const resData = await fetchAPI("/api/investigate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: questionText })
-    });
-
-    const answer = resData ? resData.answer : `Analyzed graph across active cases. Discovered connection chain: CASE_101 → PERSON_017 → PHONE_042 → PERSON_089 → CASE_204 with composite confidence 0.93.`;
-
-    setTimeout(() => {
-        chatContainer.innerHTML += `
-            <div class="flex gap-3">
-                <div class="w-7 h-7 rounded-full bg-teal-900 text-teal-300 flex items-center justify-center text-xs shrink-0">
-                    <i class="fa-solid fa-robot"></i>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-200 space-y-2 max-w-2xl">
-                    <div class="flex items-center justify-between text-[11px] text-teal-400 font-mono font-semibold border-b border-slate-800 pb-1">
-                        <span>AI INVESTIGATOR RESPONSE</span>
-                        <span>Confidence: 0.93 (High)</span>
-                    </div>
-                    <p class="whitespace-pre-line leading-relaxed">${answer}</p>
-                    <div class="text-[10px] text-amber-400 bg-amber-950/40 p-1.5 rounded border border-amber-900/40">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Safety Disclaimer: Investigative lead only — does not constitute proof of guilt.
-                    </div>
-                </div>
-            </div>
-        `;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }, 300);
-}
-
-/* ----------------------------------------------------
-   Chronological Timeline
----------------------------------------------------- */
-async function loadTimelineEvents() {
-    const container = document.getElementById("timeline-events-container");
-    if (!container) return;
-
-    const eventsData = await fetchAPI("/api/cases/CASE_101/timeline");
-    const events = (eventsData && eventsData.events) ? eventsData.events : [
-        {
-            id: "EVENT_001",
-            timestamp: "2026-08-10T18:30:00Z",
-            type: "VEHICLE_SIGHTING",
-            location_id: "LOC_001",
-            description: "Black SUV MH-01-AB-1234 observed leaving Nhava Sheva logistics yard following cargo unload."
-        },
-        {
-            id: "EVENT_002",
-            timestamp: "2026-08-12T21:15:00Z",
-            type: "CALL_INTERCEPT",
-            location_id: "LOC_007",
-            description: "Burner line +91-9876543210 initiated 180s encrypted call to Zaveri Bazaar relay tower."
-        },
-        {
-            id: "EVENT_003",
-            timestamp: "2026-08-14T11:45:00Z",
-            type: "BULLION_RECOVERY",
-            location_id: "LOC_003",
-            description: "Mumbai Crime Branch seized unmanifested bullion vault registered to Vikram Malhotra."
-        }
+    const events = [
+        { time: "2026-08-10 18:30:00 UTC", type: "CARGO_UNLOAD", location: "LOC_001 (Nhava Sheva)", entity: "PERSON_017 (Aarav Verma)", ref: "DOC_CASE_101_FIR_REPORT.pdf (Pg 2)", text: "Unmanifested cargo unloading supervised by Aarav Verma." },
+        { time: "2026-08-11 09:30:00 UTC", type: "VEHICLE_SIGHTING", location: "LOC_001 (Exit Gate)", entity: "VEHICLE_042 (Black SUV)", ref: "DOC_CASE_101_FORENSIC.pdf (Pg 7)", text: "Black SUV MH-01-AB-1234 exited logistics yard following cargo dispatch." },
+        { time: "2026-08-12 21:15:00 UTC", type: "CALL_INTERCEPT", location: "LOC_007 (Base Tower 14)", entity: "PHONE_042 (+91-9876543210)", ref: "DOC_CASE_204_INTERCEPT.pdf (Pg 3)", text: "180-second encrypted call session established with Zaveri Bazaar relay." },
+        { time: "2026-08-14 11:45:00 UTC", type: "BULLION_RECOVERY", location: "LOC_003 (Zaveri Bazaar)", entity: "PERSON_089 (Vikram Malhotra)", ref: "DOC_CASE_204_CRIME_BRANCH.pdf (Pg 2)", text: "Bullion vault raid and recovery of unmanifested precious metals." }
     ];
 
     container.innerHTML = events.map(ev => `
-        <div class="timeline-item space-y-1 pb-4">
-            <div class="flex items-center gap-2 font-mono text-[11px] text-cyan-400">
-                <span>${ev.timestamp}</span>
-                <span class="px-2 py-0.2 rounded bg-slate-900 border border-slate-800 text-slate-300 font-sans font-semibold">${ev.type}</span>
+        <div class="p-3 bg-surface-container-low border border-surface-container-high rounded space-y-1 text-xs">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+                <span class="text-tertiary font-bold">${ev.time}</span>
+                <span class="px-2 py-0.5 rounded bg-surface-container-highest text-primary font-bold">${ev.type}</span>
             </div>
-            <p class="text-xs text-slate-200 font-medium">${ev.description}</p>
-            <div class="text-[10px] text-slate-400">Location Tag: <span class="font-mono text-indigo-400">${ev.location_id}</span></div>
+            <p class="text-white font-medium">${ev.text}</p>
+            <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-1">
+                <span>Involved Entity: <strong class="text-white font-mono">${ev.entity}</strong></span>
+                <span>Ref: <strong class="text-outline font-mono">${ev.ref}</strong></span>
+            </div>
         </div>
     `).join("");
 }
 
-/* ----------------------------------------------------
-   Case Report Generator
----------------------------------------------------- */
-async function handleGenerateReport() {
-    const caseId = document.getElementById("report-case-select")?.value || "CASE_101";
-    const viewer = document.getElementById("report-output-viewer");
-    if (!viewer) return;
+function initEvidenceExplorer() {
+    const container = document.getElementById("evidence-grid-container");
+    if (!container) return;
 
-    viewer.innerHTML = `<div class="text-cyan-400 text-center py-10"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2 block"></i> Generating Evidence-Backed Investigation Report...</div>`;
-
-    const reportData = await fetchAPI("/api/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ case_id: caseId })
-    });
-
-    if (reportData && reportData.content && window.marked) {
-        viewer.innerHTML = marked.parse(reportData.content);
-    } else {
-        viewer.innerHTML = `<pre class="whitespace-pre-wrap">${reportData ? reportData.content : 'Report generation error.'}</pre>`;
-    }
+    const items = Object.values(SYNTHETIC_GRAPH_DATA.evidence);
+    container.innerHTML = items.map(ev => `
+        <div class="stitch-card space-y-2 text-xs">
+            <div class="flex items-center justify-between font-mono">
+                <span class="text-tertiary font-bold">${ev.evidence_id}</span>
+                <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${(ev.confidence * 100).toFixed(0)}% Confidence</span>
+            </div>
+            <p class="text-white italic">"${ev.source_text}"</p>
+            <div class="text-[10px] text-outline font-mono">Doc: ${ev.source_document} (Pg. ${ev.page_number})</div>
+        </div>
+    `).join("");
 }
 
-/* Mock Helpers */
-function getMockNodes(caseId) {
-    return [
-        { id: "CASE_101", label: "Case 101 — Cargo Hijack", type: "CASE", confidence: 1.0 },
-        { id: "PERSON_017", label: "Aarav Verma", type: "PERSON", confidence: 0.96 },
-        { id: "PHONE_042", label: "+91-9876543210", type: "PHONE", confidence: 0.95 },
-        { id: "PERSON_089", label: "Vikram Malhotra", type: "PERSON", confidence: 0.94 },
-        { id: "CASE_204", label: "Case 204 — Zaveri Bazaar", type: "CASE", confidence: 1.0 },
-        { id: "VEHICLE_042", label: "MH-01-AB-1234", type: "VEHICLE", confidence: 0.94 },
-        { id: "LOC_001", label: "Nhava Sheva Hub", type: "LOCATION", confidence: 1.0 }
-    ];
-}
+function generateReport(caseId) {
+    const viewBox = document.getElementById("report-view-box");
+    if (!viewBox) return;
 
-function getMockEdges(caseId) {
-    return [
-        { id: "REL_1", source: "CASE_101", target: "PERSON_017", relationship: "INVOLVED_IN", confidence: 0.97 },
-        { id: "REL_2", source: "PERSON_017", target: "PHONE_042", relationship: "USES", confidence: 0.95 },
-        { id: "REL_3", source: "PHONE_042", target: "PERSON_089", relationship: "USES", confidence: 0.93 },
-        { id: "REL_4", source: "PERSON_089", target: "CASE_204", relationship: "INVOLVED_IN", confidence: 0.96 },
-        { id: "REL_5", source: "PERSON_017", target: "VEHICLE_042", relationship: "USES", confidence: 0.94 },
-        { id: "REL_6", source: "VEHICLE_042", target: "LOC_001", relationship: "SEEN_AT", confidence: 0.92 }
-    ];
+    viewBox.innerHTML = `
+        <div class="space-y-3">
+            <div class="text-base font-bold text-white">CrimeGraph AI — Investigation Summary Report</div>
+            <div>Case Identifier: <strong class="text-error font-mono">${caseId}</strong></div>
+            <div>Generated: <strong>${new Date().toISOString()}</strong></div>
+            <hr class="border-surface-container-high">
+            <div class="text-amber-300 bg-amber-950/40 p-2 rounded border border-amber-800/40 text-[11px]">
+                LEGAL DISCLAIMER: Provides evidence-linked investigative leads only. Does not declare guilt or replace human law enforcement judgment.
+            </div>
+            <div class="text-white">Summary Findings:</div>
+            <div>- High confidence link established between Aarav Verma (PERSON_017) and Vikram Malhotra (PERSON_089).</div>
+            <div>- Shared communication vector: Burner line PHONE_042 (+91-9876543210).</div>
+            <div>- Cross-case path discovered between CASE_101 and CASE_204 with 0.93 composite confidence score.</div>
+        </div>
+    `;
 }
