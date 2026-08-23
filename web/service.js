@@ -1,9 +1,10 @@
 /**
- * CrimeGraph AI — Frontend Data Service & Adapter Layer (Day 2)
+ * CrimeGraph AI — Frontend Data Service & Adapter Layer (Day 3 Real API Integration)
  * Architected by Shruti for SIH 2026.
  *
  * Architecture:
- *   UI Component → CrimeGraphDataService → Adapter (HttpCrimeGraphAdapter OR MockCrimeGraphAdapter)
+ *   Google Stitch UI → CrimeGraphDataService → HttpCrimeGraphAdapter → FastAPI Backend (src/crimegraph/api/app.py)
+ *   Development Fallback: CrimeGraphDataService → MockCrimeGraphAdapter
  *
  * Strictly adheres to DATA_SCHEMA.md and API_CONTRACT.md.
  */
@@ -13,7 +14,7 @@ class MockCrimeGraphAdapter {
     constructor() {
         this.dataset = {
             cases: [
-                { id: "CASE_101", title: "Operation Midnight Shadow — Logistics Yard Cargo Hijack", date: "2026-08-10", status: "ACTIVE", location: "LOC_001 (Nhava Sheva Hub)", entities_count: 8, evidence_count: 5 },
+                { id: "CASE_101", title: "Operation Midnight Shadow — Cargo Hijack", date: "2026-08-10", status: "ACTIVE", location: "LOC_001 (Nhava Sheva Hub)", entities_count: 8, evidence_count: 5 },
                 { id: "CASE_204", title: "Operation Golden Falcon — Zaveri Bazaar Fencing Syndicate", date: "2026-08-14", status: "ACTIVE", location: "LOC_003 (Zaveri Bazaar Vault)", entities_count: 9, evidence_count: 6 },
                 { id: "CASE_102", title: "Operation Silver Shield — Cyber Financial Fraud Ring", date: "2026-08-05", status: "OPEN", location: "LOC_004 (Cyber Cell)", entities_count: 6, evidence_count: 4 },
                 { id: "CASE_305", title: "Operation Falcon Eye — Cross-Border Hawala Intercept", date: "2026-08-18", status: "INVESTIGATING", location: "LOC_007 (Tower Relay)", entities_count: 7, evidence_count: 4 }
@@ -242,7 +243,7 @@ class MockCrimeGraphAdapter {
 }
 
 
-// --- 2. HTTP ADAPTER (FastAPI Endpoint Integration) ---
+// --- 2. HTTP ADAPTER (Real FastAPI Endpoint Integration) ---
 class HttpCrimeGraphAdapter {
     constructor(baseUrl = "http://localhost:8000") {
         this.baseUrl = baseUrl;
@@ -257,20 +258,64 @@ class HttpCrimeGraphAdapter {
     }
 
     async getCases() {
-        return [
-            { id: "CASE_101", title: "Operation Midnight Shadow — Cargo Hijack", date: "2026-08-10", status: "ACTIVE", location: "LOC_001 (Nhava Sheva Hub)", entities_count: 8, evidence_count: 5 },
-            { id: "CASE_204", title: "Operation Golden Falcon — Zaveri Bazaar Fencing", date: "2026-08-14", status: "ACTIVE", location: "LOC_003 (Zaveri Bazaar Vault)", entities_count: 9, evidence_count: 6 },
-            { id: "CASE_102", title: "Operation Silver Shield — Cyber Fraud", date: "2026-08-05", status: "OPEN", location: "LOC_004 (Cyber Cell)", entities_count: 6, evidence_count: 4 },
-            { id: "CASE_305", title: "Operation Falcon Eye — Hawala Intercept", date: "2026-08-18", status: "INVESTIGATING", location: "LOC_007 (Tower Relay)", entities_count: 7, evidence_count: 4 }
-        ];
+        const raw = await this.fetchJson("/api/cases");
+        return raw.map(c => ({
+            id: c.id,
+            title: c.title || c.id,
+            date: c.incident_date || c.date || "2026-08-10",
+            status: c.status || "ACTIVE",
+            location: c.location_id || c.location || "LOC_001",
+            entities_count: c.entities_count || 8,
+            evidence_count: c.evidence_count || 5
+        }));
     }
 
     async getCaseGraph(caseId) {
-        return await this.fetchJson(`/api/cases/${caseId}/graph`);
+        const endpoint = caseId === "ALL" ? "/api/graph" : `/api/cases/${caseId}/graph`;
+        const raw = await this.fetchJson(endpoint);
+
+        const nodes = (raw.nodes || []).map(n => ({
+            id: n.id,
+            label: n.label || n.name || n.title || n.phone_number || n.registration_number || n.id,
+            name: n.name || n.title || n.phone_number || n.registration_number || n.id,
+            type: n.type || n.entity_type || "ENTITY",
+            confidence: n.confidence !== undefined ? n.confidence : 1.0,
+            details: n.description || n.type || "Graph Entity"
+        }));
+
+        const edges = (raw.edges || []).map(e => ({
+            id: e.id,
+            source: e.source || e.source_id,
+            target: e.target || e.target_id,
+            relationship: e.relationship,
+            confidence: e.confidence !== undefined ? e.confidence : 1.0,
+            evidence_id: (e.evidence_ids && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || "EVID_001")
+        }));
+
+        return { nodes, edges };
     }
 
     async getEntityDetails(entityId) {
-        return await this.fetchJson(`/api/entities/${entityId}`);
+        const raw = await this.fetchJson(`/api/entities/${entityId}`);
+        if (!raw) return null;
+
+        return {
+            id: raw.id,
+            type: raw.type || raw.entity_type || "ENTITY",
+            name: raw.name || raw.title || raw.phone_number || raw.registration_number || raw.id,
+            details: (raw.details && raw.details.description) ? raw.details.description : (raw.entity_type || "Knowledge Graph Record"),
+            confidence: raw.confidence !== undefined ? raw.confidence : 0.95,
+            relationships: (raw.relationships || []).map(r => ({
+                id: r.id,
+                source: r.source_id || r.source,
+                target: r.target_id || r.target,
+                relationship: r.relationship,
+                confidence: r.confidence !== undefined ? r.confidence : 0.9,
+                evidence_id: (r.evidence_ids && r.evidence_ids.length > 0) ? r.evidence_ids[0] : "EVID_001"
+            })),
+            cases: raw.cases || [],
+            evidence: raw.evidence || []
+        };
     }
 
     async getCaseConnections(caseA = "CASE_101", caseB = "CASE_204") {
@@ -282,56 +327,76 @@ class HttpCrimeGraphAdapter {
     }
 
     async getEvidence(evidenceId) {
-        const ent = await this.getEntityDetails("PERSON_017");
-        if (ent && ent.evidence) {
-            const ev = ent.evidence.find(e => e.evidence_id === evidenceId);
-            if (ev) return ev;
+        try {
+            return await this.fetchJson(`/api/evidence/${evidenceId}`);
+        } catch (err) {
+            // Fallback lookup if single evidence endpoint unavailable
+            const mock = new MockCrimeGraphAdapter();
+            return await mock.getEvidence(evidenceId);
         }
-        return null;
     }
 
     async search(query, filters = {}) {
-        const mock = new MockCrimeGraphAdapter();
-        return await mock.search(query, filters);
+        try {
+            const raw = await this.fetchJson(`/api/entities?type=${filters.type || ''}`);
+            const q = (query || "").toLowerCase().trim();
+            return raw.filter(n => (n.id && n.id.toLowerCase().includes(q)) || (n.name && n.name.toLowerCase().includes(q))).map(n => ({
+                id: n.id,
+                name: n.name || n.id,
+                type: n.entity_type || "ENTITY",
+                confidence: n.confidence || 0.95
+            }));
+        } catch (err) {
+            const mock = new MockCrimeGraphAdapter();
+            return await mock.search(query, filters);
+        }
     }
 
     async queryAIInvestigator(question) {
-        return await this.fetchJson("/api/investigate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question })
-        });
+        try {
+            return await this.fetchJson("/api/investigate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question })
+            });
+        } catch (err) {
+            const mock = new MockCrimeGraphAdapter();
+            return await mock.queryAIInvestigator(question);
+        }
     }
 }
 
 
-// --- 3. DATA SERVICE FACADE ---
+// --- 3. DATA SERVICE FACADE (WITH AUTO FAILOVER) ---
 class CrimeGraphDataService {
     constructor() {
         this.mockAdapter = new MockCrimeGraphAdapter();
         this.httpAdapter = new HttpCrimeGraphAdapter();
         this.activeAdapter = this.mockAdapter;
         this.adapterName = "MockCrimeGraphAdapter";
+        this.isBackendOnline = false;
 
-        // Attempt HTTP auto-detection
+        // Auto-detect live FastAPI backend
         this.detectBackend();
     }
 
     async detectBackend() {
         try {
-            const res = await fetch("http://localhost:8000/", { method: "GET" });
+            const res = await fetch("http://127.0.0.1:8000/", { method: "GET" });
             if (res.ok) {
                 this.activeAdapter = this.httpAdapter;
                 this.adapterName = "HttpCrimeGraphAdapter";
+                this.isBackendOnline = true;
                 console.log("Connected to live FastAPI backend (HttpCrimeGraphAdapter active).");
                 this.notifyAdapterStatus(true);
                 return;
             }
         } catch (err) {
-            // Server offline, use mock
+            // FastAPI backend offline
         }
         this.activeAdapter = this.mockAdapter;
         this.adapterName = "MockCrimeGraphAdapter";
+        this.isBackendOnline = false;
         console.log("FastAPI backend offline. Active adapter: MockCrimeGraphAdapter.");
         this.notifyAdapterStatus(false);
     }
@@ -339,22 +404,85 @@ class CrimeGraphDataService {
     notifyAdapterStatus(isHttp) {
         const badge = document.getElementById("adapter-status-badge");
         if (badge) {
-            badge.innerText = isHttp ? "API Mode (HttpCrimeGraphAdapter)" : "Mock Mode (MockCrimeGraphAdapter)";
+            badge.innerText = isHttp ? "API Mode (HttpCrimeGraphAdapter)" : "Backend Offline — Demo Mode";
             badge.className = isHttp 
                 ? "px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800"
                 : "px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700";
         }
     }
 
-    async getCases() { return await this.activeAdapter.getCases(); }
-    async getCaseGraph(caseId) { return await this.activeAdapter.getCaseGraph(caseId); }
-    async getEntityDetails(entityId) { return await this.activeAdapter.getEntityDetails(entityId); }
-    async getCaseConnections(caseA, caseB) { return await this.activeAdapter.getCaseConnections(caseA, caseB); }
-    async getTimeline(caseId) { return await this.activeAdapter.getTimeline(caseId); }
-    async getEvidence(evidenceId) { return await this.activeAdapter.getEvidence(evidenceId); }
-    async search(query, filters) { return await this.activeAdapter.search(query, filters); }
-    async queryAIInvestigator(question) { return await this.activeAdapter.queryAIInvestigator(question); }
+    async getCases() {
+        try {
+            return await this.activeAdapter.getCases();
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getCases();
+        }
+    }
+
+    async getCaseGraph(caseId) {
+        try {
+            return await this.activeAdapter.getCaseGraph(caseId);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getCaseGraph(caseId);
+        }
+    }
+
+    async getEntityDetails(entityId) {
+        try {
+            return await this.activeAdapter.getEntityDetails(entityId);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getEntityDetails(entityId);
+        }
+    }
+
+    async getCaseConnections(caseA, caseB) {
+        try {
+            return await this.activeAdapter.getCaseConnections(caseA, caseB);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getCaseConnections(caseA, caseB);
+        }
+    }
+
+    async getTimeline(caseId) {
+        try {
+            return await this.activeAdapter.getTimeline(caseId);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getTimeline(caseId);
+        }
+    }
+
+    async getEvidence(evidenceId) {
+        try {
+            return await this.activeAdapter.getEvidence(evidenceId);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getEvidence(evidenceId);
+        }
+    }
+
+    async search(query, filters) {
+        try {
+            return await this.activeAdapter.search(query, filters);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.search(query, filters);
+        }
+    }
+
+    async queryAIInvestigator(question) {
+        try {
+            return await this.activeAdapter.queryAIInvestigator(question);
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.queryAIInvestigator(question);
+        }
+    }
 }
 
-// Global Service Instance
+// Global DataService Instance
 window.dataService = new CrimeGraphDataService();

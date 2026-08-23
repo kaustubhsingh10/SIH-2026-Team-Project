@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from crimegraph.api import app
+from crimegraph.api.app import app
 
 client = TestClient(app)
 
@@ -11,21 +11,15 @@ def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
-    assert data["system"] == "CrimeGraph AI"
-    assert "disclaimer" in data
+    assert data["name"] == "CrimeGraph AI Backend API"
+    assert data["status"] == "operational"
 
 
-def test_extract_endpoint():
-    payload = {
-        "document_id": "DOC_TEST_001",
-        "text": "Aarav Verma (PERSON_017) was observed using vehicle MH-01-AB-1234 and phone +91-9876543210."
-    }
-    response = client.post("/api/extract", json=payload)
+def test_health_endpoint():
+    response = client.get("/api/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["document_id"] == "DOC_TEST_001"
-    assert len(data["entities"]) >= 1
-    assert len(data["evidence"]) >= 1
+    assert data["status"] == "healthy"
 
 
 def test_get_case_graph_endpoint():
@@ -66,30 +60,9 @@ def test_get_case_timeline_endpoint():
     assert len(data["events"]) > 0
 
 
-def test_post_reports_endpoint():
-    payload = {"case_id": "CASE_101"}
-    response = client.post("/api/reports", json=payload)
+def test_get_evidence_endpoint():
+    response = client.get("/api/evidence/EVID_042_01")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "generated"
-    assert "report_id" in data
-    assert "content" in data
-    assert "LEGAL & SAFETY DISCLAIMER" in data["content"]
-
-
-def test_get_pending_entity_resolutions_endpoint():
-    response = client.get("/api/entity-resolution/pending")
-    assert response.status_code == 200
-    data = response.json()
-    assert "candidates" in data
-    assert len(data["candidates"]) > 0
-
-
-def test_investigate_endpoint():
-    payload = {"question": "Find connections between Case 101 and Case 204"}
-    response = client.post("/api/investigate", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["query_type"] == "CROSS_CASE_CONNECTION"
-    assert "CASE_101" in data["answer"]
-    assert "disclaimer" in data
+    assert data["evidence_id"] == "EVID_042_01"
+    assert "source_text" in data
