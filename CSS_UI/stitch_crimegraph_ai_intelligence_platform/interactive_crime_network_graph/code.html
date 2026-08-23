@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CrimeGraph AI - Interactive Crime Network Graph</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom styles for graph visualization */
+        .node {
+            transition: all 0.2s ease-in-out;
+        }
+        .node:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 10px rgba(179, 197, 255, 0.5));
+        }
+        .link {
+            stroke-dasharray: 5, 5;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+        .solid-link {
+            stroke-dasharray: none;
+        }
+        
+        /* Node Colors */
+        .node-case { border-color: #6ffbbe; background-color: rgba(111, 251, 190, 0.1); color: #6ffbbe; }
+        .node-person { border-color: #b3c5ff; background-color: rgba(179, 197, 255, 0.1); color: #b3c5ff; }
+        .node-phone { border-color: #d0bcff; background-color: rgba(208, 188, 255, 0.1); color: #d0bcff; }
+
+        .glow-line {
+            filter: drop-shadow(0 0 4px currentColor);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-width bg-surface-container border-r border-outline-variant flex flex-col items-center py-gutter z-50 transition-colors duration-200 ease-in-out">
+<!-- Logo / Avatar Placeholder -->
+<div class="mb-8 w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center border border-primary/30 text-primary font-headline-md font-bold">
+            I
+        </div>
+<!-- Navigation Tabs -->
+<div class="flex flex-col gap-4 w-full px-2 flex-grow">
+<!-- Dashboard -->
+<button aria-label="Dashboard" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+</button>
+<!-- Case Explorer (Active) -->
+<button aria-label="Case Explorer" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-primary bg-primary-container/10 border border-primary/20 transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</button>
+<!-- AI Investigator -->
+<button aria-label="AI Investigator" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</button>
+<!-- Reports -->
+<button aria-label="Reports" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+</button>
+<!-- Settings -->
+<button aria-label="Settings" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<!-- Footer Tabs -->
+<div class="flex flex-col gap-4 w-full px-2 mt-auto">
+<button aria-label="Support" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<button aria-label="Secure Logout" class="w-full aspect-square flex flex-col items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+</button>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-gutter h-16 z-40 bg-surface border-b border-outline-variant">
+<!-- Brand / Navigation -->
+<div class="flex items-center gap-6 h-full">
+<div class="font-headline-md font-extrabold text-on-surface tracking-tight">
+                CrimeGraph AI
+            </div>
+<nav class="hidden md:flex h-full items-center gap-6">
+<!-- Active Link -->
+<a class="h-full flex items-center font-body-lg text-primary border-b-2 border-primary pb-1" href="#">
+                    Network Explorer
+                </a>
+</nav>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<!-- Search -->
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-highest border border-outline-variant text-on-surface text-sm rounded-full pl-9 pr-4 py-1.5 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-64 transition-all" placeholder="Search Node ID, Alias..." type="text"/>
+</div>
+<!-- Icons -->
+<button class="text-on-surface-variant hover:text-primary transition-transform scale-98">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-transform scale-98">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-transform scale-98">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-sidebar-width mt-16 flex-grow flex relative w-full h-[calc(100vh-64px-40px)]">
+<!-- Graph Canvas (Interactive Area) -->
+<div class="flex-grow relative bg-background overflow-hidden" id="graph-canvas">
+<!-- Decorative Grid Background -->
+<div class="absolute inset-0" style="background-image: radial-gradient(#282a2e 1px, transparent 1px); background-size: 24px 24px; opacity: 0.5;"></div>
+<!-- SVG Graph Visualization -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="xMidYMid meet" viewbox="0 0 1000 600">
+<defs>
+<marker id="arrow-solid" markerheight="6" markerwidth="6" orient="auto" refx="28" refy="0" viewbox="0 -5 10 10">
+<path d="M0,-5L10,0L0,5" fill="#8c90a1"></path>
+</marker>
+<marker id="arrow-dashed" markerheight="6" markerwidth="6" orient="auto" refx="28" refy="0" viewbox="0 -5 10 10">
+<path d="M0,-5L10,0L0,5" fill="#b3c5ff"></path>
+</marker>
+</defs>
+<!-- Links (Lines) -->
+<!-- CASE 101 -> PERSON 017 -->
+<g class="cursor-pointer group">
+<line class="solid-link" marker-end="url(#arrow-solid)" stroke="#8c90a1" stroke-width="2" x1="200" x2="400" y1="300" y2="250"></line>
+<!-- Hover Tooltip Anchor -->
+<rect class="opacity-0 group-hover:opacity-100 transition-opacity" fill="#1a1c20" height="24" rx="4" stroke="#30363D" stroke-width="1" width="100" x="290" y="260"></rect>
+<text class="opacity-0 group-hover:opacity-100 transition-opacity" fill="#6ffbbe" font-family="JetBrains Mono" font-size="10px" text-anchor="middle" x="340" y="276">Confidence: 98%</text>
+</g>
+<!-- PERSON 017 -> PHONE 042 -->
+<g class="cursor-pointer group">
+<line class="link glow-line text-primary" marker-end="url(#arrow-dashed)" stroke="#b3c5ff" stroke-width="2" x1="400" x2="600" y1="250" y2="350"></line>
+<rect class="opacity-0 group-hover:opacity-100 transition-opacity" fill="#1a1c20" height="24" rx="4" stroke="#30363D" stroke-width="1" width="100" x="490" y="285"></rect>
+<text class="opacity-0 group-hover:opacity-100 transition-opacity" fill="#b3c5ff" font-family="JetBrains Mono" font-size="10px" text-anchor="middle" x="540" y="301">Confidence: 74%</text>
+</g>
+<!-- PHONE 042 -> PERSON 089 -->
+<g class="cursor-pointer group">
+<line class="solid-link" marker-end="url(#arrow-solid)" stroke="#8c90a1" stroke-width="2" x1="600" x2="800" y1="350" y2="200"></line>
+</g>
+<!-- PERSON 089 -> CASE 204 -->
+<g class="cursor-pointer group">
+<line class="link glow-line text-primary" marker-end="url(#arrow-dashed)" stroke="#b3c5ff" stroke-width="2" x1="800" x2="900" y1="200" y2="400"></line>
+</g>
+<!-- Nodes -->
+<!-- CASE 101 -->
+<g class="node cursor-pointer" transform="translate(200, 300)">
+<circle class="node-case border-2 stroke-current fill-current" r="24" stroke-width="2"></circle>
+<text fill="currentColor" font-family="Material Symbols Outlined" font-size="20" text-anchor="middle" x="0" y="6">work</text>
+<text fill="#e2e2e8" font-family="Inter" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">CASE 101</text>
+</g>
+<!-- PERSON 017 (Selected/Active) -->
+<g class="node cursor-pointer" transform="translate(400, 250)">
+<!-- Selection Ring -->
+<circle class="animate-[spin_10s_linear_infinite]" fill="none" r="32" stroke="#b3c5ff" stroke-dasharray="4,4" stroke-width="1"></circle>
+<circle class="node-person border-2 stroke-current fill-current" r="24" stroke-width="2"></circle>
+<text fill="currentColor" font-family="Material Symbols Outlined" font-size="20" text-anchor="middle" x="0" y="6">person</text>
+<text fill="#e2e2e8" font-family="Inter" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">PERSON 017</text>
+<!-- Status Indicator -->
+<circle cx="16" cy="-16" fill="#ffb4ab" r="6"></circle>
+</g>
+<!-- PHONE 042 -->
+<g class="node cursor-pointer" transform="translate(600, 350)">
+<circle class="node-phone border-2 stroke-current fill-current" r="24" stroke-width="2"></circle>
+<text fill="currentColor" font-family="Material Symbols Outlined" font-size="20" text-anchor="middle" x="0" y="6">smartphone</text>
+<text fill="#e2e2e8" font-family="Inter" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">PHONE 042</text>
+</g>
+<!-- PERSON 089 -->
+<g class="node cursor-pointer" transform="translate(800, 200)">
+<circle class="node-person border-2 stroke-current fill-current" r="24" stroke-width="2"></circle>
+<text fill="currentColor" font-family="Material Symbols Outlined" font-size="20" text-anchor="middle" x="0" y="6">person</text>
+<text fill="#e2e2e8" font-family="Inter" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">PERSON 089</text>
+</g>
+<!-- CASE 204 -->
+<g class="node cursor-pointer" transform="translate(900, 400)">
+<circle class="node-case border-2 stroke-current fill-current" r="24" stroke-width="2"></circle>
+<text fill="currentColor" font-family="Material Symbols Outlined" font-size="20" text-anchor="middle" x="0" y="6">work</text>
+<text fill="#e2e2e8" font-family="Inter" font-size="12" font-weight="600" text-anchor="middle" x="0" y="40">CASE 204</text>
+</g>
+</svg>
+<!-- Floating Toolbars -->
+<!-- Navigation Controls -->
+<div class="absolute top-4 left-4 flex flex-col gap-2">
+<div class="bg-surface-container-high rounded-lg border border-outline-variant p-1 shadow-lg flex flex-col gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-variant text-on-surface-variant transition-colors" title="Zoom In">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+</button>
+<div class="h-px bg-outline-variant/50 w-full"></div>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-variant text-on-surface-variant transition-colors" title="Zoom Out">
+<span class="material-symbols-outlined text-[20px]" data-icon="remove">remove</span>
+</button>
+<div class="h-px bg-outline-variant/50 w-full"></div>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-variant text-on-surface-variant transition-colors" title="Reset View">
+<span class="material-symbols-outlined text-[20px]" data-icon="filter_center_focus">filter_center_focus</span>
+</button>
+</div>
+</div>
+<!-- Graph Legend -->
+<div class="absolute bottom-4 left-4 bg-surface-container/80 backdrop-blur-md rounded-lg border border-outline-variant p-4 text-xs">
+<div class="font-label-caps text-on-surface-variant mb-3">Graph Legend</div>
+<div class="flex gap-6">
+<!-- Nodes -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full border border-[#6ffbbe] bg-[#6ffbbe]/10 flex items-center justify-center"></div>
+<span class="text-on-surface font-data-mono">Case</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full border border-[#b3c5ff] bg-[#b3c5ff]/10 flex items-center justify-center"></div>
+<span class="text-on-surface font-data-mono">Person</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full border border-[#d0bcff] bg-[#d0bcff]/10 flex items-center justify-center"></div>
+<span class="text-on-surface font-data-mono">Phone</span>
+</div>
+</div>
+<!-- Links -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<div class="w-6 h-px bg-outline"></div>
+<span class="text-on-surface font-data-mono">Confirmed</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-px bg-primary border-t border-dashed border-primary glow-line"></div>
+<span class="text-on-surface font-data-mono">Potential Lead</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side Panel (Entity Details) -->
+<aside class="w-panel-width bg-surface border-l border-outline-variant flex flex-col h-full z-10 shadow-[-4px_0_24px_rgba(0,0,0,0.5)]">
+<!-- Panel Header -->
+<div class="p-gutter border-b border-outline-variant flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border-2 border-primary bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</div>
+<div>
+<h2 class="font-headline-md text-on-surface leading-tight">PERSON 017</h2>
+<span class="font-label-caps text-primary tracking-wider">PRIMARY SUSPECT</span>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- Panel Body (Scrollable) -->
+<div class="flex-grow overflow-y-auto p-gutter flex flex-col gap-6 custom-scrollbar">
+<!-- Identification -->
+<section>
+<h3 class="font-label-caps text-on-surface-variant mb-2">Identification</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">System ID</div>
+<div class="font-data-mono text-on-surface text-sm">P-017-X892</div>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">Known Alias</div>
+<div class="font-data-mono text-on-surface text-sm">"Ghost"</div>
+</div>
+</div>
+</section>
+<!-- Confidence Gauge -->
+<section>
+<div class="flex justify-between items-end mb-2">
+<h3 class="font-label-caps text-on-surface-variant">AI Match Confidence</h3>
+<span class="font-data-mono text-tertiary">92.4%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[92.4%] rounded-full"></div>
+</div>
+</section>
+<!-- Related Entities -->
+<section>
+<h3 class="font-label-caps text-on-surface-variant mb-3">Directly Linked Entities (2)</h3>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between p-2 rounded hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 rounded-full border border-secondary bg-secondary/10 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="smartphone">smartphone</span>
+</div>
+<span class="font-body-md text-on-surface group-hover:text-primary transition-colors">PHONE 042</span>
+</div>
+<span class="font-data-mono text-xs text-on-surface-variant">74%</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<div class="w-6 h-6 rounded-full border border-tertiary bg-tertiary/10 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="work">work</span>
+</div>
+<span class="font-body-md text-on-surface group-hover:text-primary transition-colors">CASE 101</span>
+</div>
+<span class="font-data-mono text-xs text-on-surface-variant">98%</span>
+</div>
+</div>
+</section>
+<!-- Evidence Snippets -->
+<section>
+<h3 class="font-label-caps text-on-surface-variant mb-3">Evidence Snippets</h3>
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-3 relative mb-3">
+<div class="absolute top-2 right-2 font-data-mono text-xs text-primary">88%</div>
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="description">description</span>
+<span class="font-body-md text-sm text-on-surface font-semibold">Surveillance Report #882</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                            Subject matching PERSON 017 description observed exchanging package near location associated with CASE 101.
+                        </p>
+<div class="mt-2 text-[10px] text-outline">Source: Interpol-INTEL | Timestamp: 2023-10-24 14:32Z</div>
+</div>
+</section>
+</div>
+<!-- Panel Footer Actions -->
+<div class="p-gutter border-t border-outline-variant flex gap-3 bg-surface-container-lowest">
+<button class="flex-1 bg-primary text-on-primary-fixed font-body-md font-semibold py-2 rounded-lg hover:bg-primary-fixed-dim transition-colors">
+                    Isolate Node
+                </button>
+<button class="flex-1 bg-transparent border border-outline-variant text-primary font-body-md font-semibold py-2 rounded-lg hover:bg-surface-container-high transition-colors">
+                    Export Details
+                </button>
+</div>
+</aside>
+</main>
+<!-- Footer -->
+<footer class="fixed bottom-0 right-0 left-sidebar-width h-10 flex justify-between items-center px-gutter bg-surface-container-lowest border-t border-outline-variant z-40 text-on-surface-variant font-label-caps text-xs opacity-80 hover:opacity-100 transition-opacity">
+<div>
+            System Status: Operational | Data Source: Interpol-INTEL | Secure Session: 2h 14m remaining
+        </div>
+<div class="flex gap-4">
+<a class="hover:text-on-surface transition-colors" href="#">Data Sources</a>
+<a class="hover:text-on-surface transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-on-surface transition-colors" href="#">Security Logs</a>
+</div>
+</footer>
+<style>
+        /* Custom Scrollbar for side panel */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #111318;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #424656;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #8c90a1;
+        }
+    </style>
+</body></html>

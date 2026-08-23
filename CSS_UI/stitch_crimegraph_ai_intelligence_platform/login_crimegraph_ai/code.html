@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CrimeGraph AI - Restricted Access</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0A0C10; /* Fixed Deep Charcoal requirement */
+        }
+        
+        /* Subtle glow animation for the node icon */
+        @keyframes pulseGlow {
+            0% { opacity: 0.6; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); filter: drop-shadow(0 0 8px rgba(0, 102, 255, 0.4)); }
+            100% { opacity: 0.6; transform: scale(0.98); }
+        }
+        .node-glow {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+
+        /* Subtle grid background */
+        .bg-grid {
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="text-on-surface min-h-screen flex items-center justify-center relative overflow-hidden bg-grid font-body-md">
+<!-- Decorative background elements -->
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-container rounded-full mix-blend-screen filter blur-[128px] opacity-10"></div>
+<div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-tertiary-container rounded-full mix-blend-screen filter blur-[96px] opacity-10"></div>
+<!-- Login Container -->
+<main class="w-full max-w-md relative z-10 p-gutter mx-auto">
+<!-- Header / Logo -->
+<div class="text-center mb-8 flex flex-col items-center">
+<div class="w-16 h-16 bg-surface-container rounded-xl flex items-center justify-center border border-outline-variant mb-4 node-glow shadow-[0_0_20px_rgba(0,102,255,0.15)] relative">
+<span class="material-symbols-outlined text-primary-container text-4xl" data-weight="fill" style="font-variation-settings: 'FILL' 1;">
+                    hub
+                </span>
+<!-- Abstract nodes around main icon -->
+<div class="absolute -top-1 -right-1 w-2 h-2 bg-tertiary rounded-full"></div>
+<div class="absolute -bottom-1 -left-1 w-2 h-2 bg-primary rounded-full"></div>
+</div>
+<h1 class="font-display text-display text-on-surface tracking-tight mb-2">CrimeGraph AI</h1>
+<p class="font-data-mono text-data-mono text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+                RESTRICTED ACCESS
+            </p>
+</div>
+<!-- Login Card Level 1 Surface (#161B22 approximated via custom class or mapped to surface-container) -->
+<div class="bg-[#161B22] border border-[#30363D] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+<!-- Security Banner -->
+<div class="bg-surface-container-high/50 border-b border-[#30363D] px-6 py-4 flex items-start gap-3">
+<span class="material-symbols-outlined text-error mt-0.5" style="font-variation-settings: 'FILL' 1;">gpp_bad</span>
+<p class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider leading-relaxed">
+                    Accessing Restricted Investigative Intelligence System. All activities are logged and monitored.
+                </p>
+</div>
+<!-- Form Body -->
+<div class="p-6 space-y-6">
+<!-- Agency ID -->
+<div class="space-y-2">
+<label class="block font-label-caps text-label-caps text-on-surface-variant tracking-wider uppercase" for="agency_id">Agency ID</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none material-symbols-outlined text-on-surface-variant text-[18px]">badge</span>
+<input class="block w-full pl-10 pr-3 py-2 bg-[#0A0C10] border border-[#30363D] rounded-DEFAULT text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container sm:text-sm font-data-mono transition-colors" id="agency_id" name="agency_id" placeholder="AGY-XXXX-XXXX" type="text"/>
+</div>
+</div>
+<!-- Username -->
+<div class="space-y-2">
+<label class="block font-label-caps text-label-caps text-on-surface-variant tracking-wider uppercase" for="username">Investigator ID</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none material-symbols-outlined text-on-surface-variant text-[18px]">person</span>
+<input class="block w-full pl-10 pr-3 py-2 bg-[#0A0C10] border border-[#30363D] rounded-DEFAULT text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container sm:text-sm font-data-mono transition-colors" id="username" name="username" placeholder="Enter credentials" type="text"/>
+</div>
+</div>
+<!-- Password -->
+<div class="space-y-2">
+<label class="block font-label-caps text-label-caps text-on-surface-variant tracking-wider uppercase flex justify-between" for="password">
+<span>Authorization Key</span>
+<a class="text-primary hover:text-primary-fixed transition-colors" href="#">Reset Key</a>
+</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none material-symbols-outlined text-on-surface-variant text-[18px]">key</span>
+<input class="block w-full pl-10 pr-3 py-2 bg-[#0A0C10] border border-[#30363D] rounded-DEFAULT text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container sm:text-sm font-data-mono transition-colors" id="password" name="password" placeholder="••••••••••••" type="password"/>
+</div>
+</div>
+<!-- Biometric Toggle -->
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">fingerprint</span>
+<div>
+<p class="font-body-md text-body-md text-on-surface">Biometric Authorization</p>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Requires registered hardware</p>
+</div>
+</div>
+<!-- Custom Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" id="bio-toggle" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-[#0A0C10] border border-[#30363D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:border-on-surface-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container/20 peer-checked:border-primary-container peer-checked:after:bg-primary"></div>
+</label>
+</div>
+<!-- Actions -->
+<div class="pt-4">
+<button class="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm font-headline-md text-headline-md text-white bg-[#0066ff] hover:bg-[#0054d6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-container focus:ring-offset-[#0A0C10] transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">login</span>
+                        Initialize Session
+                    </button>
+</div>
+</div>
+<!-- Footer -->
+<div class="bg-surface-container-lowest border-t border-[#30363D] px-6 py-4 flex justify-between items-center">
+<span class="font-data-mono text-data-mono text-on-surface-variant">SYS_STAT: ON</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">V 2.4.1</span>
+</div>
+</div>
+<!-- Environment Badges -->
+<div class="mt-8 flex justify-center gap-6 opacity-60">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Secure Node</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Encrypted Channel</span>
+</div>
+</div>
+</main>
+<script>
+        // Simple script to toggle biometric state visuals for presentation
+        document.getElementById('bio-toggle').addEventListener('change', function(e) {
+            const btn = document.querySelector('button');
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if(e.target.checked) {
+                btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">fingerprint</span> Await Biometric Scan`;
+                btn.classList.remove('bg-[#0066ff]', 'hover:bg-[#0054d6]');
+                btn.classList.add('bg-transparent', 'border-[#30363D]', 'text-primary', 'hover:bg-surface-container-high');
+            } else {
+                btn.innerHTML = `<span class="material-symbols-outlined text-[20px]">login</span> Initialize Session`;
+                btn.classList.add('bg-[#0066ff]', 'hover:bg-[#0054d6]');
+                btn.classList.remove('bg-transparent', 'border-[#30363D]', 'text-primary', 'hover:bg-surface-container-high');
+            }
+        });
+    </script>
+</body></html>

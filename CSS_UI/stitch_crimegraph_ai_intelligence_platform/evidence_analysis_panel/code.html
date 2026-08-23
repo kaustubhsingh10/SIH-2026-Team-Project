@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Evidence Detail - CrimeGraph AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0A0C10; color: #e2e2e8; font-family: 'Inter', sans-serif; }
+        .border-level-1 { border-color: #30363D; }
+        .bg-level-1 { background-color: #161B22; }
+        .bg-level-2 { background-color: #1C2128; }
+        
+        /* Custom Scrollbar for side panels */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0A0C10; }
+        ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #424656; }
+    </style>
+</head>
+<body class="antialiased overflow-hidden flex h-screen">
+<!-- JSON: SideNavBar (Semantic Shell: Active Tab Context - Case Explorer / Detail View implies navigating from Explorer) -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-width border-r border-outline-variant dark:border-outline-variant bg-surface-container dark:bg-surface-container flex flex-col items-center py-gutter z-50">
+<div class="mb-8 font-headline-md text-headline-md font-bold text-primary dark:text-primary flex flex-col items-center gap-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div class="flex-1 flex flex-col gap-6 items-center w-full">
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="Dashboard">
+<span class="material-symbols-outlined">dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-1 w-full text-primary dark:text-primary bg-primary-container/10 p-2 rounded-DEFAULT transition-colors duration-200 ease-in-out" href="#" title="Case Explorer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">hub</span>
+</a>
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="AI Investigator">
+<span class="material-symbols-outlined">psychology</span>
+</a>
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="Reports">
+<span class="material-symbols-outlined">assessment</span>
+</a>
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="Settings">
+<span class="material-symbols-outlined">settings</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-4 items-center w-full">
+<img alt="Investigator Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A small, professional avatar of an investigator in a high-tech control room environment, dark cinematic lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKZqd3raMJ1bDYUZ_OFUbBdnCBtxQ_LGHz2axFhjMwwnSjZQC1ZH8RvlZ7UTtZl5_o5iGcHWy3e9NT7Y3swXrsppgxgf0tHmeAQgXAA4Hszz91iUR5s2sAn5rYcW4_LHMepKdodN8dboO6B_dlHbDyaD04Cf2zaBAwq0Z40P8QPHMkm_7pDqGLiuPc_SqxyQ8cFa2YB2UgrJ88dfo2aeRdWt6TLPtUk21CZ-chvQpd_ox3G3-n8t1F"/>
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="Support">
+<span class="material-symbols-outlined">help_outline</span>
+</a>
+<a class="flex flex-col items-center gap-1 w-full text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out p-2 rounded-DEFAULT" href="#" title="Secure Logout">
+<span class="material-symbols-outlined">logout</span>
+</a>
+</div>
+</nav>
+<!-- JSON: TopAppBar -->
+<header class="fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-gutter h-16 z-40 border-b border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-extrabold text-on-surface dark:text-on-surface">CrimeGraph AI</h1>
+<div class="h-4 w-px bg-outline-variant mx-2"></div>
+<span class="font-body-lg text-body-lg text-on-surface-variant">Evidence Detail</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative w-64 mr-4">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-[#0A0C10] border border-[#30363D] rounded-DEFAULT py-1.5 pl-8 pr-3 text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" placeholder="Search entity or evidence..." type="text"/>
+</div>
+<a class="text-on-surface-variant hover:text-primary scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined">notifications</span>
+</a>
+<a class="text-on-surface-variant hover:text-primary scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined">history</span>
+</a>
+<a class="text-on-surface-variant hover:text-primary scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+</a>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 ml-[64px] mt-16 mb-10 flex h-[calc(100vh-104px)] overflow-hidden relative bg-[#0A0C10]">
+<!-- Center Canvas: Evidence Preview -->
+<div class="flex-1 relative flex flex-col p-container-padding overflow-hidden">
+<!-- Header for Canvas -->
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="px-2 py-0.5 rounded-DEFAULT bg-primary-container/20 border border-primary/30 text-primary font-label-caps text-label-caps flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">verified</span> CONFIRMED
+                        </span>
+<span class="text-on-surface-variant font-data-mono text-data-mono">EV-8842-A</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Surveillance Footage - Terminal 4</h2>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded-DEFAULT border border-[#30363D] text-primary font-body-md text-body-md flex items-center gap-2 hover:bg-[#30363D]/50 transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span> Export
+                    </button>
+<button class="px-3 py-1.5 rounded-DEFAULT bg-primary-container text-on-primary-container font-body-md text-body-md font-semibold flex items-center gap-2 hover:bg-primary-container/90 transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_circle</span> Link to Case
+                    </button>
+</div>
+</div>
+<!-- Image/Preview Canvas (Bento-style layout for tools and image) -->
+<div class="flex-1 bg-level-1 border border-level-1 rounded-lg relative flex flex-col overflow-hidden">
+<!-- Tool overlay top -->
+<div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+<div class="bg-level-2/90 backdrop-blur-sm border border-level-1 rounded-DEFAULT p-1 flex flex-col gap-1 shadow-lg">
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-DEFAULT transition-colors" title="Zoom In"><span class="material-symbols-outlined text-[20px]">zoom_in</span></button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-DEFAULT transition-colors" title="Zoom Out"><span class="material-symbols-outlined text-[20px]">zoom_out</span></button>
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-DEFAULT transition-colors" title="Fit to Screen"><span class="material-symbols-outlined text-[20px]">fit_screen</span></button>
+<div class="w-full h-px bg-level-1 my-1"></div>
+<button class="p-1.5 text-tertiary hover:text-tertiary-fixed-dim hover:bg-surface-container-high rounded-DEFAULT transition-colors active" title="Toggle AI Overlays"><span class="material-symbols-outlined text-[20px]">layers</span></button>
+</div>
+</div>
+<!-- AI Analysis Confidence Gauge overlay -->
+<div class="absolute bottom-4 left-4 right-4 z-10">
+<div class="bg-level-2/90 backdrop-blur-md border border-level-1 rounded-DEFAULT p-3 flex items-center justify-between shadow-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">psychology</span>
+<div>
+<div class="font-body-md text-body-md text-on-surface font-semibold">Object Identification: PERSON 017</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant mt-0.5">AI INSIGHT - FACIAL RECOGNITION MATCH</div>
+</div>
+</div>
+<div class="flex flex-col items-end w-48">
+<span class="font-data-mono text-data-mono text-on-surface mb-1">Confidence: 92%</span>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary rounded-full" style="width: 92%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Image View -->
+<div class="flex-1 w-full h-full relative group">
+<img alt="Surveillance frame" class="w-full h-full object-cover object-center grayscale opacity-80" data-alt="High-resolution, grainy surveillance camera footage of an airport terminal. Dark, desaturated tones with a cinematic analytical interface overlay. A shadowy figure is walking through the concourse." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRcGz1MLrLxknsldqXrDfYnknjiS7vsE8j1b1w2UetdJxb_lOi27bYbP43sSm7gWFLYeidhH50MR8LkwvCQP6Lx3c5In_lr9RUYMK0FmN8JaeK9m0N4SSJjg5bfki2eu0DO91NB7TaKmc0K8tSnvbNQ5x_hW57xPne68ZdlswJUUJro38IOtWqznLCH239ZN_2Pe4Y0TLVh7vyTYO6xuuD4MnJQJy2ke69iwbwgmHUj3DHei6i0mf5"/>
+<!-- AI Detection Bounding Box -->
+<div class="absolute top-[30%] left-[45%] w-[12%] h-[40%] border-2 border-tertiary bg-tertiary/10 group-hover:bg-tertiary/20 transition-all cursor-crosshair">
+<!-- Crosshairs -->
+<div class="absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-tertiary"></div>
+<div class="absolute -top-1 -right-1 w-2 h-2 border-t-2 border-r-2 border-tertiary"></div>
+<div class="absolute -bottom-1 -left-1 w-2 h-2 border-b-2 border-l-2 border-tertiary"></div>
+<div class="absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-tertiary"></div>
+<!-- Label -->
+<div class="absolute -top-6 left-0 bg-tertiary text-on-tertiary font-data-mono text-[10px] px-1 py-0.5 flex items-center gap-1 whitespace-nowrap">
+<span class="material-symbols-outlined text-[10px]">person</span> P-017 (92%)
+                        </div>
+</div>
+</div>
+<!-- Playback controls for video feed -->
+<div class="h-12 bg-level-2 border-t border-level-1 px-4 flex items-center gap-4">
+<button class="text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined">play_arrow</span></button>
+<div class="font-data-mono text-data-mono text-on-surface-variant text-xs">00:14:22 / 01:00:00</div>
+<div class="flex-1 h-1 bg-surface-container-highest rounded-full relative cursor-pointer">
+<div class="absolute top-0 left-0 h-full bg-primary rounded-full" style="width: 25%;"></div>
+<div class="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-on-surface rounded-full shadow" style="left: 25%;"></div>
+<!-- Event Timeline Markers -->
+<div class="absolute top-1/2 -translate-y-1/2 w-1 h-3 bg-error rounded-sm" style="left: 25%;" title="High Priority Event"></div>
+<div class="absolute top-1/2 -translate-y-1/2 w-1 h-2 bg-tertiary rounded-sm" style="left: 45%;" title="AI Insight"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side Panel: Metadata & Context -->
+<aside class="w-panel-width bg-level-1 border-l border-level-1 flex flex-col h-full overflow-y-auto">
+<!-- Panel Header -->
+<div class="p-4 border-b border-level-1 sticky top-0 bg-level-1/95 backdrop-blur z-10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">Evidence Details</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Extracted Metadata &amp; Context</p>
+</div>
+<div class="p-4 flex flex-col gap-6">
+<!-- Metadata Block -->
+<div class="flex flex-col gap-3">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-level-1 pb-1">Core Metadata</h4>
+<div class="grid grid-cols-3 gap-2 text-sm">
+<div class="col-span-1 text-on-surface-variant font-body-md text-body-md">Source</div>
+<div class="col-span-2 text-on-surface font-data-mono text-data-mono flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span> Feed_T4_Cam9
+                        </div>
+<div class="col-span-1 text-on-surface-variant font-body-md text-body-md">Timestamp</div>
+<div class="col-span-2 text-on-surface font-data-mono text-data-mono">2023-10-24 14:22:05Z</div>
+<div class="col-span-1 text-on-surface-variant font-body-md text-body-md">Location</div>
+<div class="col-span-2 text-on-surface font-data-mono text-data-mono flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">location_on</span> 51.4700° N, 0.4543° W
+                        </div>
+<div class="col-span-1 text-on-surface-variant font-body-md text-body-md">Hash (SHA-256)</div>
+<div class="col-span-2 text-on-surface font-data-mono text-data-mono truncate text-xs" title="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855">
+                            e3b0c44298fc1c149afbf4c8...
+                        </div>
+</div>
+</div>
+<!-- Geospatial Map Context -->
+<div class="flex flex-col gap-2">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-level-1 pb-1">Geospatial Context</h4>
+<div class="w-full h-32 bg-surface-container rounded-DEFAULT border border-level-1 relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-60" data-alt="A dark mode, high-contrast tactical map centered on a major airport terminal. Glowing cyan and red nodes indicate surveillance camera locations." data-location="London Heathrow" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7ON5vjVDwA4AfKvSGYlA8p4F8WS1bVvFTFeEfCJKSdiKAAfpOaY_SRfw2yOLHrw9KBX0-StRsfrp_hWuTpFsUit8dKGc0iufjDsrFeUCPHAc5SG40msljRzOHdjq2kRkh_FdQ2nd7DBI9eWK8TaoGCOWPfapd6PThvUgqfSZ8lOQmXghTPdtr9w9gnwYk4--LAQGxNHg7_uEUR2R7ckVALfrhrj9v2jyc1AHt-_aJ2TYHWEgC0-Wj"/>
+<div class="absolute inset-0 border border-primary/20 pointer-events-none"></div>
+<!-- Marker -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary drop-shadow-md">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">my_location</span>
+</div>
+</div>
+</div>
+<!-- Relationship Context -->
+<div class="flex flex-col gap-3">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-level-1 pb-1">Relational Links</h4>
+<div class="flex flex-col gap-2">
+<!-- Linked Entity -->
+<div class="flex items-center justify-between p-2 rounded-DEFAULT bg-level-2 border border-level-1 hover:border-outline-variant transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-DEFAULT bg-surface-container flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">person</span>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface font-semibold">Unknown Subject (P-017)</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant text-[10px]">Role: Suspect</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">open_in_new</span>
+</div>
+<!-- Linked Case -->
+<div class="flex items-center justify-between p-2 rounded-DEFAULT bg-level-2 border border-level-1 hover:border-outline-variant transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-DEFAULT bg-primary-container/10 border border-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">folder_open</span>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface font-semibold">Op. Midnight Run</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant text-[10px]">Case ID: C-2023-899</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">open_in_new</span>
+</div>
+</div>
+</div>
+<!-- Analysis Log -->
+<div class="flex flex-col gap-3 mb-6">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant border-b border-level-1 pb-1">Processing Log</h4>
+<div class="font-data-mono text-[11px] text-on-surface-variant leading-relaxed bg-[#0A0C10] p-3 rounded-DEFAULT border border-level-1 h-32 overflow-y-auto">
+<span class="text-tertiary-fixed-dim">[14:22:05]</span> System ingest complete.<br/>
+<span class="text-tertiary-fixed-dim">[14:22:08]</span> DeepVision model triggered.<br/>
+<span class="text-tertiary-fixed-dim">[14:22:12]</span> Object ID routine running...<br/>
+<span class="text-error">[14:22:15]</span> ALERT: High confidence match found.<br/>
+<span class="text-on-surface">[14:22:15]</span> Linking entity P-017 to frame 4892.<br/>
+<span class="text-tertiary-fixed-dim">[14:22:20]</span> Cross-referencing active cases...<br/>
+<span class="text-on-surface">[14:22:25]</span> Linked to Op. Midnight Run.<br/>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- JSON: Footer -->
+<footer class="fixed bottom-0 right-0 left-sidebar-width flex justify-between items-center px-gutter py-2 z-40 border-t border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container-lowest">
+<div class="font-label-caps text-label-caps font-bold text-on-surface-variant dark:text-on-surface-variant">
+            System Status: Operational | Data Source: Interpol-INTEL | Secure Session: 2h 14m remaining
+        </div>
+<div class="flex gap-4">
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant opacity-80 hover:opacity-100 hover:text-on-surface transition-opacity" href="#">Data Sources</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant opacity-80 hover:opacity-100 hover:text-on-surface transition-opacity" href="#">Privacy Policy</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant opacity-80 hover:opacity-100 hover:text-on-surface transition-opacity" href="#">Security Logs</a>
+</div>
+</footer>
+</body></html>

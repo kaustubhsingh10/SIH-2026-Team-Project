@@ -1,0 +1,122 @@
+/* CrimeGraph AI — Modern Cyber-Investigation Design System */
+
+:root {
+    --bg-dark: #090d16;
+    --card-bg: rgba(15, 23, 42, 0.75);
+    --border-color: rgba(30, 41, 59, 0.8);
+    --cyan-accent: #06b6d4;
+    --teal-accent: #10b981;
+    --indigo-accent: #6366f1;
+    --amber-accent: #f59e0b;
+    --rose-accent: #f43f5e;
+}
+
+body {
+    background-color: var(--bg-dark);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #f1f5f9;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* Navigation Tabs */
+.nav-tab {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #94a3b8;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+.nav-tab:hover {
+    color: #f1f5f9;
+    background-color: rgba(30, 41, 59, 0.5);
+}
+.nav-tab.active {
+    color: #38bdf8;
+    background-color: rgba(12, 74, 110, 0.35);
+    border-color: rgba(14, 116, 144, 0.4);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);
+}
+
+.badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 9999px;
+    font-weight: 600;
+}
+
+/* Cards & Glassmorphism */
+.metric-card {
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.metric-card:hover {
+    transform: translateY(-2px);
+    border-color: #334155;
+}
+
+.path-node {
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    border-width: 1px;
+    text-align: center;
+    min-width: 140px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    transition: transform 0.2s ease;
+}
+.path-node:hover {
+    transform: scale(1.04);
+}
+
+/* Vis.js Network Canvas */
+#network-canvas {
+    background: radial-gradient(circle at 50% 50%, #0f172a 0%, #090d16 100%);
+}
+
+/* Timeline */
+.timeline-item {
+    position: relative;
+    padding-left: 1.5rem;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.35rem;
+    top: 0.35rem;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    background-color: var(--cyan-accent);
+    border: 2px solid #090d16;
+    box-shadow: 0 0 8px var(--cyan-accent);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content.active {
+    animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

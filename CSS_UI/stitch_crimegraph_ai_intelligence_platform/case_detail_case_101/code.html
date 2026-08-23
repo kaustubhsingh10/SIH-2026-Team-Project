@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Case Detail - CrimeGraph AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 24px;
+            bottom: -24px;
+            width: 2px;
+            background-color: #424656;
+            z-index: 0;
+        }
+        .timeline-line:last-child::before {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen overflow-x-hidden flex">
+<!-- SideNavBar -->
+<nav class="bg-surface-container dark:bg-surface-container fixed left-0 top-0 h-full w-sidebar-width border-r border-outline-variant dark:border-outline-variant flex flex-col items-center py-gutter z-50">
+<div class="mb-8">
+<span class="material-symbols-outlined font-headline-md text-headline-md font-bold text-primary dark:text-primary">shield</span>
+</div>
+<div class="flex flex-col gap-4 w-full px-2">
+<!-- Active: Case Explorer -->
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="Dashboard">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+</a>
+<a class="flex justify-center items-center p-2 rounded text-primary dark:text-primary bg-primary-container/10 transition-colors duration-200 ease-in-out" href="#" title="Case Explorer">
+<span class="material-symbols-outlined" data-icon="hub" data-weight="fill" style="font-variation-settings: 'FILL' 1;">hub</span>
+</a>
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="AI Investigator">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</a>
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="Reports">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+</a>
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-4 w-full px-2">
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="Support">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</a>
+<a class="flex justify-center items-center p-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#" title="Secure Logout">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+</a>
+<div class="mt-4 pt-4 border-t border-outline-variant flex justify-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline flex items-center justify-center overflow-hidden">
+<img alt="Investigator Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a serious, focused intelligence investigator in a high-tech control room setting. Dark, dramatic lighting with subtle blue technological glows illuminating the profile. Sharp, credible, modern corporate aesthetic. High resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNLPVu7CwwdL1Gw5b8bTiQiouNPIFVBxjXBBxtJsD1UKh02tI7GUkHF80FrXMEVi5Z1zuDKcScvaYskqUadfHKImcu1vGnWuz7Dk8svxC_Y4N4_RfZWgqUdc4VwkChMToMmmWrHc3W4gX6KqT5_x9OL0M1m9kRmUf1i-vHnRcCP80_fvBL3uM7D7NwUZ1f_7_L85XXQlELHn-BLKhqs8n9yqX2x0w80WV-pGU5gj5AJvSwfUOhR1V7"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-gutter h-16 z-40 border-b border-outline-variant dark:border-outline-variant">
+<div class="flex items-center gap-6">
+<h1 class="font-headline-md text-headline-md font-extrabold text-on-surface dark:text-on-surface">CrimeGraph AI</h1>
+<nav class="hidden md:flex gap-4">
+<a class="text-on-surface-variant hover:text-primary scale-98 transition-transform" href="#">Network Explorer</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="history">history</span></button>
+<button class="hover:text-primary transition-colors"><span class="material-symbols-outlined" data-icon="account_tree">account_tree</span></button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-sidebar-width mt-16 p-container-padding flex-1 flex flex-col xl:flex-row gap-gutter">
+<!-- Left/Center Column -->
+<div class="flex-1 flex flex-col gap-gutter">
+<!-- Case Header -->
+<section class="bg-[#161B22] border border-outline-variant rounded p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="font-data-mono text-data-mono text-tertiary border border-tertiary/30 bg-tertiary/10 px-2 py-0.5 rounded">CASE 101</span>
+<span class="font-label-caps text-label-caps text-on-surface bg-surface-container-high px-2 py-0.5 rounded">ACTIVE</span>
+</div>
+<h2 class="font-display text-display text-on-surface">Financial Fraud Hub: Operation Ghost Protocol</h2>
+</div>
+<button class="bg-primary-container text-on-primary-container font-body-md text-body-md px-6 py-3 rounded font-bold hover:bg-primary-fixed transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(0,102,255,0.3)]">
+<span class="material-symbols-outlined text-[20px]" data-icon="hub">hub</span>
+                        Explore Network Graph
+                    </button>
+</div>
+<div class="flex gap-8 text-on-surface-variant border-t border-outline-variant pt-4 mt-2">
+<div>
+<span class="font-label-caps text-label-caps block mb-1">ASSIGNED INVESTIGATOR</span>
+<span class="font-body-md text-body-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">person</span> Agent Miller
+                        </span>
+</div>
+<div>
+<span class="font-label-caps text-label-caps block mb-1">DATE OPENED</span>
+<span class="font-data-mono text-data-mono text-on-surface">2023-10-15</span>
+</div>
+<div>
+<span class="font-label-caps text-label-caps block mb-1">CLEARANCE LEVEL</span>
+<span class="font-body-md text-body-md text-error flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">lock</span> Top Secret
+                        </span>
+</div>
+</div>
+</section>
+<!-- Bento Grid Stats & Summary -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Summary -->
+<section class="md:col-span-2 bg-[#161B22] border border-outline-variant rounded p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="subject">subject</span> Incident Summary
+                    </h3>
+<p class="text-on-surface-variant mb-4 leading-relaxed">
+                        Investigation into a decentralized network of shell companies facilitating cross-border money laundering. Primary nodes identified in Eastern Europe and South East Asia. The syndicate utilizes synthetic identities and automated micro-transactions to obscure the origin of funds.
+                    </p>
+<div class="mt-4">
+<span class="font-label-caps text-label-caps block mb-2 text-on-surface-variant">AI CONFIDENCE INDEX</span>
+<div class="h-2 w-full bg-surface-container-highest rounded overflow-hidden">
+<div class="h-full bg-primary" style="width: 87%;"></div>
+</div>
+<div class="flex justify-between mt-1">
+<span class="font-data-mono text-data-mono text-on-surface-variant text-[11px]">Pattern Match</span>
+<span class="font-data-mono text-data-mono text-primary text-[11px]">87%</span>
+</div>
+</div>
+</section>
+<!-- Entity Stats -->
+<section class="bg-[#161B22] border border-outline-variant rounded p-6 flex flex-col justify-center">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4">DATABASE METRICS</h3>
+<div class="mb-6">
+<div class="font-display text-display text-primary">1,204</div>
+<div class="font-body-md text-body-md text-on-surface-variant">Identified Entities</div>
+</div>
+<div>
+<div class="font-display text-display text-tertiary">342</div>
+<div class="font-body-md text-body-md text-on-surface-variant">Verified Evidence Nodes</div>
+</div>
+</section>
+</div>
+<!-- Connected Cases -->
+<section class="bg-[#161B22] border border-outline-variant rounded p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="link">link</span> Connected Cases
+                </h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<a class="block p-4 bg-surface border border-outline-variant rounded hover:border-primary transition-colors group" href="#">
+<div class="flex justify-between items-start mb-2">
+<span class="font-data-mono text-data-mono text-on-surface-variant">CASE 204</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors" data-icon="arrow_forward">arrow_forward</span>
+</div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">Project Cipher</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1 text-sm">Crypto-asset tracing overlapping with Node Alpha.</p>
+</a>
+</div>
+</section>
+<!-- Timeline -->
+<section class="bg-[#161B22] border border-outline-variant rounded p-6">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="timeline">timeline</span> Investigation Timeline
+                </h3>
+<div class="relative pl-2">
+<!-- Marker 1 -->
+<div class="timeline-line relative mb-8 pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-highest border-2 border-tertiary flex items-center justify-center z-10">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant mb-1">2023-11-02 14:30Z</div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">Subpoena Issued</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">Financial records requested for offshore entity 'Global Vanguard Ltd'.</p>
+</div>
+<!-- Marker 2 -->
+<div class="timeline-line relative mb-8 pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-surface-container-highest border-2 border-primary flex items-center justify-center z-10">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant mb-1">2023-10-28 09:15Z</div>
+<h4 class="font-body-lg text-body-lg text-on-surface font-semibold">Key Node Identified</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">AI connected transactional patterns to known operative alias 'Vector'.</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Side Panel: Evidence Feed -->
+<aside class="w-full xl:w-panel-width flex flex-col gap-gutter">
+<div class="bg-[#161B22] border border-outline-variant rounded flex flex-col h-full">
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="description">description</span> Latest Evidence
+                    </h3>
+<button class="text-primary text-sm hover:underline font-body-md">View All</button>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Evidence Item 1 -->
+<div class="p-3 bg-surface border border-outline-variant rounded hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[18px]" data-icon="picture_as_pdf">picture_as_pdf</span>
+<span class="font-body-md text-body-md text-on-surface font-semibold truncate w-48">Wire_Transfer_Log_992.pdf</span>
+</div>
+<span class="font-data-mono text-data-mono text-tertiary text-[11px] bg-tertiary/10 px-1 rounded">94%</span>
+</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant">SOURCE: FINCEN NODE ALFA</div>
+</div>
+<!-- Evidence Item 2 -->
+<div class="p-3 bg-surface border border-outline-variant rounded hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="image">image</span>
+<span class="font-body-md text-body-md text-on-surface font-semibold truncate w-48">Surveillance_Still_04.jpg</span>
+</div>
+<span class="font-data-mono text-data-mono text-tertiary text-[11px] bg-tertiary/10 px-1 rounded">82%</span>
+</div>
+<div class="font-label-caps text-label-caps text-on-surface-variant">SOURCE: CCTV ARCHIVE - BERLIN</div>
+</div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-lowest fixed bottom-0 right-0 left-sidebar-width flex justify-between items-center px-gutter py-2 z-40 border-t border-outline-variant dark:border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant">
+            System Status: Operational | Data Source: Interpol-INTEL | Secure Session: 2h 14m remaining
+        </span>
+<div class="flex gap-4">
+<a class="font-label-caps text-label-caps font-bold text-on-surface-variant hover:text-on-surface opacity-80 hover:opacity-100 transition-opacity" href="#">Data Sources</a>
+<a class="font-label-caps text-label-caps font-bold text-on-surface-variant hover:text-on-surface opacity-80 hover:opacity-100 transition-opacity" href="#">Privacy Policy</a>
+<a class="font-label-caps text-label-caps font-bold text-on-surface-variant hover:text-on-surface opacity-80 hover:opacity-100 transition-opacity" href="#">Security Logs</a>
+</div>
+</footer>
+</body></html>

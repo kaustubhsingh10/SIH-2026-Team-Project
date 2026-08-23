@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Investigator - CrimeGraph AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0A0C10; color: #e2e2e8; }
+        .surface-1 { background-color: #161B22; border: 1px solid #30363D; }
+        .surface-2 { background-color: #1C2128; border: 1px solid #30363D; }
+        .border-subtle { border-color: #30363D; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .glow-input:focus { box-shadow: 0 0 0 1px #0066ff; border-color: #0066ff; outline: none; }
+    </style>
+</head>
+<body class="font-body-md text-body-md h-screen overflow-hidden flex flex-col antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-gutter h-16 z-40 bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-extrabold text-on-surface dark:text-on-surface tracking-tight">CrimeGraph AI</span>
+<div class="h-6 w-px bg-outline-variant mx-2"></div>
+<nav class="flex items-center gap-6">
+<a class="text-on-surface-variant hover:text-primary transition-colors py-5" href="#">Network Explorer</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:text-primary transition-colors scale-98 transition-transform"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="hover:text-primary transition-colors scale-98 transition-transform"><span class="material-symbols-outlined" data-icon="history">history</span></button>
+<button class="hover:text-primary transition-colors scale-98 transition-transform"><span class="material-symbols-outlined" data-icon="account_tree">account_tree</span></button>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-sidebar-width border-r border-outline-variant dark:border-outline-variant bg-surface-container dark:bg-surface-container flex flex-col items-center py-gutter z-50 transition-colors duration-200 ease-in-out">
+<div class="mb-8 cursor-pointer group" title="Investigator Profile">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center border border-primary/30 group-hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="person">person</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-4 w-full px-2">
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Dashboard">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+</a>
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Case Explorer">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</a>
+<a class="w-full flex justify-center py-3 rounded-lg text-primary bg-primary-container/10 border border-primary/20 transition-colors" href="#" title="AI Investigator">
+<span class="material-symbols-outlined" data-icon="psychology" data-weight="fill" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</a>
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Reports">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+</a>
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</a>
+</div>
+<div class="flex flex-col gap-4 w-full px-2 mt-auto">
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Support">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</a>
+<a class="w-full flex justify-center py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Secure Logout">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-sidebar-width mt-16 flex-1 flex flex-col relative overflow-hidden pb-10">
+<!-- Chat/Reasoning Canvas -->
+<div class="flex-1 overflow-y-auto px-container-padding py-8 scrollbar-hide flex flex-col gap-8 max-w-5xl mx-auto w-full">
+<!-- User Query -->
+<div class="flex gap-4 justify-end">
+<div class="surface-2 rounded-lg p-4 max-w-2xl border-subtle">
+<p class="font-body-md text-on-surface">Why are Case 101 and Case 204 connected?</p>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex-shrink-0 flex items-center justify-center border border-subtle">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="person">person</span>
+</div>
+</div>
+<!-- AI Response -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex-shrink-0 flex items-center justify-center border border-primary/30">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="psychology">psychology</span>
+</div>
+<div class="flex-1 flex flex-col gap-6 max-w-4xl">
+<!-- Direct Answer -->
+<div class="surface-1 rounded-lg p-5 border-subtle shadow-sm">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="verified">verified</span>
+<span class="font-label-caps text-label-caps text-tertiary uppercase tracking-wider">Direct Inference</span>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface leading-relaxed">
+                            A shared mobile device (<span class="font-data-mono text-primary bg-primary/10 px-1 rounded">PHONE 042</span>) was utilized by <span class="font-data-mono text-secondary bg-secondary/10 px-1 rounded">PERSON 017</span> (Case 101) and <span class="font-data-mono text-secondary bg-secondary/10 px-1 rounded">PERSON 089</span> (Case 204).
+                        </p>
+</div>
+<!-- Connection Path -->
+<div class="surface-1 rounded-lg p-6 border-subtle">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-6">Connection Topology</h3>
+<div class="flex items-center justify-between relative px-4 py-8">
+<!-- Connecting Line -->
+<div class="absolute left-10 right-10 h-px bg-outline-variant top-1/2 -translate-y-1/2 z-0"></div>
+<!-- Node 1 -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-12 h-12 rounded-full surface-2 border-2 border-outline-variant flex items-center justify-center">
+<span class="font-data-mono text-on-surface">101</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Case</span>
+</div>
+<!-- Edge 1 -->
+<div class="relative z-10 bg-surface-1 px-2 border border-subtle rounded-full text-[10px] text-on-surface-variant font-data-mono uppercase tracking-widest mt-[-24px]">Entity</div>
+<!-- Node 2 -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-12 h-12 rounded-full surface-2 border-2 border-secondary/50 flex items-center justify-center shadow-[0_0_15px_rgba(208,188,255,0.15)]">
+<span class="material-symbols-outlined text-secondary" data-icon="person">person</span>
+</div>
+<span class="font-data-mono text-xs text-secondary">P-017</span>
+</div>
+<!-- Edge 2 -->
+<div class="relative z-10 bg-surface-1 px-2 border border-subtle rounded-full text-[10px] text-on-surface-variant font-data-mono uppercase tracking-widest mt-[-24px]">Device</div>
+<!-- Node 3 (Central Pivot) -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-16 h-16 rounded-lg surface-2 border-2 border-primary flex items-center justify-center shadow-[0_0_20px_rgba(179,197,255,0.2)]">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="smartphone">smartphone</span>
+</div>
+<span class="font-data-mono text-xs text-primary font-bold">PH-042</span>
+</div>
+<!-- Edge 3 -->
+<div class="relative z-10 bg-surface-1 px-2 border border-subtle rounded-full text-[10px] text-on-surface-variant font-data-mono uppercase tracking-widest mt-[-24px]">Device</div>
+<!-- Node 4 -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-12 h-12 rounded-full surface-2 border-2 border-secondary/50 flex items-center justify-center shadow-[0_0_15px_rgba(208,188,255,0.15)]">
+<span class="material-symbols-outlined text-secondary" data-icon="person">person</span>
+</div>
+<span class="font-data-mono text-xs text-secondary">P-089</span>
+</div>
+<!-- Edge 4 -->
+<div class="relative z-10 bg-surface-1 px-2 border border-subtle rounded-full text-[10px] text-on-surface-variant font-data-mono uppercase tracking-widest mt-[-24px]">Entity</div>
+<!-- Node 5 -->
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-12 h-12 rounded-full surface-2 border-2 border-outline-variant flex items-center justify-center">
+<span class="font-data-mono text-on-surface">204</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Case</span>
+</div>
+</div>
+</div>
+<!-- Evidence Section & Findings Bento -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Evidence Cards Column (Span 2) -->
+<div class="col-span-2 flex flex-col gap-4">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Corroborating Evidence</h3>
+<!-- Card 1 -->
+<div class="surface-1 rounded-lg p-4 border-subtle relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-tertiary"></div>
+<div class="flex justify-between items-start mb-2 pl-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="call">call</span>
+<span class="font-headline-md text-sm font-semibold text-on-surface">Call Log #892</span>
+</div>
+<span class="font-data-mono text-xs text-tertiary bg-tertiary/10 px-2 py-1 rounded">94% CONF</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant pl-3 mb-3">Temporal overlap detected between P-017 and P-089 using IMEI signature.</p>
+<div class="pl-3 w-full bg-surface-2 h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[94%]"></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="surface-1 rounded-lg p-4 border-subtle relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-tertiary"></div>
+<div class="flex justify-between items-start mb-2 pl-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="cell_tower">cell_tower</span>
+<span class="font-headline-md text-sm font-semibold text-on-surface">Cell Tower Data - Sector 4</span>
+</div>
+<span class="font-data-mono text-xs text-tertiary bg-tertiary/10 px-2 py-1 rounded">88% CONF</span>
+</div>
+<p class="font-body-md text-xs text-on-surface-variant pl-3 mb-3">Geospatial ping confirms device PH-042 was present during both primary incidents.</p>
+<div class="pl-3 w-full bg-surface-2 h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[88%]"></div>
+</div>
+</div>
+</div>
+<!-- Findings Column (Span 1) -->
+<div class="col-span-1 flex flex-col gap-4">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Analysis Engine</h3>
+<div class="surface-1 rounded-lg p-4 border-subtle h-full flex flex-col justify-center gap-4">
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 rounded bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-primary text-xs" data-icon="insights">insights</span>
+</div>
+<div>
+<div class="font-label-caps text-[10px] text-primary mb-1">AI INSIGHT</div>
+<p class="font-body-md text-xs text-on-surface">High probability of organizational link. Recommend subpoena for billing records of PH-042.</p>
+</div>
+</div>
+<div class="h-px w-full bg-outline-variant/50"></div>
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 rounded bg-error/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-error text-xs" data-icon="flag">flag</span>
+</div>
+<div>
+<div class="font-label-caps text-[10px] text-error mb-1">INVESTIGATIVE LEAD</div>
+<p class="font-body-md text-xs text-on-surface">Cross-reference PH-042 against unassigned devices in pending narcotic cases.</p>
+</div>
+</div>
+<button class="mt-2 w-full py-2 bg-transparent border border-subtle text-primary font-data-mono text-xs hover:bg-primary/10 transition-colors rounded">
+                                    GENERATE REPORT
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area (Bottom Fixed inside main) -->
+<div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-background via-background to-transparent z-10 pointer-events-none">
+<div class="max-w-4xl mx-auto w-full pointer-events-auto">
+<div class="relative flex items-center surface-1 rounded-xl border border-subtle shadow-lg p-2 pr-4 bg-[#0A0C10]/80 backdrop-blur-md">
+<button class="p-3 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/50 h-12 outline-none" placeholder="Query the Investigation Engine..." type="text"/>
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary-fixed w-10 h-10 rounded-lg flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+<div class="flex justify-center gap-4 mt-3">
+<span class="font-data-mono text-[10px] text-on-surface-variant/50">Model: INQ-04-Turbo</span>
+<span class="font-data-mono text-[10px] text-on-surface-variant/50">Confidence Threshold: 85%</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer (Using JSON logic if needed, but per instructions 'Linear/Task-focused' might suppress, however 'Layout: Integrated' implies it remains. Adding it docked.) -->
+<footer class="fixed bottom-0 right-0 left-sidebar-width flex justify-between items-center px-gutter py-2 z-30 bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant dark:border-outline-variant opacity-80 hover:opacity-100 transition-opacity">
+<div class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant font-bold">
+            System Status: Operational | Data Source: Interpol-INTEL | Secure Session: 2h 14m remaining
+        </div>
+<div class="flex gap-4 font-label-caps text-label-caps">
+<a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Data Sources</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Security Logs</a>
+</div>
+</footer>
+</body></html>
