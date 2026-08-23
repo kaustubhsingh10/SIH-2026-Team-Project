@@ -76,13 +76,18 @@
             <input type="text" id="global-search-input" placeholder="Search entities, phones, vehicles, cases..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded-md pl-9 pr-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
         </div>
 
-        <!-- Case Selector & Safety Banner -->
+        <!-- Case Selector, Adapter Status & Safety Banner -->
         <div class="flex items-center gap-4">
             <!-- Safety Banner -->
             <div class="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/40 border border-amber-800/40 text-amber-300 text-[11px]">
                 <span class="material-symbols-outlined text-xs text-amber-400">shield</span>
-                <span><strong>Safety Protocol:</strong> Investigative leads only. Does not determine guilt.</span>
+                <span><strong>Safety Protocol:</strong> Evidence leads only. Does not declare guilt.</span>
             </div>
+
+            <!-- Adapter Mode Badge -->
+            <span id="adapter-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700">
+                DataService Active
+            </span>
 
             <!-- Case Selector Dropdown -->
             <div class="flex items-center gap-2">
@@ -94,12 +99,6 @@
                     <option value="CASE_305">CASE_305 (Hawala Intercept)</option>
                     <option value="ALL">ALL CASES (Full Graph)</option>
                 </select>
-            </div>
-
-            <!-- Status Indicator -->
-            <div class="flex items-center gap-1.5 text-xs text-tertiary">
-                <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-                <span class="text-[11px] font-mono">ONLINE</span>
             </div>
         </div>
     </header>
@@ -152,9 +151,10 @@
 
             <!-- Quick Metrics Footer -->
             <div class="p-3 bg-surface-container-low border border-surface-container-high rounded-md text-[11px] space-y-1.5 text-on-surface-variant font-mono">
+                <div class="flex justify-between"><span>Service Layer:</span><span class="text-tertiary font-bold">Active</span></div>
                 <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold">30</span></div>
                 <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold">24</span></div>
-                <div class="flex justify-between"><span>Evidence:</span><span class="text-secondary font-bold">19</span></div>
+                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold">19</span></div>
             </div>
         </aside>
 
@@ -242,7 +242,7 @@
                     </h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="dashboard-cases-container">
-                        <!-- Rendered via JS -->
+                        <!-- Rendered via JS using CrimeGraphDataService -->
                     </div>
                 </div>
             </section>
@@ -254,7 +254,7 @@
                         <span class="material-symbols-outlined text-primary">briefcase</span> Case Explorer
                     </h2>
                     <div class="flex items-center gap-2">
-                        <input type="text" id="case-search" placeholder="Filter cases..." class="bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1 text-xs text-on-surface font-sans">
+                        <input type="text" id="case-search" placeholder="Search cases by title or ID..." class="bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1 text-xs text-on-surface font-sans">
                     </div>
                 </div>
 
@@ -267,11 +267,12 @@
                                 <th class="p-3">Incident Date</th>
                                 <th class="p-3">Status</th>
                                 <th class="p-3">Primary Location</th>
+                                <th class="p-3">Entities</th>
                                 <th class="p-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="cases-table-body" class="divide-y divide-surface-container-high">
-                            <!-- Injected via JS -->
+                            <!-- Injected via JS using CrimeGraphDataService -->
                         </tbody>
                     </table>
                 </div>
@@ -279,37 +280,8 @@
 
             <!-- PANE 3: CASE DETAIL (CASE_101) -->
             <section id="pane-case-detail" class="tab-pane hidden space-y-5">
-                <div class="stitch-card space-y-4">
-                    <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
-                        <div>
-                            <span class="font-mono text-xs text-error font-bold px-2 py-0.5 rounded bg-error-container/30 border border-error/40">CASE_101</span>
-                            <h2 class="text-lg font-bold text-white mt-1">Operation Midnight Shadow — Logistics Yard Cargo Hijack</h2>
-                            <p class="text-xs text-on-surface-variant">Incident Date: 2026-08-10 | Primary Location: LOC_001 (Nhava Sheva Logistics Hub)</p>
-                        </div>
-                        <button onclick="switchTab('pane-graph')" class="px-3 py-1.5 bg-primary-container text-white text-xs font-semibold rounded shadow flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">hub</span> Open in Network Graph
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                        <div class="stitch-card bg-surface-container-low space-y-2">
-                            <div class="font-bold text-white uppercase text-[10px]">Primary Suspects</div>
-                            <div class="text-primary font-mono font-bold">PERSON_017 (Aarav Verma)</div>
-                            <div class="text-on-surface-variant">Role: Cargo Dispatch Supervisor / Hijack Facilitator</div>
-                        </div>
-
-                        <div class="stitch-card bg-surface-container-low space-y-2">
-                            <div class="font-bold text-white uppercase text-[10px]">Associated Burner Comms</div>
-                            <div class="text-tertiary font-mono font-bold">PHONE_042 (+91-9876543210)</div>
-                            <div class="text-on-surface-variant">Recovered during handset triage</div>
-                        </div>
-
-                        <div class="stitch-card bg-surface-container-low space-y-2">
-                            <div class="font-bold text-white uppercase text-[10px]">Suspect Transit Vehicle</div>
-                            <div class="text-amber-400 font-mono font-bold">VEHICLE_042 (MH-01-AB-1234)</div>
-                            <div class="text-on-surface-variant">Black SUV observed at exit gate</div>
-                        </div>
-                    </div>
+                <div class="stitch-card space-y-4" id="case-detail-container">
+                    <!-- Injected via JS -->
                 </div>
             </section>
 
@@ -330,18 +302,28 @@
                         </button>
                         <div class="h-4 w-px bg-surface-container-high"></div>
                         <button id="graph-highlight-path" class="px-2.5 py-1 bg-tertiary-container/30 text-tertiary border border-tertiary/40 rounded text-xs font-semibold flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Chain (Case 101 → Case 204)
+                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Path (Case 101 → Case 204)
                         </button>
+                        <button id="graph-clear-selection" class="px-2 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded text-xs">
+                            Clear Selection
+                        </button>
+                    </div>
+
+                    <!-- Search Node Input in Toolbar -->
+                    <div class="relative w-48">
+                        <span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-xs">search</span>
+                        <input type="text" id="graph-search-input" placeholder="Search node in graph..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded pl-7 pr-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary">
                     </div>
 
                     <!-- Entity Filter Options -->
                     <div class="flex items-center gap-3">
-                        <span class="text-on-surface-variant text-[11px]">Show Types:</span>
+                        <span class="text-on-surface-variant text-[11px]">Filter Types:</span>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PERSON"> Person</label>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PHONE"> Phone</label>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="VEHICLE"> Vehicle</label>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="LOCATION"> Location</label>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="CASE"> Case</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="ACCOUNT"> Account</label>
                     </div>
                 </div>
 
@@ -385,7 +367,7 @@
                             <span class="text-sm font-bold text-white">AI Investigator Assistant</span>
                         </div>
                         <span class="text-[11px] text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                            Mock UI Demonstrator (Aditya AI Integration Ready)
+                            Aditya AI Engine Integration Adapter
                         </span>
                     </div>
 
@@ -426,7 +408,7 @@
                 </h2>
 
                 <div class="stitch-card space-y-4" id="timeline-container">
-                    <!-- Events injected via JS -->
+                    <!-- Events injected via JS using CrimeGraphDataService -->
                 </div>
             </section>
 
@@ -437,7 +419,7 @@
                 </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="evidence-grid-container">
-                    <!-- Injected via JS -->
+                    <!-- Injected via JS using CrimeGraphDataService -->
                 </div>
             </section>
 
@@ -462,7 +444,8 @@
         </main>
     </div>
 
-    <!-- Main Frontend Application Logic -->
+    <!-- Frontend Service Layer & Application Logic -->
+    <script src="service.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
