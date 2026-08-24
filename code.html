@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CrimeGraph AI - Investigation Timeline</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001849",
+                        "on-error": "#690005",
+                        "outline": "#8c90a1",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-secondary": "#3c0091",
+                        "primary": "#b3c5ff",
+                        "background": "#111318",
+                        "on-secondary-container": "#c4abff",
+                        "inverse-surface": "#e2e2e8",
+                        "on-surface": "#e2e2e8",
+                        "surface-container-low": "#1a1c20",
+                        "surface-dim": "#111318",
+                        "surface": "#111318",
+                        "on-secondary-fixed-variant": "#5516be",
+                        "tertiary-container": "#008259",
+                        "primary-container": "#0066ff",
+                        "surface-container-high": "#282a2e",
+                        "on-primary-container": "#f8f7ff",
+                        "error-container": "#93000a",
+                        "surface-bright": "#37393e",
+                        "secondary-fixed-dim": "#d0bcff",
+                        "surface-container": "#1e2024",
+                        "on-surface-variant": "#c2c6d8",
+                        "inverse-primary": "#0054d6",
+                        "on-secondary-fixed": "#23005c",
+                        "secondary-fixed": "#e9ddff",
+                        "surface-container-highest": "#333539",
+                        "surface-tint": "#b3c5ff",
+                        "secondary-container": "#571bc1",
+                        "outline-variant": "#424656",
+                        "on-background": "#e2e2e8",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003fa4",
+                        "surface-variant": "#333539",
+                        "surface-container-lowest": "#0c0e12",
+                        "on-tertiary-container": "#e1ffec",
+                        "on-tertiary": "#003824",
+                        "primary-fixed": "#dae1ff",
+                        "secondary": "#d0bcff",
+                        "on-tertiary-fixed": "#002113",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2f3035",
+                        "on-primary": "#002b75",
+                        "tertiary": "#4edea3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "sidebar-width": "64px",
+                        "unit": "4px",
+                        "gutter": "16px",
+                        "panel-width": "400px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "display": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: theme('colors.surface');
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: theme('colors.surface-variant');
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen w-screen overflow-hidden flex">
+<!-- SideNavBar -->
+<nav class="bg-surface-container dark:bg-surface-container fixed left-0 top-0 h-full w-sidebar-width border-r border-outline-variant dark:border-outline-variant flex flex-col items-center py-gutter z-50">
+<div class="mb-8 w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined font-headline-md text-headline-md font-bold text-on-primary-container" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+<div class="flex-1 flex flex-col gap-4 w-full px-2">
+<!-- Dashboard -->
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+</a>
+<!-- Case Explorer -->
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-primary dark:text-primary bg-primary-container/10 transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">hub</span>
+</a>
+<!-- AI Investigator -->
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">psychology</span>
+</a>
+<!-- Reports -->
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">assessment</span>
+</a>
+<!-- Settings -->
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-4 w-full px-2">
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+</a>
+<a class="w-full flex items-center justify-center p-2 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">logout</span>
+</a>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-gutter h-16 z-40 border-b border-outline-variant dark:border-outline-variant">
+<div class="flex items-center gap-6">
+<h1 class="font-headline-md text-headline-md font-extrabold text-on-surface dark:text-on-surface">CrimeGraph AI</h1>
+<nav class="flex gap-4 h-full items-end pb-4">
+<a class="font-body-lg text-body-lg text-primary border-b-2 border-primary pb-1" href="#">Network Explorer</a>
+</nav>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:text-primary scale-98 transition-transform">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hover:text-primary scale-98 transition-transform">
+<span class="material-symbols-outlined">history</span>
+</button>
+<button class="hover:text-primary scale-98 transition-transform">
+<span class="material-symbols-outlined">account_tree</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas Content -->
+<main class="flex-1 ml-[64px] mt-[64px] h-[calc(100vh-64px)] flex bg-background">
+<!-- Center Canvas - Timeline -->
+<div class="flex-1 flex flex-col p-container-padding h-full border-r border-outline-variant overflow-hidden">
+<!-- Filter Bar -->
+<div class="flex justify-between items-center mb-6 pb-4 border-b border-outline-variant">
+<div class="flex gap-3">
+<button class="px-4 py-1.5 bg-surface-container rounded border border-outline-variant text-body-md text-on-surface flex items-center gap-2 hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_alt</span>
+                        Event Type
+                    </button>
+<button class="px-4 py-1.5 bg-surface-container rounded border border-outline-variant text-body-md text-on-surface flex items-center gap-2 hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[18px]">person_search</span>
+                        Entity Involvement
+                    </button>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Confidence</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 rounded bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="font-data-mono text-data-mono">50</span>
+</button>
+<button class="w-8 h-8 rounded bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="font-data-mono text-data-mono">80</span>
+</button>
+<button class="w-8 h-8 rounded bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="font-data-mono text-data-mono">95</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Timeline Visual -->
+<div class="flex-1 overflow-y-auto custom-scrollbar pr-4 relative">
+<!-- Timeline track -->
+<div class="absolute left-8 top-0 bottom-0 w-[2px] bg-outline-variant"></div>
+<!-- Event: Call Log -->
+<div class="relative pl-16 mb-8 cursor-pointer group">
+<div class="absolute left-[27px] top-4 w-3 h-3 rounded-full bg-primary ring-4 ring-background z-10"></div>
+<div class="absolute left-[34px] top-[22px] h-full w-[2px] bg-primary opacity-50 group-hover:opacity-100 transition-opacity"></div>
+<div class="bg-surface rounded-lg border border-primary p-4 shadow-lg shadow-black/20 transform transition-transform group-hover:translate-x-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">call</span>
+<h3 class="font-headline-md text-[16px] text-on-surface font-semibold">Intercepted Communication</h3>
+</div>
+<span class="font-data-mono text-data-mono text-primary">92%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3">Outgoing call from suspected burner device [ID: 994-02] to known associate in sector 4.</p>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Case 101</span>
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Oct 14, 08:42</span>
+</div>
+</div>
+</div>
+<!-- Event: Bank Transaction -->
+<div class="relative pl-16 mb-8 cursor-pointer group">
+<div class="absolute left-[27px] top-4 w-3 h-3 rounded-full bg-tertiary ring-4 ring-background z-10"></div>
+<div class="bg-surface rounded-lg border border-outline-variant hover:border-tertiary transition-colors p-4">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-[20px]">account_balance</span>
+<h3 class="font-headline-md text-[16px] text-on-surface font-semibold">Offshore Transfer</h3>
+</div>
+<span class="font-data-mono text-data-mono text-tertiary">85%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3">Wire transfer of $45,000 detected bypassing standard AML protocols via shell entity.</p>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Case 204</span>
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Oct 15, 11:20</span>
+</div>
+</div>
+</div>
+<!-- Event: Travel -->
+<div class="relative pl-16 mb-8 cursor-pointer group">
+<div class="absolute left-[27px] top-4 w-3 h-3 rounded-full bg-secondary ring-4 ring-background z-10"></div>
+<div class="bg-surface rounded-lg border border-outline-variant hover:border-secondary transition-colors p-4">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">flight_takeoff</span>
+<h3 class="font-headline-md text-[16px] text-on-surface font-semibold">Border Crossing Logged</h3>
+</div>
+<span class="font-data-mono text-data-mono text-secondary">99%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3">Target identified on flight manifest departing international airspace. Passport flag active.</p>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Case 101</span>
+<span class="px-2 py-1 bg-surface-container-highest rounded text-label-caps font-label-caps text-on-surface">Oct 16, 22:15</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side Panel - Details -->
+<aside class="w-[400px] bg-surface flex flex-col border-l border-outline-variant shadow-[-8px_0_24px_rgba(0,0,0,0.5)]">
+<!-- Header -->
+<div class="p-6 border-b border-outline-variant bg-surface-container-low">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[18px]">call</span>
+</div>
+<span class="font-label-caps text-label-caps text-primary uppercase">Active Selection</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-1">Intercepted Comm</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">ID: EV-9924-A</p>
+</div>
+<!-- Body (Scrollable) -->
+<div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+<!-- Metadata Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">Source</span>
+<span class="font-body-md text-on-surface">Sigint Node 4</span>
+</div>
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">Duration</span>
+<span class="font-data-mono text-data-mono text-on-surface">04m 12s</span>
+</div>
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">Origin</span>
+<span class="font-data-mono text-data-mono text-on-surface">+1 (555) 019-2834</span>
+</div>
+<div>
+<span class="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">Destination</span>
+<span class="font-data-mono text-data-mono text-on-surface">Unknown</span>
+</div>
+</div>
+<!-- AI Analysis -->
+<div class="bg-surface-container rounded p-4 border border-outline-variant">
+<h4 class="font-headline-md text-[14px] text-on-surface mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">psychology</span>
+                        AI Sentiment Analysis
+                    </h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3">High stress detected in vocal patterns. Keywords suggest imminent movement of assets.</p>
+<!-- Confidence Gauge -->
+<div class="w-full">
+<div class="flex justify-between font-label-caps text-label-caps mb-1">
+<span class="text-on-surface-variant">Threat Level Assessment</span>
+<span class="text-error">88%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-error rounded-full" style="width: 88%"></div>
+</div>
+</div>
+</div>
+<!-- Linked Entities -->
+<div>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-3 uppercase">Linked Entities</h4>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-low border border-outline-variant hover:border-primary cursor-pointer transition-colors">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-on-surface">person</span>
+</div>
+<span class="font-body-md text-on-surface">Subject Alpha</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-2 rounded bg-surface-container-low border border-outline-variant hover:border-primary cursor-pointer transition-colors">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-on-surface">location_on</span>
+</div>
+<span class="font-body-md text-on-surface">Safehouse Sector 4</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="p-6 border-t border-outline-variant bg-surface-container-low flex gap-3">
+<button class="flex-1 bg-primary text-on-primary-fixed font-headline-md text-[14px] py-2 rounded font-semibold hover:opacity-90 transition-opacity">
+                    Add to Case Board
+                </button>
+<button class="px-4 py-2 bg-transparent border border-outline-variant text-primary rounded font-headline-md text-[14px] font-semibold hover:bg-surface-container-high transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">share</span>
+</button>
+</div>
+</aside>
+</main>
+</body></html>
