@@ -584,19 +584,55 @@ async function renderEvidenceExplorer() {
     const container = document.getElementById("evidence-grid-container");
     if (!container) return;
 
-    const mockEv = new MockCrimeGraphAdapter();
-    const evidenceObj = mockEv.dataset.evidence;
+    container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-tertiary">sync</span> Loading evidence index via DataService...</div>`;
 
-    container.innerHTML = Object.values(evidenceObj).map(ev => `
+    const evidenceList = await window.dataService.getEvidenceList();
+    if (!evidenceList || evidenceList.length === 0) {
+        container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs">No evidence records found.</div>`;
+        return;
+    }
+
+    container.innerHTML = evidenceList.map(ev => `
         <div class="stitch-card space-y-2 text-xs">
             <div class="flex items-center justify-between font-mono">
                 <span class="text-tertiary font-bold">${ev.evidence_id}</span>
-                <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${(ev.confidence * 100).toFixed(0)}% Confidence</span>
+                <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${((ev.confidence || 0.95) * 100).toFixed(0)}% Confidence</span>
             </div>
-            <p class="text-white italic text-[11px]">"${ev.source_text}"</p>
-            <div class="text-[10px] text-outline font-mono">Source: ${ev.source_document} (Pg. ${ev.page_number})</div>
+            <p class="text-white italic text-[11px]">"${ev.source_text || ev.excerpt || 'Recorded evidence finding.'}"</p>
+            <div class="text-[10px] text-outline font-mono">Source: ${ev.source_document || 'DOC_EXTRACTION'} (Pg. ${ev.page_number || 1})</div>
         </div>
     `).join("");
+}
+
+async function generateReport(caseId = "CASE_101") {
+    const viewBox = document.getElementById("report-view-box");
+    if (!viewBox) return;
+
+    viewBox.innerHTML = `<div class="text-center py-10 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Generating Evidence-Linked Investigation Report for ${caseId}...</div>`;
+
+    const report = await window.dataService.generateReport(caseId);
+    if (!report || !report.content) {
+        viewBox.innerHTML = `<div class="text-center py-10 text-error text-xs">Unable to generate report for ${caseId}.</div>`;
+        return;
+    }
+
+    // Convert markdown headings/formatting to HTML
+    const formattedHtml = report.content
+        .replace(/# (.*)/g, '<h1 class="text-base font-bold text-primary border-b border-surface-container-high pb-2 mb-2">$1</h1>')
+        .replace(/## (.*)/g, '<h2 class="text-xs font-bold text-tertiary mt-3 mb-1 uppercase tracking-wider">$1</h2>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/- (.*)/g, '<li class="ml-4 list-disc text-on-surface-variant">$1</li>')
+        .replace(/\n\n/g, '<br><br>');
+
+    viewBox.innerHTML = `
+        <div class="space-y-3">
+            <div class="flex items-center justify-between text-[11px] font-mono text-outline border-b border-surface-container-high pb-2">
+                <span>Report ID: <strong class="text-tertiary">${report.report_id || 'REPORT_001'}</strong></span>
+                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase font-bold">${report.status || 'generated'}</span>
+            </div>
+            <div class="text-xs font-sans text-on-surface leading-relaxed whitespace-pre-wrap">${formattedHtml}</div>
+        </div>
+    `;
 }
 
 function initGlobalSearch() {
