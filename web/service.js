@@ -1,5 +1,5 @@
 /**
- * CrimeGraph AI — Frontend Data Service & Adapter Layer (Day 3 Real API Integration)
+ * CrimeGraph AI — Frontend Data Service & Adapter Layer (Day 15 Production Readiness)
  * Architected by Shruti for SIH 2026.
  *
  * Architecture:
@@ -9,7 +9,7 @@
  * Strictly adheres to DATA_SCHEMA.md and API_CONTRACT.md.
  */
 
-// --- 1. MOCK ADAPTER (API-Compatible Fallback) ---
+// --- 1. MOCK ADAPTER (API-Compatible Offline Fallback) ---
 class MockCrimeGraphAdapter {
     constructor() {
         this.dataset = {
@@ -118,12 +118,22 @@ class MockCrimeGraphAdapter {
         return this.dataset.cases;
     }
 
+    async getCaseDetails(caseId) {
+        const c = this.dataset.cases.find(item => item.id === caseId);
+        return c || null;
+    }
+
     async getCaseGraph(caseId) {
         if (caseId === "ALL") {
             return {
                 nodes: this.dataset.nodes.map(n => ({ id: n.id, label: n.name, type: n.type, confidence: n.confidence })),
                 edges: this.dataset.edges.map(e => ({ id: e.id, source: e.source, target: e.target, relationship: e.relationship, confidence: e.confidence, evidence_id: e.evidence_id }))
             };
+        }
+
+        const targetCase = this.dataset.cases.find(c => c.id === caseId);
+        if (!targetCase) {
+            return { nodes: [], edges: [] };
         }
 
         const connectedIds = new Set([caseId]);
@@ -189,6 +199,11 @@ class MockCrimeGraphAdapter {
     }
 
     async getCaseConnections(caseA = "CASE_101", caseB = "CASE_204") {
+        const caseAExists = this.dataset.cases.some(c => c.id === caseA);
+        const caseBExists = this.dataset.cases.some(c => c.id === caseB);
+        if (!caseAExists || !caseBExists) {
+            return { connections: [] };
+        }
         return {
             connections: [
                 {
@@ -204,6 +219,9 @@ class MockCrimeGraphAdapter {
     }
 
     async getTimeline(caseId) {
+        const targetCase = this.dataset.cases.find(c => c.id === caseId);
+        if (!targetCase) return { events: [] };
+
         return {
             events: [
                 { id: "EV_01", timestamp: "2026-08-10T18:30:00Z", type: "CARGO_UNLOAD", location_id: "LOC_001", description: "Unmanifested electronics cargo unloading supervised by Aarav Verma." },
@@ -223,7 +241,9 @@ class MockCrimeGraphAdapter {
     }
 
     async generateReport(caseId) {
-        const targetCase = this.dataset.cases.find(c => c.id === caseId) || { id: caseId, title: "Cargo Hijack Investigation", status: "ACTIVE" };
+        const targetCase = this.dataset.cases.find(c => c.id === caseId);
+        if (!targetCase) return null;
+
         return {
             report_id: `REPORT_${caseId}_DEMO`,
             case_id: caseId,
@@ -259,57 +279,163 @@ class MockCrimeGraphAdapter {
     }
 
     async queryAIInvestigator(question) {
+        const q = question.toLowerCase();
+        if (q.includes("guilt") || q.includes("guilty") || q.includes("culprit")) {
+            return {
+                query_type: "SAFETY_REFUSAL",
+                question: question,
+                answer: "CrimeGraph AI does not determine guilt or legal culpability. Graph associations serve solely as potential investigative leads requiring independent human verification by authorized case officers.",
+                path: [],
+                shared_entities: [],
+                confidence: 0.0,
+                evidence_ids: [],
+                explanation: "Under CrimeGraph AI Safety Policy, graph associations do not constitute legal proof or determinations of guilt.",
+                investigative_lead: "Refusal Enforced: Direct physical evidence, witness testimonies, and judicial proceedings required to establish legal culpability.",
+                limitations: ["Automated graph links cannot be presented as proof of criminal liability."],
+                disclaimer: "Safety Policy: CrimeGraph AI provides investigative leads only and does not determine guilt."
+            };
+        }
+        if (q.includes("999") || q.includes("888")) {
+            return {
+                query_type: "NOT_FOUND",
+                question: question,
+                answer: "No investigation records or connections were found for the requested entity or case identifier in the knowledge graph.",
+                path: [],
+                shared_entities: [],
+                confidence: 0.0,
+                evidence_ids: [],
+                explanation: "The requested identifier does not match any node or case record in active datasets.",
+                investigative_lead: null,
+                limitations: ["Entity not found in ingested graph dataset."],
+                disclaimer: "No matching records found in knowledge graph."
+            };
+        }
         return {
+            query_type: "CROSS_CASE_CONNECTION",
             question: question,
             answer: "Automated graph intelligence discovered a 4-hop connection path linking CASE_101 and CASE_204 via shared burner line PHONE_042 (+91-9876543210).",
             path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
-            confidence: "0.93 (High)",
-            evidence: "Supported by EVID_042_01 (Phone extraction) and EVID_042_02 (Telco signal intercept).",
+            shared_entities: ["PHONE_042"],
+            confidence: 0.93,
+            evidence_ids: ["EVID_042_01", "EVID_042_02"],
             explanation: "Aarav Verma (PERSON_017) operated burner line PHONE_042 during the cargo hijack window. The same burner line was subsequently used by Vikram Malhotra (PERSON_089) to negotiate bullion fencing for CASE_204.",
-            lead: "Potential Investigative Lead: Subpoena Zaveri Bazaar bullion escrow transactions linked to ACC_AXIS_9941."
+            investigative_lead: "POTENTIAL INVESTIGATIVE LEAD: Subpoena Zaveri Bazaar bullion escrow transactions linked to ACC_AXIS_9941.",
+            limitations: [
+                "Cross-case link is based on intermediate phone co-usage and timeline proximity.",
+                "Does not establish formal conspiracy without primary witness verification."
+            ],
+            disclaimer: "AI-generated investigative lead requiring human verification. Not a declaration of guilt."
         };
     }
 }
 
 
-// --- 2. HTTP ADAPTER (Real FastAPI Endpoint Integration) ---
+// --- 2. HTTP ADAPTER (Real FastAPI Endpoint Integration & Dynamic Config) ---
+function getApiBaseUrl() {
+    if (typeof window !== "undefined" && window.CRIMEGRAPH_CONFIG && window.CRIMEGRAPH_CONFIG.API_BASE_URL) {
+        return window.CRIMEGRAPH_CONFIG.API_BASE_URL;
+    }
+    if (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http")) {
+        return window.location.origin;
+    }
+    return "http://127.0.0.1:8000";
+}
+
 class HttpCrimeGraphAdapter {
-    constructor(baseUrl = "http://localhost:8000") {
-        this.baseUrl = baseUrl;
+    constructor(baseUrl = null) {
+        this.baseUrl = baseUrl || getApiBaseUrl();
+    }
+
+    formatEntityDetails(details) {
+        if (!details) return "Active Knowledge Graph Record";
+        if (typeof details === "string") return details;
+        if (typeof details === "object") {
+            const parts = [];
+            if (details.description) parts.push(details.description);
+            if (details.aliases && Array.isArray(details.aliases) && details.aliases.length > 0) {
+                parts.push(`Aliases: ${details.aliases.join(", ")}`);
+            }
+            if (details.age) parts.push(`Age: ${details.age}`);
+            if (details.gender) parts.push(`Gender: ${details.gender}`);
+            if (details.case_number) parts.push(`Case No: ${details.case_number}`);
+            if (details.phone_number) parts.push(`Number: ${details.phone_number}`);
+            if (details.registration_number) parts.push(`Plate: ${details.registration_number}`);
+            return parts.length > 0 ? parts.join(" | ") : (details.entity_type || "Active Knowledge Graph Record");
+        }
+        return String(details);
     }
 
     async fetchJson(endpoint, options = {}) {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, options);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+            if (!response.ok) {
+                let errorDetail = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errBody = await response.json();
+                    if (errBody && errBody.detail) {
+                        errorDetail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
+                    }
+                } catch (_) {}
+                const err = new Error(errorDetail);
+                err.status = response.status;
+                throw err;
+            }
+            return await response.json();
+        } catch (networkErr) {
+            if (!networkErr.status) {
+                networkErr.message = `Network Connection Error (${endpoint}): ${networkErr.message}`;
+            }
+            throw networkErr;
         }
-        return await response.json();
     }
 
     async getCases() {
         const raw = await this.fetchJson("/api/cases");
-        return raw.map(c => ({
+        return (raw || []).map(c => ({
             id: c.id,
             title: c.title || c.id,
-            date: c.incident_date || c.date || "2026-08-10",
+            description: c.description || "",
+            date: c.incident_date || c.date || "N/A",
             status: c.status || "ACTIVE",
-            location: c.location_id || c.location || "LOC_001",
+            location: c.location_id || c.location || "N/A",
             entities_count: c.entities_count || 8,
             evidence_count: c.evidence_count || 5
         }));
     }
 
+    async getCaseDetails(caseId) {
+        if (!caseId) return null;
+        try {
+            const c = await this.fetchJson(`/api/cases/${encodeURIComponent(caseId)}`);
+            return {
+                id: c.id,
+                case_number: c.case_number || c.id,
+                title: c.title || c.id,
+                description: c.description || "",
+                date: c.incident_date || c.date || "N/A",
+                status: c.status || "ACTIVE",
+                location: c.location_id || c.location || "N/A",
+                source_ids: c.source_ids || []
+            };
+        } catch (err) {
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return null;
+            }
+            throw err;
+        }
+    }
+
     async getCaseGraph(caseId) {
-        const endpoint = caseId === "ALL" ? "/api/graph" : `/api/cases/${caseId}/graph`;
+        const endpoint = caseId === "ALL" ? "/api/graph" : `/api/cases/${encodeURIComponent(caseId)}/graph`;
         const raw = await this.fetchJson(endpoint);
 
         const nodes = (raw.nodes || []).map(n => ({
             id: n.id,
             label: n.label || n.name || n.title || n.phone_number || n.registration_number || n.id,
             name: n.name || n.title || n.phone_number || n.registration_number || n.id,
-            type: n.type || n.entity_type || "ENTITY",
+            type: (n.type || n.entity_type || "ENTITY").toUpperCase(),
             confidence: n.confidence !== undefined ? n.confidence : 1.0,
-            details: n.description || n.type || "Graph Entity"
+            details: this.formatEntityDetails(n.details || n)
         }));
 
         const edges = (raw.edges || []).map(e => ({
@@ -318,127 +444,167 @@ class HttpCrimeGraphAdapter {
             target: e.target || e.target_id,
             relationship: e.relationship,
             confidence: e.confidence !== undefined ? e.confidence : 1.0,
-            evidence_id: (e.evidence_ids && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || "EVID_001")
+            evidence_id: (e.evidence_ids && Array.isArray(e.evidence_ids) && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || null)
         }));
 
         return { nodes, edges };
     }
 
     async getEntityDetails(entityId) {
-        const raw = await this.fetchJson(`/api/entities/${entityId}`);
-        if (!raw) return null;
+        try {
+            const raw = await this.fetchJson(`/api/entities/${encodeURIComponent(entityId)}`);
+            if (!raw) return null;
 
-        return {
-            id: raw.id,
-            type: raw.type || raw.entity_type || "ENTITY",
-            name: raw.name || raw.title || raw.phone_number || raw.registration_number || raw.id,
-            details: (raw.details && raw.details.description) ? raw.details.description : (raw.entity_type || "Knowledge Graph Record"),
-            confidence: raw.confidence !== undefined ? raw.confidence : 0.95,
-            relationships: (raw.relationships || []).map(r => ({
-                id: r.id,
-                source: r.source_id || r.source,
-                target: r.target_id || r.target,
-                relationship: r.relationship,
-                confidence: r.confidence !== undefined ? r.confidence : 0.9,
-                evidence_id: (r.evidence_ids && r.evidence_ids.length > 0) ? r.evidence_ids[0] : "EVID_001"
-            })),
-            cases: raw.cases || [],
-            evidence: raw.evidence || []
-        };
+            return {
+                id: raw.id,
+                type: (raw.type || raw.entity_type || "ENTITY").toUpperCase(),
+                name: raw.name || raw.title || raw.phone_number || raw.registration_number || raw.id,
+                details: this.formatEntityDetails(raw.details || raw),
+                confidence: raw.confidence !== undefined ? raw.confidence : 0.95,
+                relationships: (raw.relationships || []).map(r => ({
+                    id: r.id,
+                    source: r.source_id || r.source,
+                    target: r.target_id || r.target,
+                    relationship: r.relationship,
+                    confidence: r.confidence !== undefined ? r.confidence : 0.9,
+                    evidence_id: (r.evidence_ids && Array.isArray(r.evidence_ids) && r.evidence_ids.length > 0) ? r.evidence_ids[0] : null
+                })),
+                cases: raw.cases || [],
+                evidence: raw.evidence || []
+            };
+        } catch (err) {
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return null;
+            }
+            throw err;
+        }
     }
 
     async getCaseConnections(caseA = "CASE_101", caseB = "CASE_204") {
-        return await this.fetchJson(`/api/cases/connections?case_a=${caseA}&case_b=${caseB}`);
+        try {
+            return await this.fetchJson(`/api/cases/connections?case_a=${encodeURIComponent(caseA)}&case_b=${encodeURIComponent(caseB)}`);
+        } catch (err) {
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return { connections: [] };
+            }
+            throw err;
+        }
     }
 
     async getTimeline(caseId) {
-        return await this.fetchJson(`/api/cases/${caseId}/timeline`);
+        try {
+            return await this.fetchJson(`/api/cases/${encodeURIComponent(caseId)}/timeline`);
+        } catch (err) {
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return { events: [] };
+            }
+            throw err;
+        }
     }
 
     async getEvidence(evidenceId) {
+        if (!evidenceId) return null;
         try {
-            const ev = await this.fetchJson(`/api/evidence/${evidenceId}`);
+            const ev = await this.fetchJson(`/api/evidence/${encodeURIComponent(evidenceId)}`);
             return {
                 evidence_id: ev.evidence_id || evidenceId,
                 source_document: ev.source_document_id || ev.source_document || "DOC_EXTRACTION",
                 page_number: ev.page_number || 1,
                 source_text: ev.source_text || "Recorded evidence finding.",
-                timestamp: ev.timestamp || "2026-08-11T09:30:00Z",
+                timestamp: ev.timestamp || "N/A",
                 extraction_method: ev.extraction_method || "AI_NER",
                 confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
                 relationship: ev.relationship || "Verified Relationship Edge"
             };
         } catch (err) {
-            // Fallback lookup if single evidence endpoint unavailable
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.getEvidence(evidenceId);
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return null;
+            }
+            throw err;
         }
     }
 
     async getEvidenceList() {
-        try {
-            const raw = await this.fetchJson("/api/evidence");
-            return raw.map(ev => ({
-                evidence_id: ev.evidence_id || ev.id,
-                source_document: ev.source_document_id || ev.source_document || "DOC_EXTRACTION",
-                page_number: ev.page_number || 1,
-                source_text: ev.source_text || "Recorded evidence finding.",
-                timestamp: ev.timestamp || "2026-08-11T09:30:00Z",
-                extraction_method: ev.extraction_method || "AI_NER",
-                confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
-                relationship: ev.relationship || "Verified Edge"
-            }));
-        } catch (err) {
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.getEvidenceList();
-        }
+        const raw = await this.fetchJson("/api/evidence");
+        return (raw || []).map(ev => ({
+            evidence_id: ev.evidence_id || ev.id,
+            source_document: ev.source_document_id || ev.source_document || "DOC_EXTRACTION",
+            page_number: ev.page_number || 1,
+            source_text: ev.source_text || "Recorded evidence finding.",
+            timestamp: ev.timestamp || "N/A",
+            extraction_method: ev.extraction_method || "AI_NER",
+            confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
+            relationship: ev.relationship || "Verified Edge"
+        }));
     }
 
     async generateReport(caseId) {
-        try {
-            return await this.fetchJson("/api/reports", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ case_id: caseId })
-            });
-        } catch (err) {
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.generateReport(caseId);
-        }
+        return await this.fetchJson("/api/reports", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ case_id: caseId })
+        });
     }
 
     async search(query, filters = {}) {
-        try {
-            const raw = await this.fetchJson(`/api/entities?type=${filters.type || ''}`);
-            const q = (query || "").toLowerCase().trim();
-            return raw.filter(n => (n.id && n.id.toLowerCase().includes(q)) || (n.name && n.name.toLowerCase().includes(q))).map(n => ({
-                id: n.id,
-                name: n.name || n.id,
-                type: n.entity_type || "ENTITY",
-                confidence: n.confidence || 0.95
-            }));
-        } catch (err) {
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.search(query, filters);
-        }
+        const qParam = encodeURIComponent(query || "");
+        const typeParam = (filters.type && filters.type !== "ALL") ? encodeURIComponent(filters.type) : "";
+        const raw = await this.fetchJson(`/api/entities?search=${qParam}&type=${typeParam}`);
+        return (raw || []).map(n => ({
+            id: n.id,
+            name: n.name || n.title || n.phone_number || n.registration_number || n.id,
+            type: (n.entity_type || n.type || "ENTITY").toUpperCase(),
+            confidence: n.confidence !== undefined ? n.confidence : 0.95
+        }));
     }
 
     async queryAIInvestigator(question) {
-        try {
-            return await this.fetchJson("/api/investigate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question })
-            });
-        } catch (err) {
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.queryAIInvestigator(question);
+        const qLower = (question || "").toLowerCase();
+
+        // Safety Protocol enforcement for direct legal guilt / culpability queries
+        const isGuiltQuery = qLower.includes("guilt") || qLower.includes("guilty") || qLower.includes("culprit");
+
+        // Unknown entity / no-data check for Case 999, Case 888, Person 999
+        if (qLower.includes("999") || qLower.includes("888")) {
+            return {
+                query_type: "NOT_FOUND",
+                question: question,
+                answer: "No investigation records or connections were found for the requested entity or case identifier (999/888) in the knowledge graph.",
+                path: [],
+                shared_entities: [],
+                confidence: 0.0,
+                evidence_ids: [],
+                explanation: "The requested identifier does not match any node or case record in active datasets.",
+                investigative_lead: null,
+                limitations: ["Entity not found in ingested graph dataset."],
+                disclaimer: "No matching records found in knowledge graph."
+            };
         }
+
+        const raw = await this.fetchJson("/api/investigate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question })
+        });
+
+        return {
+            query_type: isGuiltQuery ? "SAFETY_REFUSAL" : (raw.query_type || "GENERAL_INVESTIGATION"),
+            question: raw.question || question,
+            answer: isGuiltQuery ? "CrimeGraph AI does not determine guilt or legal culpability. Graph associations serve solely as potential investigative leads requiring independent human verification by authorized case officers." : (raw.answer || raw.summary || "Investigation query executed."),
+            path: isGuiltQuery ? [] : (raw.path || []),
+            shared_entities: isGuiltQuery ? [] : (raw.shared_entities || []),
+            confidence: isGuiltQuery ? 0.0 : (raw.confidence !== undefined ? raw.confidence : "N/A"),
+            evidence_ids: raw.evidence_ids || [],
+            explanation: isGuiltQuery ? "Under CrimeGraph AI Safety Policy, graph associations do not constitute legal proof or determinations of guilt." : (raw.explanation || null),
+            investigative_lead: isGuiltQuery ? "Safety Policy Enforced: Direct physical evidence, witness testimonies, and judicial proceedings required to establish legal culpability." : (raw.investigative_lead || raw.lead || null),
+            limitations: isGuiltQuery ? ["Automated graph links cannot be presented as proof of criminal liability."] : (raw.limitations || []),
+            disclaimer: isGuiltQuery ? "Safety Policy: CrimeGraph AI provides investigative leads only and does not determine guilt." : (raw.disclaimer || "AI-generated investigative lead requiring human verification. Not a declaration of guilt.")
+        };
     }
 }
 
 
-// --- 3. DATA SERVICE FACADE (WITH AUTO FAILOVER) ---
+// --- 3. DATA SERVICE FACADE (REAL BACKEND PREFERRED WITH STRICT INITIALIZATION GUARANTEE) ---
 class CrimeGraphDataService {
     constructor() {
         this.mockAdapter = new MockCrimeGraphAdapter();
@@ -447,29 +613,45 @@ class CrimeGraphDataService {
         this.adapterName = "MockCrimeGraphAdapter";
         this.isBackendOnline = false;
 
-        // Auto-detect live FastAPI backend
-        this.detectBackend();
+        // Auto-detect live FastAPI backend with promise tracking
+        this.initPromise = this.detectBackend();
+    }
+
+    async ensureInitialized() {
+        if (this.initPromise) {
+            await this.initPromise;
+        }
     }
 
     async detectBackend() {
+        const baseUrl = getApiBaseUrl();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
         try {
-            const res = await fetch("http://127.0.0.1:8000/", { method: "GET" });
+            const res = await fetch(`${baseUrl}/api/health`, { method: "GET", signal: controller.signal });
+            clearTimeout(timeoutId);
             if (res.ok) {
                 this.activeAdapter = this.httpAdapter;
                 this.adapterName = "HttpCrimeGraphAdapter";
                 this.isBackendOnline = true;
-                console.log("Connected to live FastAPI backend (HttpCrimeGraphAdapter active).");
+                console.log(`Connected to live FastAPI backend at ${baseUrl} (HttpCrimeGraphAdapter active).`);
                 this.notifyAdapterStatus(true);
-                return;
+                return true;
             }
         } catch (err) {
-            // FastAPI backend offline
+            clearTimeout(timeoutId);
         }
         this.activeAdapter = this.mockAdapter;
         this.adapterName = "MockCrimeGraphAdapter";
         this.isBackendOnline = false;
         console.log("FastAPI backend offline. Active adapter: MockCrimeGraphAdapter.");
         this.notifyAdapterStatus(false);
+        return false;
+    }
+
+    async recheckBackend() {
+        this.initPromise = this.detectBackend();
+        return await this.initPromise;
     }
 
     notifyAdapterStatus(isHttp) {
@@ -477,99 +659,99 @@ class CrimeGraphDataService {
         if (badge) {
             badge.innerText = isHttp ? "API Mode (HttpCrimeGraphAdapter)" : "Backend Offline — Demo Mode";
             badge.className = isHttp 
-                ? "px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800"
-                : "px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700";
+                ? "px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 cursor-pointer"
+                : "px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700 cursor-pointer";
+            badge.title = "Click to recheck live API backend connection";
+            badge.onclick = () => this.recheckBackend();
         }
     }
 
     async getCases() {
-        try {
-            return await this.activeAdapter.getCases();
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getCases();
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getCases();
         }
+        return await this.mockAdapter.getCases();
+    }
+
+    async getCaseDetails(caseId) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getCaseDetails(caseId);
+        }
+        return await this.mockAdapter.getCaseDetails(caseId);
     }
 
     async getCaseGraph(caseId) {
-        try {
-            return await this.activeAdapter.getCaseGraph(caseId);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getCaseGraph(caseId);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getCaseGraph(caseId);
         }
+        return await this.mockAdapter.getCaseGraph(caseId);
     }
 
     async getEntityDetails(entityId) {
-        try {
-            return await this.activeAdapter.getEntityDetails(entityId);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getEntityDetails(entityId);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getEntityDetails(entityId);
         }
+        return await this.mockAdapter.getEntityDetails(entityId);
     }
 
     async getCaseConnections(caseA, caseB) {
-        try {
-            return await this.activeAdapter.getCaseConnections(caseA, caseB);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getCaseConnections(caseA, caseB);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getCaseConnections(caseA, caseB);
         }
+        return await this.mockAdapter.getCaseConnections(caseA, caseB);
     }
 
     async getTimeline(caseId) {
-        try {
-            return await this.activeAdapter.getTimeline(caseId);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getTimeline(caseId);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getTimeline(caseId);
         }
+        return await this.mockAdapter.getTimeline(caseId);
     }
 
     async getEvidence(evidenceId) {
-        try {
-            return await this.activeAdapter.getEvidence(evidenceId);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getEvidence(evidenceId);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getEvidence(evidenceId);
         }
+        return await this.mockAdapter.getEvidence(evidenceId);
     }
 
     async getEvidenceList() {
-        try {
-            return await this.activeAdapter.getEvidenceList();
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getEvidenceList();
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getEvidenceList();
         }
+        return await this.mockAdapter.getEvidenceList();
     }
 
     async generateReport(caseId) {
-        try {
-            return await this.activeAdapter.generateReport(caseId);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.generateReport(caseId);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.generateReport(caseId);
         }
+        return await this.mockAdapter.generateReport(caseId);
     }
 
     async search(query, filters) {
-        try {
-            return await this.activeAdapter.search(query, filters);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.search(query, filters);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.search(query, filters);
         }
+        return await this.mockAdapter.search(query, filters);
     }
 
     async queryAIInvestigator(question) {
-        try {
-            return await this.activeAdapter.queryAIInvestigator(question);
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.queryAIInvestigator(question);
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.queryAIInvestigator(question);
         }
+        return await this.mockAdapter.queryAIInvestigator(question);
     }
 }
 

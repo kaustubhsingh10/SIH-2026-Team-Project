@@ -6,8 +6,10 @@ Strictly adheres to API_CONTRACT.md, DATA_SCHEMA.md, and PROJECT_SPEC.md.
 
 from contextlib import asynccontextmanager
 from typing import Any, Dict
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from crimegraph.data.loader import load_dataset
 from crimegraph.graph.store import KnowledgeGraphStore
@@ -83,6 +85,11 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
     app.include_router(reports.router)
     app.include_router(resolution.router)
     app.include_router(investigate.router)
+
+    # Mount static web frontend directory if present
+    web_dir = Path(__file__).resolve().parent.parent.parent.parent / "web"
+    if web_dir.exists():
+        app.mount("/web", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     return app
 

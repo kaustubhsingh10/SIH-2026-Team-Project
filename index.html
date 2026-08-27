@@ -55,11 +55,11 @@
 <body class="bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-white flex flex-col min-h-screen">
 
     <!-- TOP HEADER BAR -->
-    <header class="header-bar">
+    <header class="header-bar" role="banner">
         <!-- Logo & Branding -->
         <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-md bg-primary-container flex items-center justify-center text-white shadow-md shadow-blue-600/30">
-                <span class="material-symbols-outlined text-xl">hub</span>
+                <span class="material-symbols-outlined text-xl" aria-hidden="true">hub</span>
             </div>
             <div>
                 <div class="flex items-center gap-2">
@@ -72,15 +72,15 @@
 
         <!-- Global Search Bar -->
         <div class="relative w-80 hidden md:block">
-            <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm">search</span>
-            <input type="text" id="global-search-input" placeholder="Search entities, phones, vehicles, cases..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded-md pl-9 pr-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
+            <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm" aria-hidden="true">search</span>
+            <input type="text" id="global-search-input" aria-label="Global Search Entities" placeholder="Search entities, phones, vehicles, cases..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded-md pl-9 pr-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
         </div>
 
         <!-- Case Selector, Adapter Status & Safety Banner -->
         <div class="flex items-center gap-4">
             <!-- Safety Banner -->
             <div class="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/40 border border-amber-800/40 text-amber-300 text-[11px]">
-                <span class="material-symbols-outlined text-xs text-amber-400">shield</span>
+                <span class="material-symbols-outlined text-xs text-amber-400" aria-hidden="true">shield</span>
                 <span><strong>Safety Protocol:</strong> Evidence leads only. Does not declare guilt.</span>
             </div>
 
@@ -91,8 +91,8 @@
 
             <!-- Case Selector Dropdown -->
             <div class="flex items-center gap-2">
-                <span class="text-xs text-on-surface-variant hidden sm:inline">Active Case:</span>
-                <select id="header-case-select" class="bg-surface-container-lowest border border-surface-container-high rounded-md px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-primary font-semibold">
+                <label for="header-case-select" class="text-xs text-on-surface-variant hidden sm:inline">Active Case:</label>
+                <select id="header-case-select" aria-label="Active Investigation Case Selector" class="bg-surface-container-lowest border border-surface-container-high rounded-md px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-primary font-semibold">
                     <option value="CASE_101">CASE_101 (Cargo Hijack)</option>
                     <option value="CASE_204">CASE_204 (Zaveri Bazaar)</option>
                     <option value="CASE_102">CASE_102 (Cyber Fraud)</option>
@@ -107,59 +107,59 @@
     <div class="flex flex-1 overflow-hidden">
         
         <!-- SIDEBAR NAVIGATION -->
-        <aside class="app-sidebar p-3 space-y-6">
+        <aside class="app-sidebar p-3 space-y-6" role="navigation" aria-label="Main Navigation">
             <nav class="space-y-1">
-                <div class="px-2 py-1.5 text-[10px] font-bold text-outline tracking-wider uppercase">Navigation</div>
+                <div class="px-2 py-1.5 text-[10px] font-bold text-outline tracking-wider uppercase hidden md:block">Navigation</div>
                 
-                <button class="nav-item active" data-tab="pane-dashboard">
-                    <span class="material-symbols-outlined">dashboard</span>
+                <button class="nav-item active" data-tab="pane-dashboard" aria-label="Dashboard View">
+                    <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
                     <span>Dashboard</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-cases">
-                    <span class="material-symbols-outlined">briefcase</span>
+                <button class="nav-item" data-tab="pane-cases" aria-label="Case Explorer Catalog">
+                    <span class="material-symbols-outlined" aria-hidden="true">briefcase</span>
                     <span>Cases</span>
                     <span class="nav-badge">4</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-graph">
-                    <span class="material-symbols-outlined">account_tree</span>
+                <button class="nav-item" data-tab="pane-graph" aria-label="Interactive Network Graph Workspace">
+                    <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
                     <span>Network Graph</span>
                     <span class="nav-badge bg-primary-container text-white">Core</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-ai-investigator">
-                    <span class="material-symbols-outlined text-tertiary">auto_awesome</span>
+                <button class="nav-item" data-tab="pane-ai-investigator" aria-label="AI Investigator Assistant Interface">
+                    <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                     <span>AI Investigator</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-timeline">
-                    <span class="material-symbols-outlined">history</span>
+                <button class="nav-item" data-tab="pane-timeline" aria-label="Chronological Timeline View">
+                    <span class="material-symbols-outlined" aria-hidden="true">history</span>
                     <span>Timeline</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-evidence">
-                    <span class="material-symbols-outlined">description</span>
+                <button class="nav-item" data-tab="pane-evidence" aria-label="Ingested Evidence Index">
+                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
                     <span>Evidence</span>
                 </button>
 
-                <button class="nav-item" data-tab="pane-reports">
-                    <span class="material-symbols-outlined">summarize</span>
+                <button class="nav-item" data-tab="pane-reports" aria-label="Investigation Summary Reports">
+                    <span class="material-symbols-outlined" aria-hidden="true">summarize</span>
                     <span>Reports</span>
                 </button>
             </nav>
 
             <!-- Quick Metrics Footer -->
-            <div class="p-3 bg-surface-container-low border border-surface-container-high rounded-md text-[11px] space-y-1.5 text-on-surface-variant font-mono">
+            <div class="p-3 bg-surface-container-low border border-surface-container-high rounded-md text-[11px] space-y-1.5 text-on-surface-variant font-mono hidden md:block">
                 <div class="flex justify-between"><span>Service Layer:</span><span class="text-tertiary font-bold">Active</span></div>
-                <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold">30</span></div>
-                <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold">24</span></div>
-                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold">19</span></div>
+                <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold" id="sidebar-metric-nodes">34</span></div>
+                <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold" id="sidebar-metric-edges">24</span></div>
+                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold" id="sidebar-metric-evidence">19</span></div>
             </div>
         </aside>
 
         <!-- MAIN CONTENT PANES -->
-        <main class="flex-1 bg-background p-5 overflow-y-auto">
+        <main class="flex-1 bg-background p-5 overflow-y-auto" role="main">
             
             <!-- PANE 1: DASHBOARD -->
             <section id="pane-dashboard" class="tab-pane active space-y-5">
@@ -167,41 +167,41 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="stitch-card flex items-center gap-3">
                         <div class="w-10 h-10 rounded bg-primary-container/20 border border-primary-container/40 flex items-center justify-center text-primary">
-                            <span class="material-symbols-outlined">folder_open</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Active Cases</div>
-                            <div class="text-xl font-bold text-white font-mono">4</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-metric-cases">4</div>
                         </div>
                     </div>
 
                     <div class="stitch-card flex items-center gap-3">
                         <div class="w-10 h-10 rounded bg-tertiary-container/20 border border-tertiary-container/40 flex items-center justify-center text-tertiary">
-                            <span class="material-symbols-outlined">groups</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">groups</span>
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Extracted Entities</div>
-                            <div class="text-xl font-bold text-white font-mono">30</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-metric-entities">34</div>
                         </div>
                     </div>
 
                     <div class="stitch-card flex items-center gap-3">
                         <div class="w-10 h-10 rounded bg-secondary-container/20 border border-secondary-container/40 flex items-center justify-center text-secondary">
-                            <span class="material-symbols-outlined">route</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">route</span>
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Cross-Case Links</div>
-                            <div class="text-xl font-bold text-primary font-mono">2</div>
+                            <div class="text-xl font-bold text-primary font-mono" id="dash-metric-links">2</div>
                         </div>
                     </div>
 
                     <div class="stitch-card flex items-center gap-3">
                         <div class="w-10 h-10 rounded bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
-                            <span class="material-symbols-outlined">warning</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">description</span>
                         </div>
                         <div>
-                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Resolution Review</div>
-                            <div class="text-xl font-bold text-amber-400 font-mono">1 Pending</div>
+                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Ingested Evidence</div>
+                            <div class="text-xl font-bold text-amber-400 font-mono" id="dash-metric-evidence">19</div>
                         </div>
                     </div>
                 </div>
@@ -210,7 +210,7 @@
                 <div class="stitch-card bg-surface-container-low border-primary/30 p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                            <span class="material-symbols-outlined text-primary" aria-hidden="true">auto_awesome</span>
                             <span class="text-xs font-bold text-white uppercase tracking-wider">Automated Cross-Case Discovery</span>
                         </div>
                         <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">
@@ -224,13 +224,13 @@
 
                     <div class="flex items-center gap-2 overflow-x-auto py-2">
                         <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_101</span>
-                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
                         <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_017 (Aarav Verma)</span>
-                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
                         <span class="px-2.5 py-1 rounded bg-tertiary-container/30 text-tertiary border border-tertiary/50 text-xs font-mono font-bold">PHONE_042 (Burner Line)</span>
-                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
                         <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_089 (Vikram Malhotra)</span>
-                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
                         <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_204</span>
                     </div>
                 </div>
@@ -238,7 +238,7 @@
                 <!-- Active Cases Grid -->
                 <div class="space-y-3">
                     <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary text-base">briefcase</span> Active Investigation Cases
+                        <span class="material-symbols-outlined text-primary text-base" aria-hidden="true">briefcase</span> Active Investigation Cases
                     </h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="dashboard-cases-container">
@@ -249,12 +249,19 @@
 
             <!-- PANE 2: CASE EXPLORER -->
             <section id="pane-cases" class="tab-pane hidden space-y-4">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <h2 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">briefcase</span> Case Explorer
+                        <span class="material-symbols-outlined text-primary" aria-hidden="true">briefcase</span> Case Explorer
                     </h2>
                     <div class="flex items-center gap-2">
-                        <input type="text" id="case-search" placeholder="Search cases by title or ID..." class="bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1 text-xs text-on-surface font-sans">
+                        <select id="case-status-filter" aria-label="Filter Cases by Status" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-tertiary font-mono focus:outline-none focus:border-primary">
+                            <option value="ALL">Status: ALL</option>
+                            <option value="ACTIVE">Status: ACTIVE</option>
+                            <option value="UNDER_INVESTIGATION">Status: UNDER_INVESTIGATION</option>
+                            <option value="OPEN">Status: OPEN</option>
+                            <option value="CLOSED">Status: CLOSED</option>
+                        </select>
+                        <input type="text" id="case-search" aria-label="Search Cases Input" placeholder="Search cases by title or ID..." class="bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1 text-xs text-on-surface font-sans">
                     </div>
                 </div>
 
@@ -291,32 +298,32 @@
                 <div class="bg-surface-container-low border border-surface-container-high rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
                     <!-- Graph Controls -->
                     <div class="flex items-center gap-2">
-                        <button id="graph-zoom-in" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom In">
-                            <span class="material-symbols-outlined text-sm">zoom_in</span>
+                        <button id="graph-zoom-in" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom In" aria-label="Zoom In Graph View">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">zoom_in</span>
                         </button>
-                        <button id="graph-zoom-out" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom Out">
-                            <span class="material-symbols-outlined text-sm">zoom_out</span>
+                        <button id="graph-zoom-out" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom Out" aria-label="Zoom Out Graph View">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">zoom_out</span>
                         </button>
-                        <button id="graph-reset" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Fit View">
-                            <span class="material-symbols-outlined text-sm">center_focus_strong</span>
+                        <button id="graph-reset" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Fit View" aria-label="Fit Graph View">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">center_focus_strong</span>
                         </button>
                         <div class="h-4 w-px bg-surface-container-high"></div>
-                        <button id="graph-highlight-path" class="px-2.5 py-1 bg-tertiary-container/30 text-tertiary border border-tertiary/40 rounded text-xs font-semibold flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Path (Case 101 → Case 204)
+                        <button id="graph-highlight-path" class="px-2.5 py-1 bg-tertiary-container/30 text-tertiary border border-tertiary/40 rounded text-xs font-semibold flex items-center gap-1" aria-label="Highlight Demo Path Case 101 to Case 204">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">route</span> Highlight Demo Path (Case 101 → Case 204)
                         </button>
-                        <button id="graph-clear-selection" class="px-2 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded text-xs">
+                        <button id="graph-clear-selection" class="px-2 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded text-xs" aria-label="Clear Graph Selection">
                             Clear Selection
                         </button>
                     </div>
 
                     <!-- Search Node Input in Toolbar -->
                     <div class="relative w-48">
-                        <span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-xs">search</span>
-                        <input type="text" id="graph-search-input" placeholder="Search node in graph..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded pl-7 pr-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary">
+                        <span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-xs" aria-hidden="true">search</span>
+                        <input type="text" id="graph-search-input" aria-label="Search Node in Graph" placeholder="Search node in graph..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded pl-7 pr-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary">
                     </div>
 
                     <!-- Entity Filter Options -->
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <span class="text-on-surface-variant text-[11px]">Filter Types:</span>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PERSON"> Person</label>
                         <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PHONE"> Phone</label>
@@ -328,13 +335,13 @@
                 </div>
 
                 <!-- Canvas & Side Panels Workspace -->
-                <div class="flex-1 flex gap-3 min-h-0 relative">
+                <div class="flex-1 flex gap-3 min-h-0 relative flex-col md:flex-row">
                     <!-- Vis.js Canvas -->
-                    <div class="flex-1 bg-surface-container-lowest border border-surface-container rounded-md relative overflow-hidden">
-                        <div id="graph-canvas"></div>
+                    <div class="flex-1 bg-surface-container-lowest border border-surface-container rounded-md relative overflow-hidden min-h-[300px]">
+                        <div id="graph-canvas" class="w-full h-full"></div>
                         
                         <!-- Legend Overlay -->
-                        <div class="absolute bottom-3 left-3 bg-surface-container/90 border border-surface-container-high rounded p-2 text-[10px] space-y-1 backdrop-blur-sm pointer-events-none">
+                        <div class="absolute bottom-3 left-3 bg-surface-container/90 border border-surface-container-high rounded p-2 text-[10px] space-y-1 backdrop-blur-sm pointer-events-none z-10">
                             <div class="font-bold text-on-surface uppercase tracking-wider mb-1">Entity Legend</div>
                             <div class="grid grid-cols-2 gap-x-3 gap-y-1">
                                 <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Person</div>
@@ -348,9 +355,9 @@
                     </div>
 
                     <!-- REUSABLE ENTITY DETAILS / EVIDENCE PANEL DRAWER -->
-                    <div id="inspector-drawer" class="w-80 bg-surface-container-low border border-surface-container-high rounded-md p-4 overflow-y-auto space-y-4">
+                    <div id="inspector-drawer" class="w-full md:w-80 bg-surface-container-low border border-surface-container-high rounded-md p-4 overflow-y-auto space-y-4 shrink-0 max-h-[350px] md:max-h-none">
                         <div class="text-center py-16 text-outline text-xs">
-                            <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block">touch_app</span>
+                            <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block" aria-hidden="true">touch_app</span>
                             Click any node to open the <strong>Entity Details Panel</strong>.<br>Click any relationship edge to open the <strong>Evidence Panel</strong>.
                         </div>
                     </div>
@@ -363,7 +370,7 @@
                     <!-- Header -->
                     <div class="flex items-center justify-between border-b border-surface-container-high pb-3 mb-3">
                         <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-tertiary">auto_awesome</span>
+                            <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                             <span class="text-sm font-bold text-white">AI Investigator Assistant</span>
                         </div>
                         <span class="text-[11px] text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
@@ -374,13 +381,13 @@
                     <!-- Question Presets -->
                     <div class="flex flex-wrap gap-2 mb-3">
                         <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
-                            "Why are Case 101 and Case 204 connected?"
+                            "How are Case 101 and Case 204 connected?"
                         </button>
                         <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
-                            "What connects Person 017 and Person 089?"
+                            "Is Person 017 guilty?"
                         </button>
                         <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
-                            "Which entities appear in multiple cases?"
+                            "How are Case 999 and Case 888 connected?"
                         </button>
                     </div>
 
@@ -393,9 +400,9 @@
 
                     <!-- Input Box -->
                     <div class="flex gap-2 pt-3">
-                        <input type="text" id="ai-input-text" placeholder="Type your investigative question..." class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
-                        <button id="ai-submit-btn" class="px-4 py-2 bg-tertiary-container text-white text-xs font-semibold rounded flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">send</span> Query
+                        <input type="text" id="ai-input-text" aria-label="Type your investigative question" placeholder="Type your investigative question..." class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
+                        <button id="ai-submit-btn" aria-label="Query AI Investigator" class="px-4 py-2 bg-tertiary-container text-white text-xs font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">send</span> Query
                         </button>
                     </div>
                 </div>
@@ -404,7 +411,7 @@
             <!-- PANE 6: TIMELINE -->
             <section id="pane-timeline" class="tab-pane hidden space-y-4">
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">history</span> Chronological Investigation Timeline
+                    <span class="material-symbols-outlined text-primary" aria-hidden="true">history</span> Chronological Investigation Timeline
                 </h2>
 
                 <div class="stitch-card space-y-4" id="timeline-container">
@@ -415,7 +422,7 @@
             <!-- PANE 7: EVIDENCE EXPLORER -->
             <section id="pane-evidence" class="tab-pane hidden space-y-4">
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">description</span> Ingested Evidence Index
+                    <span class="material-symbols-outlined text-primary" aria-hidden="true">description</span> Ingested Evidence Index
                 </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="evidence-grid-container">
@@ -428,10 +435,10 @@
                 <div class="stitch-card space-y-4">
                     <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
                         <h2 class="text-base font-bold text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">summarize</span> Evidence-Backed Investigation Report
+                            <span class="material-symbols-outlined text-primary" aria-hidden="true">summarize</span> Evidence-Backed Investigation Report
                         </h2>
-                        <button onclick="generateReport('CASE_101')" class="px-3 py-1.5 bg-primary-container text-white text-xs font-semibold rounded flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">print</span> Generate Report (Case 101)
+                        <button onclick="generateReport()" class="px-3 py-1.5 bg-primary-container text-white text-xs font-semibold rounded flex items-center gap-1" aria-label="Generate Evidence Report">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">print</span> Generate Report
                         </button>
                     </div>
 
@@ -445,6 +452,7 @@
     </div>
 
     <!-- Frontend Service Layer & Application Logic -->
+    <script src="config.js"></script>
     <script src="service.js"></script>
     <script src="app.js"></script>
 </body>
