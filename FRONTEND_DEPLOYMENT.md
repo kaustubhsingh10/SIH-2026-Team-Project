@@ -124,3 +124,12 @@ Aditya AI Intelligence Layer & KnowledgeGraphStore
 
 4. **Direct Route Deep Linking**:
    - Hash routes are supported natively: `#dashboard`, `#cases`, `#graph`, `#ai-investigator`, `#timeline`, `#evidence`, `#reports`, `#CASE_101`, `#CASE_204`.
+
+---
+
+## 8. Production Verification & Freeze (Day 18)
+
+- **Build & Static Assets**: Clean static HTML5/ES6 architecture, served via FastAPI mount (`/web/index.html`) or standalone static web hosts.
+- **UI Freeze**: All production views (Dashboard, Case Explorer, Case Details, Network Graph, Evidence Explorer, Timeline, Summary Reports, AI Investigator) locked and production-ready.
+- **Verification**: 57 pytest backend test cases passing (**100%**).
+
