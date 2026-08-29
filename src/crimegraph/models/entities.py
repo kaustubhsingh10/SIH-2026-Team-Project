@@ -22,10 +22,12 @@ class EntityType(str, Enum):
 
 class BaseEntity(BaseModel):
     """Base model for all graph entities with common ID and source validation."""
-    model_config = ConfigDict(use_enum_values=True)
+    model_config = ConfigDict(use_enum_values=True, extra="allow")
 
     id: str = Field(..., description="Unique entity ID (e.g. PERSON_017, CASE_101)")
     source_ids: List[str] = Field(default_factory=list, description="IDs of source documents / evidence")
+    source: str = Field(default="Dataset", description="Data provenance (Dataset vs Manual)")
+    is_manual: bool = Field(default=False, description="Flag indicating manually created entity")
 
 
 class Person(BaseEntity):

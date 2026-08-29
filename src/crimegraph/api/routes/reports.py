@@ -6,7 +6,8 @@ Strictly adheres to API_CONTRACT.md Section 8 and PROJECT_SPEC.md Safety Princip
 import uuid
 from typing import Any, Dict
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
+from crimegraph.api.routes.auth import verify_bearer_token, verify_case_access
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
@@ -16,8 +17,16 @@ class ReportRequest(BaseModel):
 
 
 @router.post("", response_model=Dict[str, Any])
-def generate_report(request: Request, payload: ReportRequest) -> Dict[str, Any]:
+def generate_report(
+    request: Request,
+    payload: ReportRequest,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
     """Generate an evidence-linked investigation report summary for a case."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, payload.case_id)
+
     graph = request.app.state.graph
     case_id = payload.case_id
 

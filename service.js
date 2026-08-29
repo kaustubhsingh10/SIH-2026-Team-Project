@@ -114,6 +114,65 @@ class MockCrimeGraphAdapter {
         };
     }
 
+    getToken() {
+        if (typeof localStorage !== "undefined") {
+            return localStorage.getItem("crimegraph_token");
+        }
+        return null;
+    }
+
+    setToken(token, user = null) {
+        if (typeof localStorage !== "undefined") {
+            if (token) {
+                localStorage.setItem("crimegraph_token", token);
+                if (user) localStorage.setItem("crimegraph_user", JSON.stringify(user));
+            } else {
+                localStorage.removeItem("crimegraph_token");
+                localStorage.removeItem("crimegraph_user");
+            }
+        }
+    }
+
+    getUser() {
+        if (typeof localStorage !== "undefined") {
+            const raw = localStorage.getItem("crimegraph_user");
+            try { return raw ? JSON.parse(raw) : null; } catch (_) {}
+        }
+        return null;
+    }
+
+    isAuthenticated() {
+        return !!this.getToken();
+    }
+
+    async login(username, password, agencyId = null) {
+        const user = { username: username || "Investigator", agency_id: agencyId || "AGY-DEMO", role: "INVESTIGATOR" };
+        const token = `mock_token_${Date.now()}`;
+        this.setToken(token, user);
+        return { access_token: token, token_type: "bearer", user };
+    }
+
+    async logout() {
+        this.setToken(null);
+        return { status: "logged_out" };
+    }
+
+    async getAuditLogs(limit = 50) {
+        return [
+            {
+                id: "AUDIT_MOCK_01",
+                timestamp: new Date().toISOString(),
+                actor: "OFFICER_VERMA",
+                action: "SYSTEM_STARTUP",
+                resource_type: "KNOWLEDGE_GRAPH",
+                resource_id: "GRAPH_STORE",
+                case_id: "ALL",
+                status: "SUCCESS",
+                details: { message: "Demo Mode Active" }
+            }
+        ];
+    }
+
     async getCases() {
         return this.dataset.cases;
     }
@@ -278,7 +337,55 @@ class MockCrimeGraphAdapter {
         });
     }
 
-    async queryAIInvestigator(question) {
+    async createEntity(data) {
+        const rawType = (data.type || data.entity_type || "PERSON").toUpperCase();
+        const prefix = rawType.substring(0, 4);
+        const randId = `${prefix}_${Math.floor(100 + Math.random() * 900)}`;
+        const newEntity = {
+            id: data.id || randId,
+            name: data.name || data.title || data.phone_number || data.registration_number || data.identifier || randId,
+            type: rawType,
+            confidence: parseFloat(data.confidence || 0.95),
+            details: data.details || data.description || "Manually created knowledge graph entity",
+            source: "Manual",
+            is_manual: true,
+            ...data
+        };
+        this.dataset.nodes.push(newEntity);
+        return newEntity;
+    }
+
+    async updateEntity(entityId, data) {
+        const idx = this.dataset.nodes.findIndex(n => n.id === entityId);
+        if (idx !== -1) {
+            this.dataset.nodes[idx] = { ...this.dataset.nodes[idx], ...data, source: "Manual", is_manual: true };
+            return this.dataset.nodes[idx];
+        }
+        throw new Error(`Entity ${entityId} not found`);
+    }
+
+    async deleteEntity(entityId) {
+        this.dataset.nodes = this.dataset.nodes.filter(n => n.id !== entityId);
+        this.dataset.edges = this.dataset.edges.filter(e => e.source !== entityId && e.target !== entityId);
+        return { success: true, deleted_id: entityId };
+    }
+
+    async createRelationship(data) {
+        const newRel = {
+            id: data.id || `REL_MANUAL_${Math.floor(100 + Math.random() * 900)}`,
+            source: data.source_id || data.source,
+            target: data.target_id || data.target,
+            relationship: (data.relationship || "ASSOCIATED_WITH").toUpperCase(),
+            confidence: parseFloat(data.confidence || 0.95),
+            evidence_id: (data.evidence_ids && data.evidence_ids.length > 0) ? data.evidence_ids[0] : null,
+            source: "Manual",
+            is_manual: true
+        };
+        this.dataset.edges.push(newRel);
+        return newRel;
+    }
+
+    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
         const q = question.toLowerCase();
         if (q.includes("guilt") || q.includes("guilty") || q.includes("culprit")) {
             return {
@@ -310,16 +417,20 @@ class MockCrimeGraphAdapter {
                 disclaimer: "No matching records found in knowledge graph."
             };
         }
+
+        const activeCase = caseId || "CASE_101";
+        const contextStr = entityId ? `focused entity ${entityId}` : `case ${activeCase}`;
+
         return {
             query_type: "CROSS_CASE_CONNECTION",
             question: question,
-            answer: "Automated graph intelligence discovered a 4-hop connection path linking CASE_101 and CASE_204 via shared burner line PHONE_042 (+91-9876543210).",
+            answer: `Automated graph intelligence for ${contextStr}: Discovered multi-hop connection paths and supporting evidence.`,
             path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
             shared_entities: ["PHONE_042"],
             confidence: 0.93,
             evidence_ids: ["EVID_042_01", "EVID_042_02"],
-            explanation: "Aarav Verma (PERSON_017) operated burner line PHONE_042 during the cargo hijack window. The same burner line was subsequently used by Vikram Malhotra (PERSON_089) to negotiate bullion fencing for CASE_204.",
-            investigative_lead: "POTENTIAL INVESTIGATIVE LEAD: Subpoena Zaveri Bazaar bullion escrow transactions linked to ACC_AXIS_9941.",
+            explanation: `Analysis grounded in ${contextStr}: Aarav Verma (PERSON_017) operated burner line PHONE_042 during the cargo hijack window. The same burner line was subsequently used by Vikram Malhotra (PERSON_089) for CASE_204.`,
+            investigative_lead: `POTENTIAL INVESTIGATIVE LEAD for ${contextStr}: Subpoena Zaveri Bazaar bullion escrow transactions linked to ACC_AXIS_9941.`,
             limitations: [
                 "Cross-case link is based on intermediate phone co-usage and timeline proximity.",
                 "Does not establish formal conspiracy without primary witness verification."
@@ -332,11 +443,14 @@ class MockCrimeGraphAdapter {
 
 // --- 2. HTTP ADAPTER (Real FastAPI Endpoint Integration & Dynamic Config) ---
 function getApiBaseUrl() {
-    if (typeof window !== "undefined" && window.CRIMEGRAPH_CONFIG && window.CRIMEGRAPH_CONFIG.API_BASE_URL) {
-        return window.CRIMEGRAPH_CONFIG.API_BASE_URL;
+    if (typeof window !== "undefined" && window.location && window.location.hostname && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1")) {
+        return "https://sih-2026-team-project.onrender.com";
     }
-    if (typeof window !== "undefined" && window.location && window.location.origin && window.location.origin.startsWith("http")) {
-        return window.location.origin;
+    if (typeof window !== "undefined" && window.CRIMEGRAPH_API_URL) {
+        return window.CRIMEGRAPH_API_URL.replace(/\/$/, "");
+    }
+    if (typeof window !== "undefined" && window.CRIMEGRAPH_CONFIG && window.CRIMEGRAPH_CONFIG.API_BASE_URL) {
+        return window.CRIMEGRAPH_CONFIG.API_BASE_URL.replace(/\/$/, "");
     }
     return "http://127.0.0.1:8000";
 }
@@ -344,6 +458,76 @@ function getApiBaseUrl() {
 class HttpCrimeGraphAdapter {
     constructor(baseUrl = null) {
         this.baseUrl = baseUrl || getApiBaseUrl();
+    }
+
+    getToken() {
+        if (typeof localStorage !== "undefined") {
+            return localStorage.getItem("crimegraph_token");
+        }
+        return null;
+    }
+
+    setToken(token, user = null) {
+        if (typeof localStorage !== "undefined") {
+            if (token) {
+                localStorage.setItem("crimegraph_token", token);
+                if (user) localStorage.setItem("crimegraph_user", JSON.stringify(user));
+            } else {
+                localStorage.removeItem("crimegraph_token");
+                localStorage.removeItem("crimegraph_user");
+            }
+        }
+    }
+
+    getUser() {
+        if (typeof localStorage !== "undefined") {
+            const raw = localStorage.getItem("crimegraph_user");
+            try { return raw ? JSON.parse(raw) : null; } catch (_) {}
+        }
+        return null;
+    }
+
+    isAuthenticated() {
+        return !!this.getToken();
+    }
+
+    async login(username, password, agencyId = null) {
+        const response = await fetch(`${this.baseUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password, agency_id: agencyId })
+        });
+        if (!response.ok) {
+            let errorDetail = `Authentication Failed (${response.status})`;
+            try {
+                const errBody = await response.json();
+                if (errBody && errBody.detail) errorDetail = errBody.detail;
+            } catch (_) {}
+            const err = new Error(errorDetail);
+            err.status = response.status;
+            throw err;
+        }
+        const data = await response.json();
+        this.setToken(data.access_token, data.user);
+        return data;
+    }
+
+    async logout() {
+        const token = this.getToken();
+        if (token) {
+            try {
+                await fetch(`${this.baseUrl}/api/auth/logout`, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+            } catch (_) {}
+        }
+        this.setToken(null);
+        return { status: "logged_out" };
+    }
+
+    async getAuditLogs(limit = 50) {
+        return await this.fetchJson(`/api/audit?limit=${limit}`);
     }
 
     formatEntityDetails(details) {
@@ -365,28 +549,129 @@ class HttpCrimeGraphAdapter {
         return String(details);
     }
 
+    sanitizeErrorMessage(status, rawDetail) {
+        if (!rawDetail || typeof rawDetail !== "string") {
+            if (status === 400) return "Invalid request parameters. Please check your inputs.";
+            if (status === 401) return "Authentication token missing or expired. Please log in.";
+            if (status === 403) return "Access denied. You lack authorization for this action or case record.";
+            if (status === 404) return "The requested entity, case, or evidence record was not found.";
+            if (status === 409) return "Conflict detected. The entity or relationship identifier already exists.";
+            if (status === 422) return "Unprocessable entity payload. Please verify input formats.";
+            if (status === 429) return "Too many requests. Please wait a moment and try again.";
+            if (status >= 500) return "CrimeGraph service temporarily unavailable. Please retry in a few seconds.";
+            return `Server request failed (Status ${status}).`;
+        }
+
+        // Strip internal server filesystem paths, stack traces, and tokens
+        let clean = rawDetail
+            .replace(/[A-Z]:\\[^\s:]+/gi, "[internal path]")
+            .replace(/\/[\w\.\-]+(?:\/[\w\.\-]+)+/gi, "[internal path]")
+            .replace(/cg_token_[a-zA-Z0-9_\-]+/gi, "[token]")
+            .replace(/Bearer\s+[^\s]+/gi, "Bearer [token]");
+
+        // Handle specific status fallbacks if clean message is empty or generic
+        if (status === 401 && !clean.includes("log in") && !clean.includes("session")) {
+            clean = "Session expired or invalid authorization. Please log in.";
+        } else if (status === 403 && !clean.includes("denied") && !clean.includes("authorized")) {
+            clean = "Access denied. You lack authorization for this action or case context.";
+        } else if (status >= 500) {
+            clean = "CrimeGraph service temporarily unavailable. Please retry in a few seconds.";
+        }
+
+        return clean;
+    }
+
     async fetchJson(endpoint, options = {}) {
+        const headers = options.headers || {};
+        const token = this.getToken();
+        if (token && !headers["Authorization"]) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+        options.headers = headers;
+
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, options);
             if (!response.ok) {
-                let errorDetail = `HTTP ${response.status}: ${response.statusText}`;
+                const retryAfter = response.headers.get("Retry-After") || response.headers.get("retry-after");
+
+                if (response.status === 401 || response.status === 403) {
+                    this.setToken(null);
+                    if (typeof window !== "undefined" && typeof window.handleAuthSessionExpired === "function") {
+                        window.handleAuthSessionExpired(response.status);
+                    }
+                }
+                if (response.status === 429) {
+                    if (typeof window !== "undefined" && typeof window.handleRateLimitExceeded === "function") {
+                        window.handleRateLimitExceeded(retryAfter);
+                    }
+                }
+
+                let rawDetail = "";
                 try {
                     const errBody = await response.json();
                     if (errBody && errBody.detail) {
-                        errorDetail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
+                        rawDetail = typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail);
                     }
                 } catch (_) {}
+
+                let errorDetail = this.sanitizeErrorMessage(response.status, rawDetail);
+                if (response.status === 429 && retryAfter) {
+                    errorDetail += ` (Retry after ${retryAfter}s)`;
+                }
+
                 const err = new Error(errorDetail);
                 err.status = response.status;
+                err.retryAfter = retryAfter;
                 throw err;
             }
-            return await response.json();
+
+            // Handle empty 204 or empty responses safely
+            const text = await response.text();
+            if (!text || !text.trim()) {
+                return {};
+            }
+            try {
+                return JSON.parse(text);
+            } catch (jsonErr) {
+                console.warn(`Malformed JSON response from ${endpoint}:`, text);
+                return {};
+            }
         } catch (networkErr) {
             if (!networkErr.status) {
-                networkErr.message = `Network Connection Error (${endpoint}): ${networkErr.message}`;
+                networkErr.message = `CrimeGraph backend unavailable (${endpoint}). Please verify server status.`;
             }
             throw networkErr;
         }
+    }
+
+    async createEntity(data) {
+        return await this.fetchJson("/api/entities", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+    }
+
+    async updateEntity(entityId, data) {
+        return await this.fetchJson(`/api/entities/${encodeURIComponent(entityId)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+    }
+
+    async deleteEntity(entityId) {
+        return await this.fetchJson(`/api/entities/${encodeURIComponent(entityId)}`, {
+            method: "DELETE"
+        });
+    }
+
+    async createRelationship(data) {
+        return await this.fetchJson("/api/relationships", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
     }
 
     async getCases() {
@@ -435,7 +720,9 @@ class HttpCrimeGraphAdapter {
             name: n.name || n.title || n.phone_number || n.registration_number || n.id,
             type: (n.type || n.entity_type || "ENTITY").toUpperCase(),
             confidence: n.confidence !== undefined ? n.confidence : 1.0,
-            details: this.formatEntityDetails(n.details || n)
+            details: this.formatEntityDetails(n.details || n),
+            source: n.source || (n.is_manual ? "Manual" : "Dataset"),
+            is_manual: n.is_manual || n.source === "Manual"
         }));
 
         const edges = (raw.edges || []).map(e => ({
@@ -444,7 +731,9 @@ class HttpCrimeGraphAdapter {
             target: e.target || e.target_id,
             relationship: e.relationship,
             confidence: e.confidence !== undefined ? e.confidence : 1.0,
-            evidence_id: (e.evidence_ids && Array.isArray(e.evidence_ids) && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || null)
+            evidence_id: (e.evidence_ids && Array.isArray(e.evidence_ids) && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || null),
+            source: e.source_type || (e.is_manual ? "Manual" : "Dataset"),
+            is_manual: e.is_manual || e.source_type === "Manual"
         }));
 
         return { nodes, edges };
@@ -461,6 +750,9 @@ class HttpCrimeGraphAdapter {
                 name: raw.name || raw.title || raw.phone_number || raw.registration_number || raw.id,
                 details: this.formatEntityDetails(raw.details || raw),
                 confidence: raw.confidence !== undefined ? raw.confidence : 0.95,
+                source: raw.source || (raw.is_manual ? "Manual" : "Dataset"),
+                is_manual: raw.is_manual || raw.source === "Manual",
+                raw_data: raw.details || raw,
                 relationships: (raw.relationships || []).map(r => ({
                     id: r.id,
                     source: r.source_id || r.source,
@@ -558,7 +850,7 @@ class HttpCrimeGraphAdapter {
         }));
     }
 
-    async queryAIInvestigator(question) {
+    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
         const qLower = (question || "").toLowerCase();
 
         // Safety Protocol enforcement for direct legal guilt / culpability queries
@@ -584,7 +876,12 @@ class HttpCrimeGraphAdapter {
         const raw = await this.fetchJson("/api/investigate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({
+                question: question,
+                case_id: caseId,
+                entity_id: entityId,
+                conversation_history: conversationHistory
+            })
         });
 
         return {
@@ -654,6 +951,34 @@ class CrimeGraphDataService {
         return await this.initPromise;
     }
 
+    getToken() {
+        return this.activeAdapter.getToken();
+    }
+
+    getUser() {
+        return this.activeAdapter.getUser();
+    }
+
+    isAuthenticated() {
+        return this.activeAdapter.isAuthenticated();
+    }
+
+    async login(username, password, agencyId = null) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.login(username, password, agencyId);
+        }
+        return await this.mockAdapter.login(username, password, agencyId);
+    }
+
+    async logout() {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.logout();
+        }
+        return await this.mockAdapter.logout();
+    }
+
     notifyAdapterStatus(isHttp) {
         const badge = document.getElementById("adapter-status-badge");
         if (badge) {
@@ -664,6 +989,38 @@ class CrimeGraphDataService {
             badge.title = "Click to recheck live API backend connection";
             badge.onclick = () => this.recheckBackend();
         }
+    }
+
+    async createEntity(data) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.createEntity(data);
+        }
+        return await this.mockAdapter.createEntity(data);
+    }
+
+    async updateEntity(entityId, data) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.updateEntity(entityId, data);
+        }
+        return await this.mockAdapter.updateEntity(entityId, data);
+    }
+
+    async deleteEntity(entityId) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.deleteEntity(entityId);
+        }
+        return await this.mockAdapter.deleteEntity(entityId);
+    }
+
+    async createRelationship(data) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.createRelationship(data);
+        }
+        return await this.mockAdapter.createRelationship(data);
     }
 
     async getCases() {
@@ -746,12 +1103,20 @@ class CrimeGraphDataService {
         return await this.mockAdapter.search(query, filters);
     }
 
-    async queryAIInvestigator(question) {
+    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
         await this.ensureInitialized();
         if (this.isBackendOnline) {
-            return await this.httpAdapter.queryAIInvestigator(question);
+            return await this.httpAdapter.queryAIInvestigator(question, caseId, entityId, conversationHistory);
         }
-        return await this.mockAdapter.queryAIInvestigator(question);
+        return await this.mockAdapter.queryAIInvestigator(question, caseId, entityId, conversationHistory);
+    }
+
+    async getAuditLogs(limit = 50) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getAuditLogs(limit);
+        }
+        return await this.mockAdapter.getAuditLogs(limit);
     }
 }
 

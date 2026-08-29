@@ -54,9 +54,13 @@ class ReportRequest(BaseModel):
 
 class InvestigateRequest(BaseModel):
     question: str = Field(..., description="Natural language investigation query")
+    case_id: Optional[str] = Field(None, description="Currently selected case ID context")
+    entity_id: Optional[str] = Field(None, description="Currently focused entity ID context")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(None, description="Prior conversation history")
 
 
 # --- Endpoints ---
+
 
 @app.get("/")
 def root():
@@ -169,5 +173,10 @@ def get_pending_entity_resolutions():
 @app.post("/api/investigate")
 def investigate_query(req: InvestigateRequest):
     """POST /api/investigate - Natural language AI investigator query endpoint matching PROJECT_SPEC.md F9 & F10."""
-    res = investigator.query(req.question)
+    res = investigator.query(
+        question=req.question,
+        case_id=req.case_id,
+        entity_id=req.entity_id,
+        conversation_history=req.conversation_history
+    )
     return res

@@ -100,6 +100,30 @@
                     <option value="ALL">ALL CASES (Full Graph)</option>
                 </select>
             </div>
+
+            <!-- Manual Entity & Relationship Creation Action Buttons -->
+            <div class="flex items-center gap-2">
+                <button onclick="openAddEntityModal()" class="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition" aria-label="Add New Entity">
+                    <span class="material-symbols-outlined text-xs" aria-hidden="true">person_add</span> + Add Entity
+                </button>
+                <button onclick="openAddRelationshipModal()" class="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition" aria-label="Add New Relationship">
+                    <span class="material-symbols-outlined text-xs" aria-hidden="true">share</span> + Add Relationship
+                </button>
+            </div>
+
+            <!-- User Auth Status & Login/Logout Controls -->
+            <div id="auth-controls" class="flex items-center gap-2 pl-2 border-l border-surface-container-high">
+                <span id="auth-user-badge" class="hidden px-2 py-0.5 text-[11px] font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1 font-mono">
+                    <span class="material-symbols-outlined text-xs">verified_user</span>
+                    <span id="auth-user-name">Investigator</span>
+                </span>
+                <button id="btn-login" onclick="openLoginModal()" class="px-2.5 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                    <span class="material-symbols-outlined text-xs">login</span> Log In
+                </button>
+                <button id="btn-logout" onclick="handleLogout()" class="hidden px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                    <span class="material-symbols-outlined text-xs">logout</span> Log Out
+                </button>
+            </div>
         </div>
     </header>
 
@@ -146,6 +170,12 @@
                 <button class="nav-item" data-tab="pane-reports" aria-label="Investigation Summary Reports">
                     <span class="material-symbols-outlined" aria-hidden="true">summarize</span>
                     <span>Reports</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-audit" aria-label="System Audit Trail & Security Log">
+                    <span class="material-symbols-outlined text-indigo-400" aria-hidden="true">receipt_long</span>
+                    <span>Audit Trail</span>
+                    <span id="nav-audit-badge" class="nav-badge bg-slate-800 text-slate-300">Live</span>
                 </button>
             </nav>
 
@@ -373,35 +403,79 @@
                             <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                             <span class="text-sm font-bold text-white">AI Investigator Assistant</span>
                         </div>
-                        <span class="text-[11px] text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                            Aditya AI Engine Integration Adapter
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <button id="ai-reset-chat-btn" title="Reset multi-turn chat history" class="px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">restart_alt</span> Reset Chat
+                            </button>
+                            <span class="text-[11px] text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                                Case-Aware Intelligence
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Context Status Bar -->
+                    <div id="ai-context-status-bar" class="flex flex-wrap items-center justify-between gap-2 p-2.5 mb-3 bg-surface-container-lowest/80 border border-surface-container-high rounded-md text-xs">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <!-- Active Case Selector -->
+                            <div class="flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-primary text-sm">folder</span>
+                                <span class="text-slate-400 font-semibold">Active Case:</span>
+                                <select id="ai-case-selector" class="bg-surface-container-high border border-outline-variant text-white rounded px-2 py-0.5 text-xs focus:outline-none focus:border-primary">
+                                    <option value="CASE_101">CASE_101 — Op Midnight Shadow</option>
+                                    <option value="CASE_204">CASE_204 — Op Golden Falcon</option>
+                                    <option value="CASE_102">CASE_102 — Op Silver Shield</option>
+                                    <option value="CASE_305">CASE_305 — Op Falcon Eye</option>
+                                </select>
+                            </div>
+
+                            <!-- Focused Entity Badge -->
+                            <div id="ai-entity-badge-container" class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded px-2 py-0.5">
+                                <span class="material-symbols-outlined text-tertiary text-sm">person</span>
+                                <span class="text-slate-400 font-semibold">Focused Entity:</span>
+                                <span id="ai-focused-entity-name" class="text-amber-400 font-bold">None</span>
+                                <button id="ai-clear-entity-btn" title="Clear entity focus" class="hidden ml-1 text-slate-400 hover:text-rose-400 text-xs font-bold">✕</button>
+                            </div>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            Multi-turn Context Active
+                        </div>
                     </div>
 
                     <!-- Question Presets -->
                     <div class="flex flex-wrap gap-2 mb-3">
                         <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "Who are the suspects in this case?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "Which vehicles are connected to this suspect?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "What accounts are associated with this case?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "Which phone numbers are linked to this person?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
                             "How are Case 101 and Case 204 connected?"
                         </button>
                         <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
-                            "Is Person 017 guilty?"
-                        </button>
-                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
-                            "How are Case 999 and Case 888 connected?"
+                            "Summarize this case."
                         </button>
                     </div>
 
                     <!-- Output Area -->
                     <div id="ai-response-container" class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded p-4 overflow-y-auto space-y-4 text-xs font-mono">
-                        <div class="text-outline text-center py-16">
-                            Select a preset question above or enter a question below to demonstrate the AI Investigator interface.
+                        <div class="text-outline text-center py-12">
+                            <span class="material-symbols-outlined text-4xl opacity-40 mb-2 block">forum</span>
+                            Select a preset question above or enter a question below.<br>
+                            The AI Investigator Assistant maintains multi-turn conversation context for your active case.
                         </div>
                     </div>
 
                     <!-- Input Box -->
                     <div class="flex gap-2 pt-3">
                         <input type="text" id="ai-input-text" aria-label="Type your investigative question" placeholder="Type your investigative question..." class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
-                        <button id="ai-submit-btn" aria-label="Query AI Investigator" class="px-4 py-2 bg-tertiary-container text-white text-xs font-semibold rounded flex items-center gap-1">
+                        <button id="ai-submit-btn" aria-label="Query AI Investigator" class="px-4 py-2 bg-tertiary-container text-white text-xs font-semibold rounded flex items-center gap-1 hover:bg-tertiary transition">
                             <span class="material-symbols-outlined text-sm" aria-hidden="true">send</span> Query
                         </button>
                     </div>
@@ -448,7 +522,224 @@
                 </div>
             </section>
 
+            <!-- PANE 9: AUDIT TRAIL & ACTIVITY LOG -->
+            <section id="pane-audit" class="tab-pane hidden space-y-4">
+                <div class="stitch-card space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                <span class="material-symbols-outlined text-indigo-400" aria-hidden="true">receipt_long</span> System Audit Trail & Security Activity Log
+                            </h2>
+                            <p class="text-xs text-on-surface-variant">Real-time dynamic activity records fetched directly from the CrimeGraph backend API.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="renderAuditLogs()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant flex items-center gap-1 transition">
+                                <span class="material-symbols-outlined text-sm">refresh</span> Refresh Activity
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Audit Filters & Counters -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 bg-surface-container-lowest p-3 rounded border border-surface-container-high text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="text-on-surface-variant font-semibold text-[11px] uppercase">Status Filter:</span>
+                            <button onclick="filterAuditLogs('ALL')" id="audit-filter-all" class="audit-filter-btn px-2.5 py-1 rounded text-[11px] font-bold bg-blue-600 text-white">ALL</button>
+                            <button onclick="filterAuditLogs('SUCCESS')" id="audit-filter-success" class="audit-filter-btn px-2.5 py-1 rounded text-[11px] font-bold text-emerald-400 hover:bg-emerald-950/40">SUCCESS</button>
+                            <button onclick="filterAuditLogs('DENIED')" id="audit-filter-denied" class="audit-filter-btn px-2.5 py-1 rounded text-[11px] font-bold text-amber-400 hover:bg-amber-950/40">DENIED</button>
+                            <button onclick="filterAuditLogs('FAILURE')" id="audit-filter-failure" class="audit-filter-btn px-2.5 py-1 rounded text-[11px] font-bold text-rose-400 hover:bg-rose-950/40">FAILURE</button>
+                        </div>
+                        <div class="text-[11px] text-outline font-mono" id="audit-count-indicator">
+                            Loading activity records...
+                        </div>
+                    </div>
+
+                    <!-- Audit Table -->
+                    <div class="overflow-x-auto border border-surface-container-high rounded bg-surface-container-lowest">
+                        <table class="w-full text-left text-xs text-on-surface border-collapse">
+                            <thead class="bg-surface-container-high text-outline text-[10px] uppercase tracking-wider font-mono">
+                                <tr>
+                                    <th class="p-3 border-b border-surface-container-high">Timestamp (UTC)</th>
+                                    <th class="p-3 border-b border-surface-container-high">Status</th>
+                                    <th class="p-3 border-b border-surface-container-high">Actor / User</th>
+                                    <th class="p-3 border-b border-surface-container-high">Action</th>
+                                    <th class="p-3 border-b border-surface-container-high">Resource Type</th>
+                                    <th class="p-3 border-b border-surface-container-high">Resource ID</th>
+                                    <th class="p-3 border-b border-surface-container-high">Case ID</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-body" class="divide-y divide-surface-container-high font-mono text-[11px]">
+                                <tr>
+                                    <td colspan="7" class="p-6 text-center text-outline font-sans">
+                                        <span class="material-symbols-outlined animate-spin text-xl text-primary">sync</span>
+                                        <div>Loading dynamic backend audit records...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
         </main>
+    </div>
+
+    <!-- MODAL 1: ADD ENTITY -->
+    <div id="modal-add-entity" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-surface-container border border-surface-container-high rounded-xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-surface-container-high flex items-center justify-between bg-surface-container-low">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-400">person_add</span> Create New Knowledge Graph Entity
+                </h3>
+                <button onclick="closeAddEntityModal()" class="text-on-surface-variant hover:text-white p-1 rounded"><span class="material-symbols-outlined text-sm">close</span></button>
+            </div>
+            
+            <form id="form-add-entity" onsubmit="handleAddEntitySubmit(event)" class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+                <div>
+                    <label for="entity-type-select" class="block font-semibold text-on-surface mb-1">Entity Type <span class="text-rose-400">*</span></label>
+                    <select id="entity-type-select" onchange="renderEntityFormFields()" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                        <option value="PERSON">Person</option>
+                        <option value="SUSPECT">Suspect (Person)</option>
+                        <option value="PHONE">Phone Number</option>
+                        <option value="VEHICLE">Vehicle</option>
+                        <option value="LOCATION">Location</option>
+                        <option value="ORGANIZATION">Organization</option>
+                        <option value="ACCOUNT">Account (Bank/UPI/Crypto)</option>
+                        <option value="CASE">Case / Incident</option>
+                    </select>
+                </div>
+
+                <div id="entity-fields-container" class="space-y-3">
+                    <!-- Dynamic fields rendered by JS -->
+                </div>
+
+                <div class="pt-3 border-t border-surface-container-high flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeAddEntityModal()" class="px-3 py-1.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition">Cancel</button>
+                    <button type="submit" id="btn-save-entity" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1 transition">
+                        <span class="material-symbols-outlined text-sm">save</span> Save Entity
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADD RELATIONSHIP -->
+    <div id="modal-add-relationship" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-surface-container border border-surface-container-high rounded-xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-surface-container-high flex items-center justify-between bg-surface-container-low">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-indigo-400">share</span> Connect Entities (New Relationship)
+                </h3>
+                <button onclick="closeAddRelationshipModal()" class="text-on-surface-variant hover:text-white p-1 rounded"><span class="material-symbols-outlined text-sm">close</span></button>
+            </div>
+            
+            <form id="form-add-relationship" onsubmit="handleAddRelationshipSubmit(event)" class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+                <div>
+                    <label for="rel-source-select" class="block font-semibold text-on-surface mb-1">Source Entity <span class="text-rose-400">*</span></label>
+                    <select id="rel-source-select" required class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
+                <div>
+                    <label for="rel-type-select" class="block font-semibold text-on-surface mb-1">Relationship Type <span class="text-rose-400">*</span></label>
+                    <select id="rel-type-select" required class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                        <option value="CONTACTED">CONTACTED (Person -> Person)</option>
+                        <option value="KNOWS">KNOWS (Person -> Person)</option>
+                        <option value="ASSOCIATED_WITH">ASSOCIATED_WITH (General Link)</option>
+                        <option value="USES">USES (Person -> Phone/Vehicle)</option>
+                        <option value="OWNS">OWNS (Person -> Vehicle/Asset)</option>
+                        <option value="VISITED">VISITED (Person -> Location)</option>
+                        <option value="LOCATED_AT">LOCATED_AT (Person/Asset -> Location)</option>
+                        <option value="INVOLVED_IN">INVOLVED_IN (Person -> Case)</option>
+                        <option value="SEEN_AT">SEEN_AT (Vehicle -> Location)</option>
+                        <option value="WORKS_FOR">WORKS_FOR (Person -> Organization)</option>
+                        <option value="OWNED_BY">OWNED_BY (Account -> Person)</option>
+                        <option value="INVOLVES">INVOLVES (Event -> Person)</option>
+                        <option value="OCCURRED_AT">OCCURRED_AT (Event -> Location)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="rel-target-select" class="block font-semibold text-on-surface mb-1">Target Entity <span class="text-rose-400">*</span></label>
+                    <select id="rel-target-select" required class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
+                <div>
+                    <label for="rel-confidence" class="block font-semibold text-on-surface mb-1">Confidence Score (0.0 to 1.0)</label>
+                    <input type="number" id="rel-confidence" value="0.95" min="0" max="1" step="0.01" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                </div>
+
+                <div class="pt-3 border-t border-surface-container-high flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeAddRelationshipModal()" class="px-3 py-1.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition">Cancel</button>
+                    <button type="submit" id="btn-save-relationship" class="px-4 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-1 transition">
+                        <span class="material-symbols-outlined text-sm">link</span> Save Relationship
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AUTHENTICATION LOGIN MODAL -->
+    <div id="modal-login" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="bg-[#161B22] border border-[#30363D] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-full max-w-md overflow-hidden font-sans">
+            <!-- Header -->
+            <div class="bg-surface-container-high/50 border-b border-[#30363D] p-5 text-center relative">
+                <div class="w-12 h-12 bg-surface-container rounded-xl flex items-center justify-center border border-outline-variant mx-auto mb-2 text-primary-container shadow-md">
+                    <span class="material-symbols-outlined text-3xl">hub</span>
+                </div>
+                <h2 class="text-lg font-bold text-white tracking-tight">CrimeGraph AI</h2>
+                <p class="text-xs text-on-surface-variant flex items-center justify-center gap-1 mt-1 font-mono">
+                    <span class="material-symbols-outlined text-sm text-emerald-400">verified_user</span> RESTRICTED ACCESS SYSTEM
+                </p>
+                <button type="button" onclick="closeLoginModal()" class="absolute top-3 right-3 text-outline hover:text-white"><span class="material-symbols-outlined text-sm">close</span></button>
+            </div>
+
+            <!-- Login Form Body -->
+            <form id="form-login" onsubmit="handleLoginSubmit(event)" class="p-6 space-y-4 text-xs">
+                <div id="login-error-msg" class="hidden p-3 bg-rose-950/60 border border-rose-800 text-rose-200 rounded text-xs font-sans"></div>
+
+                <!-- Agency ID -->
+                <div class="space-y-1">
+                    <label for="login-agency-id" class="block font-semibold text-on-surface-variant uppercase tracking-wider text-[10px]">Agency ID</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm">badge</span>
+                        <input type="text" id="login-agency-id" placeholder="AGY-SIH-2026" class="w-full bg-[#0A0C10] border border-[#30363D] rounded pl-9 pr-3 py-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Username / Investigator ID -->
+                <div class="space-y-1">
+                    <label for="login-username" class="block font-semibold text-on-surface-variant uppercase tracking-wider text-[10px]">Investigator ID <span class="text-rose-400">*</span></label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm">person</span>
+                        <input type="text" id="login-username" required placeholder="e.g. OFFICER_VERMA" class="w-full bg-[#0A0C10] border border-[#30363D] rounded pl-9 pr-3 py-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Authorization Key / Password -->
+                <div class="space-y-1">
+                    <label for="login-password" class="block font-semibold text-on-surface-variant uppercase tracking-wider text-[10px]">Authorization Key <span class="text-rose-400">*</span></label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm">key</span>
+                        <input type="password" id="login-password" required placeholder="••••••••••••" class="w-full bg-[#0A0C10] border border-[#30363D] rounded pl-9 pr-3 py-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-2">
+                    <button type="submit" id="btn-submit-login" class="w-full py-2.5 px-4 bg-[#0066ff] hover:bg-[#0054d6] text-white font-bold rounded shadow flex items-center justify-center gap-2 transition text-xs">
+                        <span class="material-symbols-outlined text-sm">login</span> Initialize Session
+                    </button>
+                </div>
+            </form>
+
+            <div class="bg-surface-container-lowest border-t border-[#30363D] px-6 py-3 flex justify-between items-center text-[10px] text-outline font-mono">
+                <span>SECURE NODE ACTIVE</span>
+                <span>V 1.0.0</span>
+            </div>
+        </div>
     </div>
 
     <!-- Frontend Service Layer & Application Logic -->

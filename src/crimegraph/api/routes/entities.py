@@ -4,8 +4,9 @@ Strictly adheres to API_CONTRACT.md and DATA_SCHEMA.md.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from crimegraph.models.entities import EntityType
+from crimegraph.api.routes.auth import verify_bearer_token, verify_write_permission
 
 router = APIRouter(prefix="/api/entities", tags=["Entities"])
 
@@ -110,3 +111,168 @@ def get_entity_neighbors(
         "neighbor_count": len(results),
         "neighbors": results
     }
+
+
+@router.post("", status_code=201)
+def create_entity(
+    request: Request,
+    data: Dict[str, Any],
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Manually create a new entity in the knowledge graph store."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_write_permission(user)
+
+    graph = request.app.state.graph
+    
+    raw_type = (data.get("type") or data.get("entity_type") or "PERSON").upper()
+    if raw_type == "SUSPECT":
+        raw_type = "PERSON"
+    data["type"] = raw_type
+    data["entity_type"] = raw_type
+    
+    if not data.get("id"):
+        prefix_map = {
+            "PERSON": "PERSON",
+            "PHONE": "PHONE",
+            "VEHICLE": "VEHICLE",
+            "LOCATION": "LOC",
+            "ORGANIZATION": "ORG",
+            "ACCOUNT": "ACC",
+            "CASE": "CASE",
+            "EVENT": "EVENT"
+        }
+        prefix = prefix_map.get(raw_type, "ENT")
+        import random
+        num = random.randint(100, 999)
+        candidate_id = f"{prefix}_{num}"
+        while candidate_id in graph.entities:
+            num = random.randint(100, 999)
+            candidate_id = f"{prefix}_{num}"
+        data["id"] = candidate_id
+
+    fallback_name = data.get("name") or data.get("title") or data.get("phone_number") or data.get("registration_number") or data.get("identifier") or data["id"]
+    if raw_type in ["PERSON", "LOCATION", "ORGANIZATION", "EVENT"]:
+        data["name"] = fallback_name
+    elif raw_type == "PHONE":
+        data["phone_number"] = data.get("phone_number") or fallback_name
+    elif raw_type == "VEHICLE":
+        data["registration_number"] = data.get("registration_number") or fallback_name
+    elif raw_type == "ACCOUNT":
+        data["account_type"] = data.get("account_type", "BANK_ACCOUNT")
+        data["identifier"] = data.get("identifier") or fallback_name
+    elif raw_type == "CASE":
+        data["case_number"] = data.get("case_number") or data["id"]
+        data["title"] = data.get("title") or fallback_name
+        
+    data["source"] = data.get("source", "Manual")
+    data["is_manual"] = True
+    
+    try:
+        created = graph.add_entity(data)
+        try:
+            from crimegraph.data.loader import save_dataset
+            save_dataset(graph)
+        except Exception:
+            pass
+
+        from crimegraph.api.routes.audit import log_audit_event
+        actor_name = user.get("username") if 'user' in locals() and user else "OFFICER_VERMA"
+        log_audit_event(
+            actor=actor_name,
+            action="CREATE_ENTITY",
+            resource_type=data.get("type", "ENTITY"),
+            resource_id=data.get("id"),
+            case_id=data.get("case_id"),
+            status="SUCCESS",
+            details={"name": data.get("name"), "is_manual": True}
+        )
+
+        return created.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create entity: {str(e)}")
+
+
+@router.put("/{entity_id}")
+def update_entity(
+    request: Request,
+    entity_id: str,
+    data: Dict[str, Any],
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Update properties of an existing entity in the knowledge graph store."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_write_permission(user)
+
+    graph = request.app.state.graph
+    if entity_id not in graph.entities:
+        raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
+        
+    existing = graph.entities[entity_id]
+    existing_dict = existing.model_dump()
+    
+    for k, v in data.items():
+        if k != "id" and v is not None:
+            existing_dict[k] = v
+            
+    existing_dict["source"] = existing_dict.get("source", "Manual")
+    existing_dict["is_manual"] = True
+    
+    try:
+        updated = graph.add_entity(existing_dict)
+        try:
+            from crimegraph.data.loader import save_dataset
+            save_dataset(graph)
+        except Exception:
+            pass
+        return updated.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update entity: {str(e)}")
+
+
+@router.delete("/{entity_id}")
+def delete_entity(
+    request: Request,
+    entity_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Delete an entity and all its connected relationships from the graph store."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_write_permission(user)
+
+    graph = request.app.state.graph
+    if entity_id not in graph.entities:
+        raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
+        
+    # Remove entity
+    del graph.entities[entity_id]
+    
+    # Remove from type index
+    for t, eids in graph._type_index.items():
+        eids.discard(entity_id)
+        
+    # Remove connected relationships
+    rels_to_delete = [rid for rid, r in graph.relationships.items() if r.source_id == entity_id or r.target_id == entity_id]
+    for rid in rels_to_delete:
+        rel = graph.relationships.pop(rid, None)
+        if rel:
+            if rid in graph._outgoing.get(rel.source_id, []):
+                graph._outgoing[rel.source_id].remove(rid)
+            if rid in graph._incoming.get(rel.target_id, []):
+                graph._incoming[rel.target_id].remove(rid)
+            if rid in graph._undirected.get(rel.source_id, []):
+                graph._undirected[rel.source_id].remove(rid)
+            if rid in graph._undirected.get(rel.target_id, []):
+                graph._undirected[rel.target_id].remove(rid)
+                
+    try:
+        from crimegraph.data.loader import save_dataset
+        save_dataset(graph)
+    except Exception:
+        pass
+
+    return {"success": True, "deleted_id": entity_id}
+

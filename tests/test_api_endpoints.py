@@ -239,3 +239,52 @@ class TestEvidenceAPI:
     def test_get_evidence_item_not_found(self, client):
         response = client.get("/api/evidence/EVID_DOES_NOT_EXIST")
         assert response.status_code == 404
+
+
+class TestManualEntityAndRelationshipAPI:
+    def test_create_manual_person_entity(self, client):
+        payload = {
+            "type": "PERSON",
+            "name": "Test Manual Person",
+            "age": 30,
+            "gender": "Male",
+            "details": "Created during automated testing"
+        }
+        response = client.post("/api/entities", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == "Test Manual Person"
+        assert data["entity_type"] == "PERSON"
+        assert data["id"].startswith("PERSON_")
+
+        # Test updating the manual entity
+        update_payload = {"name": "Updated Manual Person", "age": 31}
+        update_res = client.put(f"/api/entities/{data['id']}", json=update_payload)
+        assert update_res.status_code == 200
+        assert update_res.json()["name"] == "Updated Manual Person"
+        assert update_res.json()["age"] == 31
+
+        # Test creating a relationship connecting this entity to PERSON_017
+        rel_payload = {
+            "source_id": data["id"],
+            "relationship": "CONTACTED",
+            "target_id": "PERSON_017",
+            "confidence": 0.92
+        }
+        rel_res = client.post("/api/relationships", json=rel_payload)
+        assert rel_res.status_code == 201
+        rel_data = rel_res.json()
+        assert rel_data["source_id"] == data["id"]
+        assert rel_data["target_id"] == "PERSON_017"
+        assert rel_data["relationship"] == "CONTACTED"
+
+        # Test deleting the manual entity
+        del_res = client.delete(f"/api/entities/{data['id']}")
+        assert del_res.status_code == 200
+        assert del_res.json()["deleted_id"] == data["id"]
+
+        # Verify entity no longer exists
+        get_res = client.get(f"/api/entities/{data['id']}")
+        assert get_res.status_code == 404
+
+

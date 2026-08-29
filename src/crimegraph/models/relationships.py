@@ -32,8 +32,15 @@ class RelationshipType(str, Enum):
     # Person -> Organization
     WORKS_FOR = "WORKS_FOR"
 
-    # Account -> Person
+    # Account -> Person / Account
     OWNED_BY = "OWNED_BY"
+    LINKED_TO = "LINKED_TO"
+    TRANSFERRED_TO = "TRANSFERRED_TO"
+
+    # Additional custom investigative relationships
+    CALL_RECORDED = "CALL_RECORDED"
+    MEETS = "MEETS"
+    DRIVES = "DRIVES"
 
     # Event -> Person
     INVOLVES = "INVOLVES"

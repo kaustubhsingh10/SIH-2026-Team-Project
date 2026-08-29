@@ -4,8 +4,9 @@ Strictly adheres to API_CONTRACT.md and DATA_SCHEMA.md.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from crimegraph.graph.traversal import find_paths_between_entities
+from crimegraph.api.routes.auth import verify_bearer_token, verify_write_permission
 
 router = APIRouter(prefix="", tags=["Graph"])
 
@@ -84,3 +85,68 @@ def get_paths_between_entities(
         "path_count": len(paths),
         "paths": paths
     }
+
+
+@router.post("/api/relationships", status_code=201)
+def create_relationship(
+    request: Request,
+    data: Dict[str, Any],
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Manually create a new relationship edge connecting two entities in the knowledge graph."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_write_permission(user)
+
+    graph = request.app.state.graph
+    
+    source_id = data.get("source_id") or data.get("source")
+    target_id = data.get("target_id") or data.get("target")
+    relationship = data.get("relationship") or data.get("relationship_type") or "ASSOCIATED_WITH"
+    
+    if not source_id or source_id not in graph.entities:
+        raise HTTPException(status_code=400, detail=f"Source entity '{source_id}' does not exist in graph store")
+    if not target_id or target_id not in graph.entities:
+        raise HTTPException(status_code=400, detail=f"Target entity '{target_id}' does not exist in graph store")
+        
+    rel_id = data.get("id")
+    if not rel_id:
+        import random
+        rel_id = f"REL_MANUAL_{random.randint(100, 999)}"
+        while rel_id in graph.relationships:
+            rel_id = f"REL_MANUAL_{random.randint(100, 999)}"
+            
+    rel_dict = {
+        "id": rel_id,
+        "source_id": source_id,
+        "relationship": relationship.upper(),
+        "target_id": target_id,
+        "confidence": float(data.get("confidence", 0.95)),
+        "evidence_ids": data.get("evidence_ids", []),
+        "properties": data.get("properties", {})
+    }
+    
+    try:
+        created = graph.add_relationship(rel_dict)
+        try:
+            from crimegraph.data.loader import save_dataset
+            save_dataset(graph)
+        except Exception:
+            pass
+
+        from crimegraph.api.routes.audit import log_audit_event
+        actor_name = user.get("username") if 'user' in locals() and user else "OFFICER_VERMA"
+        log_audit_event(
+            actor=actor_name,
+            action="CREATE_RELATIONSHIP",
+            resource_type="RELATIONSHIP",
+            resource_id=rel_id,
+            case_id=None,
+            status="SUCCESS",
+            details={"source": source_id, "target": target_id, "type": relationship}
+        )
+
+        return created.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create relationship: {str(e)}")
+

@@ -9,10 +9,14 @@ let networkInstance = null;
 let currentVisNodes = null;
 let currentVisEdges = null;
 let rawGraphData = { nodes: [], edges: [] };
+let aiActiveCaseId = "CASE_101";
+let aiFocusedEntityId = null;
+let aiConversationHistory = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     initNavigation();
     handleInitialRoute();
+    updateAuthUI();
     await renderDashboard();
     await renderCaseExplorer();
     await renderCaseDetail("CASE_101");
@@ -22,6 +26,118 @@ document.addEventListener("DOMContentLoaded", async () => {
     await renderEvidenceExplorer();
     initGlobalSearch();
 });
+
+/* ----------------------------------------------------
+   AUTHENTICATION UI HANDLERS (DAY 18 INTEGRATION)
+---------------------------------------------------- */
+function updateAuthUI() {
+    const isAuth = window.dataService ? window.dataService.isAuthenticated() : false;
+    const user = window.dataService ? window.dataService.getUser() : null;
+
+    const userBadge = document.getElementById("auth-user-badge");
+    const userNameSpan = document.getElementById("auth-user-name");
+    const btnLogin = document.getElementById("btn-login");
+    const btnLogout = document.getElementById("btn-logout");
+
+    if (isAuth && user) {
+        if (userBadge) userBadge.classList.remove("hidden");
+        if (userNameSpan) userNameSpan.innerText = user.username || user.agency_id || "Investigator";
+        if (btnLogin) btnLogin.classList.add("hidden");
+        if (btnLogout) btnLogout.classList.remove("hidden");
+    } else {
+        if (userBadge) userBadge.classList.add("hidden");
+        if (btnLogin) btnLogin.classList.remove("hidden");
+        if (btnLogout) btnLogout.classList.add("hidden");
+    }
+}
+
+function openLoginModal(msg = null) {
+    const modal = document.getElementById("modal-login");
+    const errorBox = document.getElementById("login-error-msg");
+    if (!modal) return;
+
+    if (errorBox) {
+        if (msg) {
+            errorBox.innerText = msg;
+            errorBox.classList.remove("hidden");
+        } else {
+            errorBox.innerText = "";
+            errorBox.classList.add("hidden");
+        }
+    }
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeLoginModal() {
+    const modal = document.getElementById("modal-login");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+async function handleLoginSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById("btn-submit-login");
+    const errorBox = document.getElementById("login-error-msg");
+    const agencyId = document.getElementById("login-agency-id")?.value;
+    const username = document.getElementById("login-username")?.value;
+    const password = document.getElementById("login-password")?.value;
+
+    if (errorBox) {
+        errorBox.innerText = "";
+        errorBox.classList.add("hidden");
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Authenticating...`;
+    }
+
+    try {
+        const res = await window.dataService.login(username, password, agencyId);
+        closeLoginModal();
+        updateAuthUI();
+        alert(`Session initialized successfully! Welcome ${res.user?.username || 'Investigator'}.`);
+    } catch (err) {
+        if (errorBox) {
+            errorBox.innerText = err.message || "Authentication failed. Invalid Investigator ID or Key.";
+            errorBox.classList.remove("hidden");
+        } else {
+            alert(`Login failed: ${err.message || 'Invalid credentials'}`);
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span class="material-symbols-outlined text-sm">login</span> Initialize Session`;
+        }
+    }
+}
+
+async function handleLogout() {
+    if (!confirm("Are you sure you want to terminate your active investigator session?")) {
+        return;
+    }
+    try {
+        await window.dataService.logout();
+    } catch (_) {}
+    updateAuthUI();
+    alert("Session terminated. You have been logged out.");
+}
+
+window.handleAuthSessionExpired = function(statusCode = 401) {
+    updateAuthUI();
+    const reason = statusCode === 403 ? "Forbidden access attempt." : "Session expired or invalid authorization token.";
+    openLoginModal(`${reason} Please initialize session.`);
+};
+
+window.handleRateLimitExceeded = function(retryAfter = null) {
+    const msg = retryAfter 
+        ? `Too many requests. Rate limit active. Please wait ${retryAfter} seconds and try again.`
+        : "Too many requests. Rate limit active. Please wait a moment and try again.";
+    alert(msg);
+};
 
 /* ----------------------------------------------------
    1. NAVIGATION & ROUTING
@@ -41,6 +157,11 @@ function initNavigation() {
     if (headerCaseSelect) {
         headerCaseSelect.addEventListener("change", async (e) => {
             const selectedCase = e.target.value;
+            if (selectedCase && selectedCase !== "ALL") {
+                aiActiveCaseId = selectedCase;
+                aiConversationHistory = [];
+                updateAIContextBar();
+            }
             await renderGraphWorkspace(selectedCase);
             await renderCaseDetail(selectedCase);
             await renderTimeline(selectedCase);
@@ -115,6 +236,9 @@ function switchTab(paneId, updateHash = true) {
 
     if (paneId === "pane-graph" && networkInstance) {
         setTimeout(() => networkInstance.fit(), 100);
+    }
+    if (paneId === "pane-audit") {
+        renderAuditLogs();
     }
 }
 
@@ -637,12 +761,19 @@ async function openEntityDetailsPanel(entityId) {
         }
 
         const badgeClass = `badge-${(ent.type || "person").toLowerCase()}`;
+        const isManual = ent.is_manual || ent.source === "Manual";
+        const sourceBadge = isManual
+            ? `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">edit_note</span> Source: Manual</span>`
+            : `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700 flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">database</span> Source: Dataset</span>`;
 
         drawer.innerHTML = `
             <div class="space-y-3 font-sans">
                 <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
                     <span class="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant">${ent.id}</span>
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded ${badgeClass}">${ent.type}</span>
+                    <div class="flex items-center gap-1">
+                        ${sourceBadge}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded ${badgeClass}">${ent.type}</span>
+                    </div>
                 </div>
 
                 <h3 class="text-sm font-bold text-white">${ent.name}</h3>
@@ -650,6 +781,16 @@ async function openEntityDetailsPanel(entityId) {
 
                 <div class="text-[11px] font-mono text-tertiary">
                     Extraction Confidence: <strong>${((ent.confidence || 0.95) * 100).toFixed(0)}%</strong>
+                </div>
+
+                <!-- Action Controls: Add Relationship & Delete -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="openAddRelationshipModal('${ent.id}')" class="py-1.5 px-2 bg-indigo-700 hover:bg-indigo-600 text-white text-[11px] font-semibold rounded shadow flex items-center justify-center gap-1" aria-label="Add Relationship for Entity">
+                        <span class="material-symbols-outlined text-xs" aria-hidden="true">share</span> + Relationship
+                    </button>
+                    <button onclick="deleteEntityAction('${ent.id}')" class="py-1.5 px-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/50 text-[11px] font-semibold rounded flex items-center justify-center gap-1" aria-label="Delete Entity">
+                        <span class="material-symbols-outlined text-xs" aria-hidden="true">delete</span> Delete Entity
+                    </button>
                 </div>
 
                 <!-- Connected Cases -->
@@ -811,7 +952,56 @@ async function highlightMainDemoFlow() {
 /* ----------------------------------------------------
    8. AI INVESTIGATOR ASSISTANT (PHASE 16)
 ---------------------------------------------------- */
+function updateAIContextBar() {
+    const caseSelect = document.getElementById("ai-case-selector");
+    if (caseSelect && caseSelect.value !== aiActiveCaseId) {
+        caseSelect.value = aiActiveCaseId;
+    }
+    const nameSpan = document.getElementById("ai-focused-entity-name");
+    const clearBtn = document.getElementById("ai-clear-entity-btn");
+    if (nameSpan) {
+        nameSpan.innerText = aiFocusedEntityId || "None";
+    }
+    if (clearBtn) {
+        if (aiFocusedEntityId) {
+            clearBtn.classList.remove("hidden");
+        } else {
+            clearBtn.classList.add("hidden");
+        }
+    }
+}
+
 function initAIInvestigator() {
+    const caseSelect = document.getElementById("ai-case-selector");
+    if (caseSelect) {
+        caseSelect.value = aiActiveCaseId;
+        caseSelect.addEventListener("change", (e) => {
+            const oldCase = aiActiveCaseId;
+            aiActiveCaseId = e.target.value;
+            aiConversationHistory = [];
+            renderSystemMessageInAIContainer(`Case context switched from ${oldCase} to ${aiActiveCaseId}. Conversation history reset for context accuracy.`);
+        });
+    }
+
+    document.getElementById("ai-clear-entity-btn")?.addEventListener("click", () => {
+        aiFocusedEntityId = null;
+        updateAIContextBar();
+    });
+
+    document.getElementById("ai-reset-chat-btn")?.addEventListener("click", () => {
+        aiConversationHistory = [];
+        const container = document.getElementById("ai-response-container");
+        if (container) {
+            container.innerHTML = `
+                <div class="text-outline text-center py-12">
+                    <span class="material-symbols-outlined text-4xl opacity-40 mb-2 block">forum</span>
+                    Select a preset question above or enter a question below.<br>
+                    The AI Investigator Assistant maintains multi-turn conversation context for active case <strong class="text-primary">${aiActiveCaseId}</strong>.
+                </div>
+            `;
+        }
+    });
+
     document.querySelectorAll(".ai-preset-btn").forEach(btn => {
         btn.addEventListener("click", async () => {
             const queryText = btn.innerText.replace(/"/g, "").trim();
@@ -822,7 +1012,9 @@ function initAIInvestigator() {
     document.getElementById("ai-submit-btn")?.addEventListener("click", async () => {
         const input = document.getElementById("ai-input-text");
         if (input && input.value.trim()) {
-            await runAIQuery(input.value.trim());
+            const q = input.value.trim();
+            input.value = "";
+            await runAIQuery(q);
         }
     });
 
@@ -830,10 +1022,26 @@ function initAIInvestigator() {
         if (e.key === "Enter") {
             const input = document.getElementById("ai-input-text");
             if (input && input.value.trim()) {
-                await runAIQuery(input.value.trim());
+                const q = input.value.trim();
+                input.value = "";
+                await runAIQuery(q);
             }
         }
     });
+
+    updateAIContextBar();
+}
+
+function renderSystemMessageInAIContainer(msg) {
+    const container = document.getElementById("ai-response-container");
+    if (!container) return;
+    const sysHtml = `
+        <div class="p-2.5 bg-slate-900 border border-slate-700 rounded text-center text-xs text-amber-300 font-sans my-2">
+            <span class="material-symbols-outlined text-xs align-middle mr-1">info</span> ${msg}
+        </div>
+    `;
+    container.insertAdjacentHTML("beforeend", sysHtml);
+    container.scrollTop = container.scrollHeight;
 }
 
 async function runAIQuery(questionText) {
@@ -843,27 +1051,59 @@ async function runAIQuery(questionText) {
 
     if (!container) return;
 
-    // Lock UI controls to prevent uncontrolled duplicate requests during processing
+    if (container.querySelector(".text-outline.text-center")) {
+        container.innerHTML = "";
+    }
+
     if (input) input.disabled = true;
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = `<span class="material-symbols-outlined text-sm animate-spin" aria-hidden="true">sync</span> Querying...`;
     }
 
-    container.innerHTML = `<div class="text-center py-10 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-tertiary align-middle mr-1">sync</span> Querying AI Investigator Engine...</div>`;
+    const userMsgId = `user-msg-${Date.now()}`;
+    const entityBadgeHtml = aiFocusedEntityId ? `<span class="bg-amber-950/60 border border-amber-800 text-amber-300 px-1.5 py-0.5 rounded text-[10px] ml-2">Entity: ${aiFocusedEntityId}</span>` : '';
+    const userHtml = `
+        <div id="${userMsgId}" class="p-3 bg-surface-container-high border border-outline-variant rounded-lg space-y-1 my-3 font-sans">
+            <div class="flex items-center justify-between text-[11px]">
+                <span class="font-bold text-primary flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">person</span> Investigator Question
+                </span>
+                <div>
+                    <span class="bg-surface-container-highest border border-surface-container-high text-slate-300 px-1.5 py-0.5 rounded text-[10px]">Case: ${aiActiveCaseId}</span>
+                    ${entityBadgeHtml}
+                </div>
+            </div>
+            <div class="text-xs text-white font-semibold pt-1">${questionText}</div>
+        </div>
+    `;
+    container.insertAdjacentHTML("beforeend", userHtml);
+
+    const loadingId = `loading-${Date.now()}`;
+    const loadingHtml = `
+        <div id="${loadingId}" class="text-center py-6 text-outline text-xs font-sans">
+            <span class="material-symbols-outlined animate-spin text-tertiary align-middle mr-1">sync</span> Querying AI Investigator Engine with active case context (${aiActiveCaseId})...
+        </div>
+    `;
+    container.insertAdjacentHTML("beforeend", loadingHtml);
+    container.scrollTop = container.scrollHeight;
 
     try {
-        const res = await window.dataService.queryAIInvestigator(questionText);
+        const res = await window.dataService.queryAIInvestigator(questionText, aiActiveCaseId, aiFocusedEntityId, aiConversationHistory);
+
+        document.getElementById(loadingId)?.remove();
+
         if (!res) {
-            container.innerHTML = `<div class="text-center py-8 text-error text-xs font-sans">No response received from AI Investigator.</div>`;
+            container.insertAdjacentHTML("beforeend", `<div class="text-center py-4 text-error text-xs font-sans">No response received from AI Investigator.</div>`);
             return;
         }
+
+        aiConversationHistory.push({ role: "user", content: questionText });
+        aiConversationHistory.push({ role: "assistant", content: res.answer || res.summary || "No response summary." });
 
         const pathNodes = res.path || [];
         const isSafetyRefusal = res.query_type === "SAFETY_REFUSAL";
         const isNotFound = res.query_type === "NOT_FOUND";
-
-        // Display path only if query_type is CROSS_CASE_CONNECTION / PATH_DISCOVERY or explicit connection path exists
         const showPath = !isSafetyRefusal && !isNotFound && Array.isArray(pathNodes) && pathNodes.length > 0 && res.query_type !== "GENERAL_INVESTIGATION";
 
         const evidenceCitations = (res.evidence_ids && res.evidence_ids.length > 0)
@@ -895,7 +1135,6 @@ async function runAIQuery(questionText) {
             bannerHeading = "No Data State:";
         }
 
-        // Supporting Details (Explanation, Lead, Limitations)
         const explanationHtml = res.explanation ? `
             <div class="space-y-1 pt-1 font-sans">
                 <div class="text-[10px] font-bold uppercase text-outline">Detailed Explanation</div>
@@ -919,20 +1158,22 @@ async function runAIQuery(questionText) {
             </div>
         ` : '';
 
-        container.innerHTML = `
-            <div class="space-y-4 font-sans">
-                <div class="border-b border-surface-container-high pb-2">
-                    <div class="text-[10px] font-bold uppercase text-outline">User Query</div>
-                    <div class="text-sm font-bold text-primary">${res.question || questionText}</div>
+        const assistantHtml = `
+            <div class="space-y-3 font-sans my-3 bg-surface-container-lowest border border-tertiary/20 p-3.5 rounded-lg shadow">
+                <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                    <span class="text-xs font-bold text-tertiary flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">auto_awesome</span> AI Investigator Intelligence Response
+                    </span>
+                    <span class="text-[10px] font-mono text-outline uppercase">${res.query_type || "ANSWER"}</span>
                 </div>
 
-                <div class="space-y-2">
+                <div class="space-y-1">
                     <div class="text-[10px] font-bold uppercase text-outline">Answer Summary</div>
                     <div class="text-xs text-white leading-relaxed font-sans bg-surface-container-low p-3 rounded border border-surface-container-high break-words whitespace-normal">${res.answer || res.summary || 'Investigation query processed.'}</div>
                 </div>
 
                 ${showPath ? `
-                <div class="space-y-2">
+                <div class="space-y-1.5">
                     <div class="text-[10px] font-bold uppercase text-outline">Discovered Connection Path</div>
                     <div class="flex flex-wrap items-center gap-1.5 font-mono text-xs">
                         ${pathNodes.map((p, idx, arr) => `
@@ -947,33 +1188,37 @@ async function runAIQuery(questionText) {
                 ${leadHtml}
                 ${limitationsHtml}
 
-                <div class="grid grid-cols-2 gap-3 pt-2 font-sans">
-                    <div class="bg-surface-container-low p-2.5 rounded border border-surface-container-high">
+                <div class="grid grid-cols-2 gap-2 pt-1 font-sans">
+                    <div class="bg-surface-container-low p-2 rounded border border-surface-container-high">
                         <div class="text-[10px] font-bold uppercase text-outline">Confidence Rating</div>
                         <div class="text-xs text-tertiary font-bold font-mono">${confidenceVal}</div>
                     </div>
-                    <div class="bg-surface-container-low p-2.5 rounded border border-surface-container-high">
+                    <div class="bg-surface-container-low p-2 rounded border border-surface-container-high">
                         <div class="text-[10px] font-bold uppercase text-outline">Evidence Citations</div>
                         <div class="text-[11px] text-on-surface-variant font-mono break-words">${evidenceCitations}</div>
                     </div>
                 </div>
 
-                <div class="p-3 ${bannerStyle} rounded text-xs font-sans">
+                <div class="p-2.5 ${bannerStyle} rounded text-xs font-sans mt-2">
                     <span class="material-symbols-outlined text-xs align-middle mr-1" aria-hidden="true">${bannerIcon}</span>
                     <strong>${bannerHeading}</strong> ${disclaimerText}
                 </div>
             </div>
         `;
+
+        container.insertAdjacentHTML("beforeend", assistantHtml);
+        container.scrollTop = container.scrollHeight;
     } catch (err) {
+        document.getElementById(loadingId)?.remove();
         const cleanMsg = (err && err.message) ? err.message.replace(/http:\/\/[^\s]+/g, '[API Server]') : 'Unable to connect to AI Investigator service.';
-        container.innerHTML = `
-            <div class="p-4 text-center text-error text-xs space-y-2 font-sans">
+        container.insertAdjacentHTML("beforeend", `
+            <div class="p-4 text-center text-error text-xs space-y-2 font-sans my-2 bg-rose-950/20 border border-rose-800/40 rounded">
                 <span class="material-symbols-outlined text-2xl text-error" aria-hidden="true">error</span>
                 <div class="font-bold">Investigation Query Failed</div>
                 <div class="text-on-surface-variant">${cleanMsg}</div>
                 <button onclick="runAIQuery('${questionText.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-surface-container-high hover:bg-surface-container-highest text-white rounded text-[11px] mt-1">Retry Query</button>
             </div>
-        `;
+        `);
     } finally {
         if (input) input.disabled = false;
         if (btn) {
@@ -983,9 +1228,11 @@ async function runAIQuery(questionText) {
     }
 }
 
-function askAIAboutEntity(entityId) {
+async function askAIAboutEntity(entityId) {
+    aiFocusedEntityId = entityId;
+    updateAIContextBar();
     switchTab("pane-ai-investigator", true);
-    runAIQuery(`What connects ${entityId} to active cases?`);
+    await runAIQuery(`What connects ${entityId} to active cases?`);
 }
 
 /* ----------------------------------------------------
@@ -1119,3 +1366,451 @@ function initGlobalSearch() {
         }
     });
 }
+
+
+/* ----------------------------------------------------
+   MANUAL ENTITY & RELATIONSHIP MODAL HANDLERS
+---------------------------------------------------- */
+
+function renderEntityFormFields() {
+    const typeSelect = document.getElementById("entity-type-select");
+    const container = document.getElementById("entity-fields-container");
+    if (!typeSelect || !container) return;
+
+    const rawType = (typeSelect.value || "PERSON").toUpperCase();
+
+    if (rawType === "PERSON" || rawType === "SUSPECT") {
+        container.innerHTML = `
+            <div>
+                <label for="field-person-name" class="block font-semibold text-on-surface mb-1">Full Name <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-person-name" required placeholder="e.g. Rahul Sharma" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="field-person-age" class="block font-semibold text-on-surface mb-1">Age</label>
+                    <input type="number" id="field-person-age" placeholder="e.g. 34" min="0" max="150" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+                </div>
+                <div>
+                    <label for="field-person-gender" class="block font-semibold text-on-surface mb-1">Gender</label>
+                    <select id="field-person-gender" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label for="field-person-phone" class="block font-semibold text-on-surface mb-1">Phone Number</label>
+                <input type="text" id="field-person-phone" placeholder="e.g. +91-9988776655" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-person-details" class="block font-semibold text-on-surface mb-1">Role / Notes</label>
+                <input type="text" id="field-person-details" placeholder="e.g. Suspected courier operator" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "PHONE") {
+        container.innerHTML = `
+            <div>
+                <label for="field-phone-number" class="block font-semibold text-on-surface mb-1">Phone Number / MSISDN <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-phone-number" required placeholder="e.g. +91-9876500000" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-phone-details" class="block font-semibold text-on-surface mb-1">Line Type / Details</label>
+                <input type="text" id="field-phone-details" placeholder="e.g. Encrypted burner line" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "VEHICLE") {
+        container.innerHTML = `
+            <div>
+                <label for="field-vehicle-reg" class="block font-semibold text-on-surface mb-1">Registration / Plate Number <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-vehicle-reg" required placeholder="e.g. MH-02-CD-5678" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-vehicle-type" class="block font-semibold text-on-surface mb-1">Vehicle Type / Model</label>
+                <input type="text" id="field-vehicle-type" placeholder="e.g. Black Sedan, Delivery Van, SUV" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-vehicle-details" class="block font-semibold text-on-surface mb-1">Owner / Sighting Notes</label>
+                <input type="text" id="field-vehicle-details" placeholder="e.g. Observed at Nhava Sheva Yard" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "LOCATION") {
+        container.innerHTML = `
+            <div>
+                <label for="field-loc-name" class="block font-semibold text-on-surface mb-1">Location Name <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-loc-name" required placeholder="e.g. Sector 18 Logistics Dock" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-loc-address" class="block font-semibold text-on-surface mb-1">Physical Address</label>
+                <input type="text" id="field-loc-address" placeholder="e.g. Plot 42, Port Road, Navi Mumbai" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "ORGANIZATION") {
+        container.innerHTML = `
+            <div>
+                <label for="field-org-name" class="block font-semibold text-on-surface mb-1">Organization Name <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-org-name" required placeholder="e.g. Apex Freight Logistics Pvt Ltd" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-org-details" class="block font-semibold text-on-surface mb-1">Address / Details</label>
+                <input type="text" id="field-org-details" placeholder="e.g. Shell company for invoice routing" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "ACCOUNT") {
+        container.innerHTML = `
+            <div>
+                <label for="field-acc-id" class="block font-semibold text-on-surface mb-1">Account Identifier / Number <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-acc-id" required placeholder="e.g. ACC_HDFC_9912 or rakesh@upi" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-acc-type" class="block font-semibold text-on-surface mb-1">Account Type</label>
+                <input type="text" id="field-acc-type" placeholder="e.g. BANK_ACCOUNT, UPI, CRYPTO_WALLET" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+        `;
+    } else if (rawType === "CASE") {
+        container.innerHTML = `
+            <div>
+                <label for="field-case-title" class="block font-semibold text-on-surface mb-1">Case Title <span class="text-rose-400">*</span></label>
+                <input type="text" id="field-case-title" required placeholder="e.g. Operation Nightfall — Electronics Heist" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-case-number" class="block font-semibold text-on-surface mb-1">FIR / Case Number</label>
+                <input type="text" id="field-case-number" placeholder="e.g. FIR/2026/089" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+            </div>
+            <div>
+                <label for="field-case-desc" class="block font-semibold text-on-surface mb-1">Case Description</label>
+                <textarea id="field-case-desc" rows="2" placeholder="Detailed incident summary..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none"></textarea>
+            </div>
+        `;
+    }
+}
+
+function openAddEntityModal(defaultType = "PERSON") {
+    const modal = document.getElementById("modal-add-entity");
+    const typeSelect = document.getElementById("entity-type-select");
+    if (!modal) return;
+    if (typeSelect) typeSelect.value = defaultType;
+    renderEntityFormFields();
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeAddEntityModal() {
+    const modal = document.getElementById("modal-add-entity");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+async function handleAddEntitySubmit(event) {
+    event.preventDefault();
+    const saveBtn = document.getElementById("btn-save-entity");
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Saving...`;
+    }
+
+    try {
+        const rawType = (document.getElementById("entity-type-select")?.value || "PERSON").toUpperCase();
+        let entityData = { type: rawType, entity_type: rawType, source: "Manual", is_manual: true };
+
+        if (rawType === "PERSON" || rawType === "SUSPECT") {
+            entityData.name = document.getElementById("field-person-name")?.value || "Unknown Person";
+            const ageVal = document.getElementById("field-person-age")?.value;
+            if (ageVal) entityData.age = parseInt(ageVal, 10);
+            entityData.gender = document.getElementById("field-person-gender")?.value || null;
+            const phoneVal = document.getElementById("field-person-phone")?.value;
+            if (phoneVal) entityData.phone_ids = [phoneVal];
+            entityData.details = document.getElementById("field-person-details")?.value || "Manually added person entity";
+        } else if (rawType === "PHONE") {
+            entityData.phone_number = document.getElementById("field-phone-number")?.value || "+91-0000000000";
+            entityData.name = entityData.phone_number;
+            entityData.details = document.getElementById("field-phone-details")?.value || "Manually added phone number";
+        } else if (rawType === "VEHICLE") {
+            entityData.registration_number = document.getElementById("field-vehicle-reg")?.value || "MH-00-XX-0000";
+            entityData.name = entityData.registration_number;
+            entityData.type = "VEHICLE";
+            entityData.details = document.getElementById("field-vehicle-details")?.value || document.getElementById("field-vehicle-type")?.value || "Manually added vehicle";
+        } else if (rawType === "LOCATION") {
+            entityData.name = document.getElementById("field-loc-name")?.value || "Unspecified Location";
+            entityData.address = document.getElementById("field-loc-address")?.value || "";
+            entityData.details = entityData.address || "Manually added location";
+        } else if (rawType === "ORGANIZATION") {
+            entityData.name = document.getElementById("field-org-name")?.value || "Unspecified Organization";
+            entityData.details = document.getElementById("field-org-details")?.value || "Manually added organization";
+        } else if (rawType === "ACCOUNT") {
+            entityData.identifier = document.getElementById("field-acc-id")?.value || "ACC_MANUAL";
+            entityData.name = entityData.identifier;
+            entityData.account_type = document.getElementById("field-acc-type")?.value || "BANK_ACCOUNT";
+            entityData.details = `Account: ${entityData.identifier} (${entityData.account_type})`;
+        } else if (rawType === "CASE") {
+            entityData.title = document.getElementById("field-case-title")?.value || "Untitled Manual Case";
+            entityData.name = entityData.title;
+            entityData.case_number = document.getElementById("field-case-number")?.value || "CASE_NEW";
+            entityData.description = document.getElementById("field-case-desc")?.value || "Manually created investigation case.";
+            entityData.details = entityData.description;
+        }
+
+        const created = await window.dataService.createEntity(entityData);
+        closeAddEntityModal();
+
+        // Safely update Vis.js graph
+        if (currentVisNodes) {
+            const displayLabel = `${created.name || created.id}\n[${created.id}]`;
+            const nodeColors = {
+                "PERSON": { background: "#3b82f6", border: "#1d4ed8" },
+                "PHONE": { background: "#10b981", border: "#047857" },
+                "VEHICLE": { background: "#f59e0b", border: "#b45309" },
+                "LOCATION": { background: "#8b5cf6", border: "#6d28d9" },
+                "CASE": { background: "#ef4444", border: "#b91c1c" },
+                "ACCOUNT": { background: "#06b6d4", border: "#0e7490" }
+            };
+
+            if (!currentVisNodes.get(created.id)) {
+                currentVisNodes.add({
+                    id: created.id,
+                    label: displayLabel,
+                    shape: created.type === "CASE" ? "diamond" : "box",
+                    color: nodeColors[created.type] || { background: "#10b981", border: "#047857" },
+                    font: { color: "#ffffff", size: 11, face: "Inter" },
+                    margin: 8,
+                    entityType: created.type,
+                    is_manual: true
+                });
+            }
+            if (rawGraphData && rawGraphData.nodes) {
+                rawGraphData.nodes.push(created);
+            }
+        }
+
+        await openEntityDetailsPanel(created.id);
+        alert(`Entity '${created.id}' (${created.name || created.id}) created successfully!`);
+    } catch (err) {
+        alert(`Failed to create entity: ${err.message || 'Server error'}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> Save Entity`;
+        }
+    }
+}
+
+async function openAddRelationshipModal(prefilledSourceId = null) {
+    const modal = document.getElementById("modal-add-relationship");
+    const sourceSelect = document.getElementById("rel-source-select");
+    const targetSelect = document.getElementById("rel-target-select");
+
+    if (!modal || !sourceSelect || !targetSelect) return;
+
+    // Fetch all nodes to populate dropdown pickers
+    let nodesList = [];
+    if (currentVisNodes) {
+        nodesList = currentVisNodes.get();
+    } else {
+        const graphData = await window.dataService.getCaseGraph("ALL");
+        nodesList = graphData.nodes || [];
+    }
+
+    const optionsHtml = nodesList.map(n => `<option value="${n.id}">${n.id} (${n.label ? n.label.replace(/\n/g, ' ') : n.id})</option>`).join("");
+    sourceSelect.innerHTML = optionsHtml;
+    targetSelect.innerHTML = optionsHtml;
+
+    if (prefilledSourceId) {
+        sourceSelect.value = prefilledSourceId;
+    }
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeAddRelationshipModal() {
+    const modal = document.getElementById("modal-add-relationship");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+async function handleAddRelationshipSubmit(event) {
+    event.preventDefault();
+    const saveBtn = document.getElementById("btn-save-relationship");
+    const sourceId = document.getElementById("rel-source-select")?.value;
+    const relType = document.getElementById("rel-type-select")?.value;
+    const targetId = document.getElementById("rel-target-select")?.value;
+    const confidenceVal = parseFloat(document.getElementById("rel-confidence")?.value || "0.95");
+
+    if (sourceId === targetId) {
+        alert("Source and Target entity cannot be the same!");
+        return;
+    }
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Connecting...`;
+    }
+
+    try {
+        const createdRel = await window.dataService.createRelationship({
+            source_id: sourceId,
+            relationship: relType,
+            target_id: targetId,
+            confidence: confidenceVal
+        });
+
+        closeAddRelationshipModal();
+
+        // Update Vis.js graph edges safely
+        if (currentVisEdges) {
+            currentVisEdges.add({
+                id: createdRel.id,
+                from: sourceId,
+                to: targetId,
+                label: relType,
+                font: { color: "#8c90a1", size: 9, align: "horizontal" },
+                color: { color: "#10b981", highlight: "#4edea3" },
+                arrows: { to: { enabled: true, scaleFactor: 0.6 } }
+            });
+            if (rawGraphData && rawGraphData.edges) {
+                rawGraphData.edges.push(createdRel);
+            }
+        }
+
+        await openEntityDetailsPanel(sourceId);
+        alert(`Relationship '${sourceId} --${relType}--> ${targetId}' created successfully!`);
+    } catch (err) {
+        alert(`Failed to create relationship: ${err.message || 'Server error'}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<span class="material-symbols-outlined text-sm">link</span> Save Relationship`;
+        }
+    }
+}
+
+async function deleteEntityAction(entityId) {
+    if (!confirm(`Are you sure you want to delete entity '${entityId}' and all its connected relationships?`)) {
+        return;
+    }
+
+    try {
+        await window.dataService.deleteEntity(entityId);
+
+        if (currentVisNodes) {
+            currentVisNodes.remove(entityId);
+        }
+        if (currentVisEdges) {
+            const connectedEdges = currentVisEdges.get({
+                filter: e => e.from === entityId || e.to === entityId
+            });
+            connectedEdges.forEach(e => currentVisEdges.remove(e.id));
+        }
+
+        const drawer = document.getElementById("inspector-drawer");
+        if (drawer) {
+            drawer.innerHTML = `
+                <div class="p-6 text-center text-emerald-400 text-xs space-y-2 font-sans">
+                    <span class="material-symbols-outlined text-3xl text-emerald-400" aria-hidden="true">check_circle</span>
+                    <div class="font-bold text-white text-sm">Entity Deleted</div>
+                    <div class="text-on-surface-variant">Entity <strong>${entityId}</strong> and connected edges were deleted from the knowledge graph.</div>
+                </div>
+            `;
+        }
+    } catch (err) {
+        alert(`Failed to delete entity: ${err.message || 'Server error'}`);
+    }
+}
+
+/* ----------------------------------------------------
+   AUDIT TRAIL & SECURITY ACTIVITY LOG (DAY 18 INTEGRATION)
+---------------------------------------------------- */
+let currentAuditLogs = [];
+let currentAuditFilter = "ALL";
+
+async function renderAuditLogs() {
+    const tableBody = document.getElementById("audit-table-body");
+    const countIndicator = document.getElementById("audit-count-indicator");
+    if (!tableBody) return;
+
+    try {
+        currentAuditLogs = await window.dataService.getAuditLogs(50);
+        displayAuditLogs();
+    } catch (err) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-6 text-center text-rose-400 font-sans">
+                    <span class="material-symbols-outlined text-2xl text-rose-400">error</span>
+                    <div>Failed to load audit logs: ${err.message || 'Server error'}</div>
+                </td>
+            </tr>
+        `;
+        if (countIndicator) countIndicator.innerText = "Error loading audit records";
+    }
+}
+
+function filterAuditLogs(filterType) {
+    currentAuditFilter = filterType;
+    document.querySelectorAll(".audit-filter-btn").forEach(btn => {
+        btn.classList.remove("bg-blue-600", "text-white");
+        btn.classList.add("hover:bg-surface-container-highest", "text-on-surface-variant");
+    });
+    const activeBtn = document.getElementById(`audit-filter-${filterType.toLowerCase()}`);
+    if (activeBtn) {
+        activeBtn.classList.add("bg-blue-600", "text-white");
+        activeBtn.classList.remove("hover:bg-surface-container-highest", "text-on-surface-variant");
+    }
+    displayAuditLogs();
+}
+
+function displayAuditLogs() {
+    const tableBody = document.getElementById("audit-table-body");
+    const countIndicator = document.getElementById("audit-count-indicator");
+    if (!tableBody) return;
+
+    let filtered = currentAuditLogs;
+    if (currentAuditFilter !== "ALL") {
+        filtered = currentAuditLogs.filter(item => (item.status || "").toUpperCase() === currentAuditFilter);
+    }
+
+    if (countIndicator) {
+        countIndicator.innerText = `Showing ${filtered.length} of ${currentAuditLogs.length} audit events`;
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="p-6 text-center text-outline font-sans">
+                    <span class="material-symbols-outlined text-2xl text-outline mb-1">receipt_long</span>
+                    <div>No audit records match the selected filter '${currentAuditFilter}'.</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = filtered.map(log => {
+        const dateStr = log.timestamp ? new Date(log.timestamp).toISOString().replace("T", " ").substring(0, 19) : "N/A";
+        let statusBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800">SUCCESS</span>`;
+        if (log.status === "DENIED") {
+            statusBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950 text-amber-300 border border-amber-800">DENIED</span>`;
+        } else if (log.status === "FAILURE") {
+            statusBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-950 text-rose-300 border border-rose-800">FAILURE</span>`;
+        }
+
+        const caseBadge = log.case_id ? `<span class="px-1.5 py-0.5 bg-surface-container-high rounded text-primary text-[10px] font-mono">${log.case_id}</span>` : `<span class="text-outline text-[10px]">—</span>`;
+
+        return `
+            <tr class="hover:bg-surface-container-low transition-colors">
+                <td class="p-3 text-outline font-mono whitespace-nowrap">${dateStr}</td>
+                <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+                <td class="p-3 font-semibold text-white whitespace-nowrap">${log.actor || 'OFFICER'}</td>
+                <td class="p-3 text-indigo-300 font-bold whitespace-nowrap">${log.action || 'ACTION'}</td>
+                <td class="p-3 text-on-surface-variant whitespace-nowrap">${log.resource_type || 'SYSTEM'}</td>
+                <td class="p-3 font-mono text-emerald-400 whitespace-nowrap">${log.resource_id || 'N/A'}</td>
+                <td class="p-3 whitespace-nowrap">${caseBadge}</td>
+            </tr>
+        `;
+    }).join("");
+}
+

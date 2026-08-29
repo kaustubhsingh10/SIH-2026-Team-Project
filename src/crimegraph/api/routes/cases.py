@@ -4,9 +4,10 @@ Strictly adheres to API_CONTRACT.md and DATA_SCHEMA.md.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from crimegraph.models.entities import EntityType
 from crimegraph.graph.traversal import find_cross_case_connections
+from crimegraph.api.routes.auth import verify_bearer_token, verify_case_access
 
 router = APIRouter(prefix="/api/cases", tags=["Cases"])
 
@@ -14,9 +15,12 @@ router = APIRouter(prefix="/api/cases", tags=["Cases"])
 @router.get("", response_model=List[Dict[str, Any]])
 def list_cases(
     request: Request,
-    status: Optional[str] = Query(None, description="Filter cases by status (e.g. ACTIVE, CLOSED, UNDER_INVESTIGATION)")
+    status: Optional[str] = Query(None, description="Filter cases by status (e.g. ACTIVE, CLOSED, UNDER_INVESTIGATION)"),
+    authorization: Optional[str] = Header(None)
 ) -> List[Dict[str, Any]]:
     """List all cases registered in the knowledge graph."""
+    if authorization:
+        user = verify_bearer_token(authorization)
     graph = request.app.state.graph
     cases = graph.get_entities_by_type(EntityType.CASE)
     
@@ -31,12 +35,15 @@ def get_case_connections(
     request: Request,
     case_a: str = Query(..., description="First Case ID (e.g. CASE_101)"),
     case_b: str = Query(..., description="Second Case ID (e.g. CASE_204)"),
-    max_depth: int = Query(6, ge=1, le=10, description="Maximum hops to search for paths")
+    max_depth: int = Query(6, ge=1, le=10, description="Maximum hops to search for paths"),
+    authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
-    """Find discoverable multi-hop relationship connections between two cases.
-    
-    Strictly conforms to API_CONTRACT.md Section 6.
-    """
+    """Find discoverable multi-hop relationship connections between two cases."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, case_a)
+        verify_case_access(user, case_b)
+
     graph = request.app.state.graph
     
     if case_a not in graph.entities:
@@ -49,8 +56,16 @@ def get_case_connections(
 
 
 @router.get("/{case_id}")
-def get_case_details(request: Request, case_id: str) -> Dict[str, Any]:
+def get_case_details(
+    request: Request,
+    case_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
     """Retrieve detailed information about a specific case."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, case_id)
+
     graph = request.app.state.graph
     entity = graph.get_entity(case_id)
     
@@ -61,11 +76,16 @@ def get_case_details(request: Request, case_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{case_id}/graph")
-def get_case_graph(request: Request, case_id: str) -> Dict[str, Any]:
-    """Returns the visual graph data (nodes and edges) for a case.
-    
-    Strictly conforms to API_CONTRACT.md Section 3.
-    """
+def get_case_graph(
+    request: Request,
+    case_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Returns the visual graph data (nodes and edges) for a case."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, case_id)
+
     graph = request.app.state.graph
     if case_id not in graph.entities:
         raise HTTPException(status_code=404, detail=f"Case with ID '{case_id}' not found")
@@ -80,9 +100,13 @@ def get_case_graph(request: Request, case_id: str) -> Dict[str, Any]:
 def get_case_entities(
     request: Request,
     case_id: str,
-    entity_type: Optional[str] = Query(None, description="Optional entity type filter (e.g. PERSON, VEHICLE, PHONE)")
+    entity_type: Optional[str] = Query(None, description="Optional entity type filter (e.g. PERSON, VEHICLE, PHONE)"),
+    authorization: Optional[str] = Header(None)
 ) -> List[Dict[str, Any]]:
     """Retrieve all entities directly or 1-hop connected to a specific case."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, case_id)
     graph = request.app.state.graph
     if case_id not in graph.entities:
         raise HTTPException(status_code=404, detail=f"Case with ID '{case_id}' not found")
@@ -97,11 +121,16 @@ def get_case_entities(
 
 
 @router.get("/{case_id}/timeline")
-def get_case_timeline(request: Request, case_id: str) -> Dict[str, Any]:
-    """Returns chronological events related to this case.
-    
-    Strictly conforms to API_CONTRACT.md Section 7.
-    """
+def get_case_timeline(
+    request: Request,
+    case_id: str,
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Returns chronological events related to this case."""
+    if authorization:
+        user = verify_bearer_token(authorization)
+        verify_case_access(user, case_id)
+
     graph = request.app.state.graph
     if case_id not in graph.entities:
         raise HTTPException(status_code=404, detail=f"Case with ID '{case_id}' not found")

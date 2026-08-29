@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from crimegraph.data.loader import load_dataset
 from crimegraph.graph.store import KnowledgeGraphStore
-from crimegraph.api.routes import cases, entities, graph, evidence, extract, reports, resolution, investigate
+from crimegraph.api.routes import cases, entities, graph, evidence, extract, reports, resolution, investigate, auth, audit
 
 
 @asynccontextmanager
@@ -54,6 +54,18 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Observability & Request Tracing Middleware
+    @app.middleware("http")
+    async def add_observability_headers(request, call_next):
+        import time, uuid
+        request_id = request.headers.get("X-Request-ID") or f"req_{uuid.uuid4().hex[:12]}"
+        start_time = time.perf_counter()
+        response = await call_next(request)
+        process_time = (time.perf_counter() - start_time) * 1000
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Response-Time"] = f"{process_time:.2f}ms"
+        return response
+
     # Health & root status endpoints
     @app.get("/", tags=["System"])
     def root_status() -> Dict[str, Any]:
@@ -77,6 +89,8 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
         return {"status": "healthy"}
 
     # Include modular routers
+    app.include_router(auth.router)
+    app.include_router(audit.router)
     app.include_router(cases.router)
     app.include_router(entities.router)
     app.include_router(graph.router)
