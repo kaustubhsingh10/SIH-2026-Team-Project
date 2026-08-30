@@ -549,14 +549,110 @@
                 </div>
             </section>
 
-            <!-- PANE 6: TIMELINE -->
-            <section id="pane-timeline" class="tab-pane hidden space-y-4">
-                <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary" aria-hidden="true">history</span> Chronological Investigation Timeline
-                </h2>
+            <!-- PANE 6: TIMELINE & EVENT CORRELATION WORKSPACE -->
+            <section id="pane-timeline" class="tab-pane hidden space-y-4" aria-labelledby="timeline-title">
+                <div class="stitch-card space-y-4">
+                    <!-- Timeline Header -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 id="timeline-title" class="text-base font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-primary" aria-hidden="true">history</span>
+                                    Chronological Timeline & Event Correlation Workspace
+                                </h2>
+                                <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
+                                    Temporal Intelligence
+                                </span>
+                            </div>
+                            <p class="text-xs text-on-surface-variant mt-0.5">
+                                Dynamic chronological investigation timeline, temporal proximity analysis, cross-case sequence mining, and multi-source evidence provenance.
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="renderTimeline()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant flex items-center gap-1 transition">
+                                <span class="material-symbols-outlined text-sm">refresh</span> Refresh Timeline
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="stitch-card space-y-4" id="timeline-container">
-                    <!-- Events injected via JS using CrimeGraphDataService -->
+                    <!-- Timeline Control Toolbar & Filters -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-surface-container-lowest p-3 rounded border border-surface-container-high text-xs">
+                        <!-- Case Filter -->
+                        <div>
+                            <label for="timeline-case-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Case Context</label>
+                            <select id="timeline-case-filter" onchange="filterTimelineEvents()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface font-mono">
+                                <option value="ALL">All Cases (Cross-Case)</option>
+                                <option value="CASE_101">CASE_101 (Cargo Hijack)</option>
+                                <option value="CASE_204">CASE_204 (Zaveri Bazaar)</option>
+                                <option value="CASE_102">CASE_102 (Cyber Fraud)</option>
+                                <option value="CASE_305">CASE_305 (Hawala Intercept)</option>
+                            </select>
+                        </div>
+
+                        <!-- Event Type Filter -->
+                        <div>
+                            <label for="timeline-type-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Event Type</label>
+                            <select id="timeline-type-filter" onchange="filterTimelineEvents()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Event Types</option>
+                                <option value="CARGO_UNLOAD">Cargo Unloading</option>
+                                <option value="VEHICLE_SIGHTING">Vehicle Sighting</option>
+                                <option value="CALL_INTERCEPT">Call Intercept / CDR</option>
+                                <option value="BULLION_RECOVERY">Bullion Recovery / Seizure</option>
+                                <option value="CYBER_FRAUD_TRANSFER">Financial Transfer</option>
+                                <option value="NLP_EXTRACTED">NLP Extracted Event</option>
+                            </select>
+                        </div>
+
+                        <!-- Source Method Filter -->
+                        <div>
+                            <label for="timeline-source-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Extraction / Source Method</label>
+                            <select id="timeline-source-filter" onchange="filterTimelineEvents()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Sources</option>
+                                <option value="SYNTHETIC_DATASET">Synthetic Dataset</option>
+                                <option value="DIGITAL_FORENSICS">Digital Forensics</option>
+                                <option value="TELCO_INTERCEPT">Telco Signal Intercept</option>
+                                <option value="AI_NER">AI NER Extraction</option>
+                                <option value="NLP_EXTRACTED">NLP Pipeline Extracted</option>
+                            </select>
+                        </div>
+
+                        <!-- Correlation Filter -->
+                        <div>
+                            <label for="timeline-correlation-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Correlation Filter</label>
+                            <select id="timeline-correlation-filter" onchange="filterTimelineEvents()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Events</option>
+                                <option value="CORRELATED">Correlated Events Only</option>
+                                <option value="DIRECTLY_SUPPORTED">Directly Supported Links</option>
+                                <option value="POTENTIAL_CORRELATION">Potential Correlations</option>
+                            </select>
+                        </div>
+
+                        <!-- Keyword / Entity Search Input -->
+                        <div>
+                            <label for="timeline-search-input" class="block text-[10px] font-bold uppercase text-outline mb-1">Search Entity / Keyword</label>
+                            <div class="relative">
+                                <input type="text" id="timeline-search-input" onkeyup="filterTimelineEvents()" placeholder="Search Aarav, PHONE_042..." class="w-full bg-surface-container-low border border-surface-container-high rounded pl-8 pr-2 py-1 text-xs text-on-surface">
+                                <span class="material-symbols-outlined absolute left-2 top-1.5 text-xs text-outline">search</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Temporal Conflict Notice Banner -->
+                    <div id="timeline-conflict-banner" class="hidden p-3 bg-amber-950/40 border border-amber-800/60 rounded text-xs text-amber-300 space-y-1">
+                        <div class="flex items-center gap-2 font-semibold text-amber-200">
+                            <span class="material-symbols-outlined text-sm text-amber-400">warning</span>
+                            <span>Temporal Conflict Warning — Human Verification Required</span>
+                        </div>
+                        <p id="timeline-conflict-detail" class="text-[11px] text-amber-300/90 leading-relaxed font-sans"></p>
+                    </div>
+
+                    <!-- Timeline Events Container -->
+                    <div id="timeline-events-container" class="space-y-3 relative font-sans">
+                        <div class="text-outline text-center py-12 font-mono text-xs">
+                            <span class="material-symbols-outlined animate-spin text-xl text-primary mb-1">sync</span>
+                            <div>Loading chronological investigation events...</div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1110,9 +1206,35 @@
                 </button>
             </div>
         </div>
+    <!-- EVENT DETAILS & CORRELATION MODAL -->
+    <div id="event-details-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+        <div class="bg-surface border border-surface-container-high rounded-xl max-w-2xl w-full p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh] text-xs">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">event</span>
+                    <h3 id="event-modal-title" class="text-base font-bold text-white">Event Intelligence & Correlation Analysis</h3>
+                </div>
+                <button onclick="closeEventDetailModal()" class="text-outline hover:text-white p-1 rounded" aria-label="Close Event Details Modal">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <div id="event-modal-body" class="space-y-4 font-sans text-xs">
+                <!-- Dynamic Content -->
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-surface-container-high pt-3">
+                <div class="text-[11px] text-amber-300 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">info</span>
+                    <span>Correlations represent temporal & co-occurrence links only. Not proof of legal causation.</span>
+                </div>
+                <button onclick="closeEventDetailModal()" class="px-3.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-xs font-semibold rounded">
+                    Close
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- Frontend Service Layer & Application Logic -->
     <script src="config.js"></script>
     <script src="service.js"></script>
     <script src="app.js"></script>

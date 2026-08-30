@@ -292,18 +292,159 @@ class MockCrimeGraphAdapter {
         };
     }
 
-    async getTimeline(caseId) {
-        const targetCase = this.dataset.cases.find(c => c.id === caseId);
-        if (!targetCase) return { events: [] };
+    async getTimeline(caseId = "ALL") {
+        const allEvents = [
+            {
+                id: "EV_101_01",
+                case_id: "CASE_101",
+                title: "Cargo Unloading Supervision",
+                event_type: "CARGO_UNLOAD",
+                timestamp: "2026-08-10T18:30:00Z",
+                timestamp_precision: "EXACT",
+                location_id: "LOC_001",
+                location_name: "ICD Tughlakabad Logistics Yard",
+                involved_entity_ids: ["PERSON_017", "LOC_001"],
+                involved_entity_names: ["Aarav Verma (PERSON_017)", "ICD Tughlakabad (LOC_001)"],
+                evidence_ids: ["EVID_101_01"],
+                confidence: 0.97,
+                confidence_tier: "HIGH",
+                source_document: "DOC_CASE_101_FIR_REPORT.pdf",
+                source_type: "SYNTHETIC_DATASET",
+                extraction_method: "AI_NER",
+                description: "CCTV review and transit manifests identify Aarav Verma (PERSON_017) supervising unmanifested cargo unloading during incident window.",
+                correlation_status: "DIRECTLY_SUPPORTED",
+                correlations: [
+                    { target_event_id: "EV_101_02", reason: "Shared Suspect: PERSON_017", correlation_type: "SHARED_ENTITY" }
+                ]
+            },
+            {
+                id: "EV_101_02",
+                case_id: "CASE_101",
+                title: "Logistics Yard Vehicle Exit",
+                event_type: "VEHICLE_SIGHTING",
+                timestamp: "2026-08-11T09:30:00Z",
+                timestamp_precision: "EXACT",
+                location_id: "LOC_001",
+                location_name: "ICD Tughlakabad Gate 3",
+                involved_entity_ids: ["PERSON_017", "VEHICLE_017"],
+                involved_entity_names: ["Aarav Verma (PERSON_017)", "Bolero Pickup MH-01-AB-1234 (VEHICLE_017)"],
+                evidence_ids: ["EVID_042_01"],
+                confidence: 0.94,
+                confidence_tier: "HIGH",
+                source_document: "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf",
+                source_type: "DIGITAL_FORENSICS",
+                extraction_method: "DIGITAL_FORENSICS",
+                description: "ANPR camera logs captured Bolero pickup truck MH-01-AB-1234 exiting the logistics yard following cargo dispatch.",
+                correlation_status: "DIRECTLY_SUPPORTED",
+                correlations: [
+                    { target_event_id: "EV_101_01", reason: "Shared Location: LOC_001", correlation_type: "SHARED_LOCATION" }
+                ]
+            },
+            {
+                id: "EV_042_01",
+                case_id: "CASE_101",
+                title: "Burner Handset Messaging Session",
+                event_type: "CALL_INTERCEPT",
+                timestamp: "2026-08-12T14:20:00Z",
+                timestamp_precision: "EXACT",
+                location_id: "LOC_007",
+                location_name: "Cell Tower Sector 7 (Tughlakabad)",
+                involved_entity_ids: ["PERSON_017", "PHONE_042"],
+                involved_entity_names: ["Aarav Verma (PERSON_017)", "Burner Line +91-9876543210 (PHONE_042)"],
+                evidence_ids: ["EVID_042_01"],
+                confidence: 0.95,
+                confidence_tier: "HIGH",
+                source_document: "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf",
+                source_type: "DIGITAL_FORENSICS",
+                extraction_method: "DIGITAL_FORENSICS",
+                description: "Handset triage recovered encrypted messaging sessions identifying Aarav Verma (PERSON_017) using burner line +91-9876543210 (PHONE_042) to coordinate dispatch.",
+                correlation_status: "POTENTIAL_CORRELATION",
+                correlations: [
+                    { target_event_id: "EV_042_02", reason: "Cross-Case Shared Phone: PHONE_042", correlation_type: "SHARED_PHONE" }
+                ],
+                conflict: {
+                    has_conflict: true,
+                    description: "Temporal conflict: Forensic extraction log indicates messaging at 14:20:00Z, whereas CDR gateway record logs tower ping at 14:45:10Z. Human officer verification required."
+                }
+            },
+            {
+                id: "EV_042_02",
+                case_id: "CASE_204",
+                title: "Lawful Signal Intelligence Intercept",
+                event_type: "CALL_INTERCEPT",
+                timestamp: "2026-08-12T21:15:00Z",
+                timestamp_precision: "EXACT",
+                location_id: "LOC_003",
+                location_name: "Zaveri Bazaar Cell Tower (Mumbai)",
+                involved_entity_ids: ["PERSON_089", "PHONE_042"],
+                involved_entity_names: ["Vikram Malhotra (PERSON_089)", "Burner Line +91-9876543210 (PHONE_042)"],
+                evidence_ids: ["EVID_042_02"],
+                confidence: 0.93,
+                confidence_tier: "HIGH",
+                source_document: "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf",
+                source_type: "TELCO_INTERCEPT",
+                extraction_method: "TELCO_INTERCEPT",
+                description: "Lawful signal intelligence intercept confirmed Vikram Malhotra (PERSON_089) utilizing burner line +91-9876543210 (PHONE_042) to negotiate bullion disposal.",
+                correlation_status: "POTENTIAL_CORRELATION",
+                correlations: [
+                    { target_event_id: "EV_042_01", reason: "Cross-Case Shared Phone: PHONE_042 (CASE_101 <-> CASE_204)", correlation_type: "SHARED_PHONE" },
+                    { target_event_id: "EV_204_01", reason: "Shared Suspect: PERSON_089", correlation_type: "SHARED_ENTITY" }
+                ]
+            },
+            {
+                id: "EV_204_01",
+                case_id: "CASE_204",
+                title: "Zaveri Bazaar Bullion Vault Seizure",
+                event_type: "BULLION_RECOVERY",
+                timestamp: "2026-08-14T11:45:00Z",
+                timestamp_precision: "EXACT",
+                location_id: "LOC_003",
+                location_name: "Zaveri Bazaar Fencing Vault",
+                involved_entity_ids: ["PERSON_089", "LOC_003", "ACC_001"],
+                involved_entity_names: ["Vikram Malhotra (PERSON_089)", "Zaveri Bazaar (LOC_003)", "HDFC Account (ACC_001)"],
+                evidence_ids: ["EVID_204_01"],
+                confidence: 0.96,
+                confidence_tier: "HIGH",
+                source_document: "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
+                source_type: "SYNTHETIC_DATASET",
+                extraction_method: "AI_NER",
+                description: "Financial trail and bullion seizure at Zaveri Bazaar directly incriminate Vikram Malhotra (PERSON_089) as primary receiver.",
+                correlation_status: "DIRECTLY_SUPPORTED",
+                correlations: [
+                    { target_event_id: "EV_042_02", reason: "Shared Suspect: PERSON_089", correlation_type: "SHARED_ENTITY" }
+                ]
+            },
+            {
+                id: "EV_NLP_01",
+                case_id: "CASE_101",
+                title: "Encrypted Message Intelligence Triage",
+                event_type: "NLP_EXTRACTED",
+                timestamp: null,
+                timestamp_precision: "UNKNOWN",
+                location_id: "LOC_001",
+                location_name: "Logistics Hub (Extracted)",
+                involved_entity_ids: ["PERSON_017", "PHONE_042"],
+                involved_entity_names: ["Aarav Verma (PERSON_017)", "+91-9876543210 (PHONE_042)"],
+                evidence_ids: ["EVID_EXT_101"],
+                confidence: 0.90,
+                confidence_tier: "MEDIUM",
+                source_document: "DOC_EXTRACTED_MESSAGE_TRIAGE.txt",
+                source_type: "NLP_EXTRACTED",
+                extraction_method: "NLP_EXTRACTED",
+                description: "Automated Day-22 NLP extraction parsed text snippet identifying burner handset co-occurrence with logistics yard supervisor.",
+                correlation_status: "POTENTIAL_CORRELATION",
+                correlations: [
+                    { target_event_id: "EV_042_01", reason: "Shared Entities: PERSON_017, PHONE_042", correlation_type: "SHARED_ENTITY" }
+                ]
+            }
+        ];
 
-        return {
-            events: [
-                { id: "EV_01", timestamp: "2026-08-10T18:30:00Z", type: "CARGO_UNLOAD", location_id: "LOC_001", description: "Unmanifested electronics cargo unloading supervised by Aarav Verma." },
-                { id: "EV_02", timestamp: "2026-08-11T09:30:00Z", type: "VEHICLE_SIGHTING", location_id: "LOC_001", description: "Black SUV MH-01-AB-1234 observed exiting logistics hub." },
-                { id: "EV_03", timestamp: "2026-08-12T21:15:00Z", type: "CALL_INTERCEPT", location_id: "LOC_007", description: "Burner line +91-9876543210 initiated encrypted call to Zaveri Bazaar tower." },
-                { id: "EV_04", timestamp: "2026-08-14T11:45:00Z", type: "BULLION_RECOVERY", location_id: "LOC_003", description: "Crime Branch seized unmanifested bullion vault registered to Vikram Malhotra." }
-            ]
-        };
+        if (!caseId || caseId === "ALL") {
+            return { events: allEvents };
+        }
+
+        const filtered = allEvents.filter(e => e.case_id === caseId);
+        return { events: filtered };
     }
 
     async getEvidence(evidenceId) {

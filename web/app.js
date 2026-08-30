@@ -2803,4 +2803,323 @@ function sendNLPQueryToAI() {
     }
 }
 
+/* ===========================================================================
+   DAY 23: TIMELINE & EVENT CORRELATION FRONTEND WORKSPACE
+   =========================================================================== */
+
+let allTimelineEvents = [];
+
+async function renderTimeline(caseId = null) {
+    const container = document.getElementById("timeline-events-container");
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="text-outline text-center py-12 font-mono text-xs">
+            <span class="material-symbols-outlined animate-spin text-xl text-primary mb-1">sync</span>
+            <div>Fetching chronological timeline records from CrimeGraph backend...</div>
+        </div>`;
+
+    try {
+        const targetCase = caseId || document.getElementById("timeline-case-filter")?.value || "ALL";
+        const response = await window.dataService.getTimeline(targetCase);
+        allTimelineEvents = response.events || response || [];
+
+        filterTimelineEvents();
+    } catch (err) {
+        console.error("[renderTimeline] Error fetching timeline:", err);
+        container.innerHTML = `
+            <div class="p-6 bg-rose-950/40 border border-rose-800/60 rounded text-center text-xs text-rose-300 font-sans space-y-2">
+                <span class="material-symbols-outlined text-2xl text-rose-400 block">warning</span>
+                <div class="font-bold">Timeline Unavailable</div>
+                <div class="text-[11px] text-rose-200/80">Failed to load chronological event sequence from CrimeGraph service: ${err.message || 'Unknown network error'}.</div>
+                <button onclick="renderTimeline()" class="mt-2 px-3 py-1 bg-surface-container-high hover:bg-surface-container-highest text-white text-xs font-semibold rounded border border-outline-variant">
+                    Retry Loading
+                </button>
+            </div>`;
+    }
+}
+
+function filterTimelineEvents() {
+    const container = document.getElementById("timeline-events-container");
+    const conflictBanner = document.getElementById("timeline-conflict-banner");
+    const conflictDetail = document.getElementById("timeline-conflict-detail");
+    if (!container) return;
+
+    const caseFilter = document.getElementById("timeline-case-filter")?.value || "ALL";
+    const typeFilter = document.getElementById("timeline-type-filter")?.value || "ALL";
+    const sourceFilter = document.getElementById("timeline-source-filter")?.value || "ALL";
+    const correlationFilter = document.getElementById("timeline-correlation-filter")?.value || "ALL";
+    const searchQuery = (document.getElementById("timeline-search-input")?.value || "").toLowerCase().trim();
+
+    let filtered = allTimelineEvents.filter(ev => {
+        if (caseFilter !== "ALL" && ev.case_id !== caseFilter) return false;
+        if (typeFilter !== "ALL" && ev.event_type !== typeFilter) return false;
+        if (sourceFilter !== "ALL" && ev.source_type !== sourceFilter && ev.extraction_method !== sourceFilter) return false;
+        if (correlationFilter === "CORRELATED" && (!ev.correlations || ev.correlations.length === 0)) return false;
+        if (correlationFilter === "DIRECTLY_SUPPORTED" && ev.correlation_status !== "DIRECTLY_SUPPORTED") return false;
+        if (correlationFilter === "POTENTIAL_CORRELATION" && ev.correlation_status !== "POTENTIAL_CORRELATION") return false;
+
+        if (searchQuery) {
+            const haystack = [
+                ev.id,
+                ev.title,
+                ev.event_type,
+                ev.case_id,
+                ev.description,
+                ev.location_name,
+                ev.source_document,
+                ...(ev.involved_entity_names || []),
+                ...(ev.involved_entity_ids || [])
+            ].join(" ").toLowerCase();
+            if (!haystack.includes(searchQuery)) return false;
+        }
+        return true;
+    });
+
+    // Check for temporal conflicts across events
+    const conflictsFound = filtered.filter(e => e.conflict && e.conflict.has_conflict);
+    if (conflictBanner && conflictDetail) {
+        if (conflictsFound.length > 0) {
+            conflictBanner.classList.remove("hidden");
+            conflictDetail.innerText = conflictsFound.map(c => `[${c.id}] ${c.conflict.description}`).join(" | ");
+        } else {
+            conflictBanner.classList.add("hidden");
+        }
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12 text-outline font-mono text-xs border border-surface-container-high rounded p-6 bg-surface-container-lowest">
+                <span class="material-symbols-outlined text-3xl opacity-40 mb-2 block">event_busy</span>
+                <div>No timeline events match the selected filter criteria.</div>
+                <div class="text-[11px] text-on-surface-variant mt-1">Adjust filters or select "All Cases" to view cross-case events.</div>
+            </div>`;
+        return;
+    }
+
+    // Sort events: Dated events first (chronological order), then "Time unknown" events
+    filtered.sort((a, b) => {
+        if (!a.timestamp && !b.timestamp) return 0;
+        if (!a.timestamp) return 1;
+        if (!b.timestamp) return -1;
+        return new Date(a.timestamp) - new Date(b.timestamp);
+    });
+
+    let html = '';
+    filtered.forEach((ev, idx) => {
+        const timeDisplay = ev.timestamp 
+            ? new Date(ev.timestamp).toUTCString().replace("GMT", "UTC") 
+            : '<span class="text-amber-400 font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">help_outline</span> Time unknown</span>';
+        
+        const isNLP = ev.source_type === "NLP_EXTRACTED" || ev.extraction_method === "NLP_EXTRACTED";
+        const sourceBadgeClass = isNLP
+            ? 'bg-purple-950 text-purple-300 border-purple-800/60'
+            : 'bg-blue-950 text-blue-300 border-blue-800/60';
+
+        const correlationBadge = ev.correlation_status === "DIRECTLY_SUPPORTED"
+            ? '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">DIRECTLY SUPPORTED</span>'
+            : ev.correlation_status === "POTENTIAL_CORRELATION"
+                ? '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950/60 text-amber-300 border border-amber-800/40">POTENTIAL CORRELATION</span>'
+                : '';
+
+        const entitiesHtml = (ev.involved_entity_names || ev.involved_entity_ids || []).map(ent => `
+            <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface font-mono text-[11px] border border-outline-variant">
+                ${ent}
+            </span>
+        `).join("");
+
+        const evidenceIds = ev.evidence_ids || [];
+        const evidenceHtml = evidenceIds.map(evId => `
+            <button onclick="openEvidencePanel({ evidence_id: '${evId}' })" class="px-2 py-0.5 bg-surface-container-highest hover:bg-surface-variant text-primary font-mono text-[10px] rounded border border-outline-variant flex items-center gap-1 transition">
+                <span class="material-symbols-outlined text-[11px]">receipt</span> ${evId}
+            </button>
+        `).join("");
+
+        const correlationsList = (ev.correlations || []).map(c => `
+            <div class="text-[11px] text-amber-200/90 bg-amber-950/30 p-1.5 rounded border border-amber-900/30 flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs text-amber-400">link</span>
+                <span><strong>Reason:</strong> ${c.reason} (${c.correlation_type})</span>
+            </div>
+        `).join("");
+
+        html += `
+            <div class="stitch-card p-4 space-y-3 hover:border-primary/50 transition">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-full bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-bold font-mono text-xs">
+                            ${idx + 1}
+                        </span>
+                        <div>
+                            <div class="font-bold text-white text-xs flex items-center gap-2">
+                                <span>${ev.title || ev.event_type}</span>
+                                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface-container-highest text-outline font-semibold">${ev.id}</span>
+                            </div>
+                            <div class="text-[11px] text-on-surface-variant flex items-center gap-2 mt-0.5">
+                                <span>Case: <strong class="text-primary font-mono">${ev.case_id}</strong></span>
+                                <span>•</span>
+                                <span>Location: <strong>${ev.location_name || ev.location_id || 'N/A'}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        ${correlationBadge}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded border ${sourceBadgeClass}">
+                            ${isNLP ? 'NLP EXTRACTED' : (ev.source_type || 'SOURCE')}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 text-xs bg-surface-container-lowest p-2 rounded border border-surface-container-high font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-xs text-primary">schedule</span>
+                        <span class="text-white font-bold">${timeDisplay}</span>
+                        ${ev.timestamp_precision ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-surface-container-high text-outline">P: ${ev.timestamp_precision}</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px]">
+                        <span>Confidence: <strong class="text-emerald-400">${Math.round((ev.confidence || 0.95) * 100)}%</strong></span>
+                        <span>•</span>
+                        <span class="text-outline">${ev.source_document || 'Doc N/A'}</span>
+                    </div>
+                </div>
+
+                <p class="text-xs text-on-surface leading-relaxed font-sans">${ev.description}</p>
+
+                ${entitiesHtml ? `
+                    <div class="space-y-1">
+                        <div class="text-[10px] font-bold uppercase text-outline">Involved Entities</div>
+                        <div class="flex flex-wrap gap-1.5">${entitiesHtml}</div>
+                    </div>` : ''}
+
+                ${correlationsList ? `
+                    <div class="space-y-1">
+                        <div class="text-[10px] font-bold uppercase text-amber-400 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">hub</span> Correlated Intelligence Links
+                        </div>
+                        <div class="space-y-1">${correlationsList}</div>
+                    </div>` : ''}
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-surface-container-high">
+                    <div class="flex flex-wrap items-center gap-1">
+                        <span class="text-[10px] font-bold uppercase text-outline mr-1">Evidence:</span>
+                        ${evidenceHtml || '<span class="text-[11px] text-outline">No evidence attached</span>'}
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="openEventDetailModal('${ev.id}')" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">info</span> Event Details
+                        </button>
+                        <button onclick="highlightEventOnGraph('${ev.id}')" class="px-2.5 py-1 bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold rounded border border-primary/40 flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">hub</span> View in Graph
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function openEventDetailModal(eventId) {
+    const ev = allTimelineEvents.find(e => e.id === eventId);
+    if (!ev) return;
+
+    const modal = document.getElementById("event-details-modal");
+    const body = document.getElementById("event-modal-body");
+    if (!modal || !body) return;
+
+    const timeDisplay = ev.timestamp 
+        ? new Date(ev.timestamp).toUTCString()
+        : 'Time unknown (Unspecified in source document)';
+
+    const entitiesList = (ev.involved_entity_names || ev.involved_entity_ids || []).map(ent => `
+        <span class="px-2 py-1 bg-surface-container-high rounded border border-outline-variant text-on-surface font-mono text-xs">
+            ${ent}
+        </span>
+    `).join("");
+
+    const correlationsList = (ev.correlations || []).map(c => `
+        <div class="p-2 bg-amber-950/40 border border-amber-800/40 rounded text-xs text-amber-200 space-y-0.5">
+            <div class="font-bold flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs text-amber-400">link</span> ${c.reason}
+            </div>
+            <div class="text-[11px] text-amber-300/80">Target Event: <span class="font-mono">${c.target_event_id}</span> | Type: ${c.correlation_type}</div>
+        </div>
+    `).join("");
+
+    body.innerHTML = `
+        <div class="space-y-4">
+            <div class="bg-surface-container-lowest p-3 rounded border border-surface-container-high space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-white text-sm">${ev.title || ev.event_type}</span>
+                    <span class="font-mono text-xs px-2 py-0.5 rounded bg-primary/20 text-primary font-bold border border-primary/40">${ev.id}</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono pt-1">
+                    <div><span class="text-outline block text-[10px]">CASE ID</span><span class="text-white font-bold">${ev.case_id}</span></div>
+                    <div><span class="text-outline block text-[10px]">CONFIDENCE</span><span class="text-emerald-400 font-bold">${Math.round((ev.confidence || 0.95)*100)}% (${ev.confidence_tier || 'HIGH'})</span></div>
+                    <div><span class="text-outline block text-[10px]">PRECISION</span><span class="text-amber-300 font-bold">${ev.timestamp_precision || 'EXACT'}</span></div>
+                    <div><span class="text-outline block text-[10px]">SOURCE METHOD</span><span class="text-primary font-bold">${ev.extraction_method || ev.source_type}</span></div>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Timestamp & Location</div>
+                <div class="p-2.5 bg-surface-container-lowest border border-surface-container-high rounded text-xs space-y-1">
+                    <div><strong>Timestamp (UTC):</strong> <span class="font-mono text-white">${timeDisplay}</span></div>
+                    <div><strong>Location Context:</strong> <span class="text-on-surface">${ev.location_name || ev.location_id || 'N/A'}</span></div>
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Investigative Description</div>
+                <p class="p-2.5 bg-surface-container-lowest border border-surface-container-high rounded text-xs text-on-surface leading-relaxed">${ev.description}</p>
+            </div>
+
+            ${entitiesList ? `
+                <div class="space-y-1">
+                    <div class="text-[10px] font-bold uppercase text-outline">Involved Entities</div>
+                    <div class="flex flex-wrap gap-1.5">${entitiesList}</div>
+                </div>` : ''}
+
+            ${correlationsList ? `
+                <div class="space-y-1">
+                    <div class="text-[10px] font-bold uppercase text-amber-400">Correlated Intelligence Connections</div>
+                    <div class="space-y-1.5">${correlationsList}</div>
+                </div>` : ''}
+
+            <div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-outline">Evidence & Source Provenance</div>
+                <div class="p-2.5 bg-surface-container-lowest border border-surface-container-high rounded text-xs space-y-1 font-mono">
+                    <div>Source Document: <span class="text-primary font-bold">${ev.source_document || 'DOC_N/A'}</span></div>
+                    <div>Source Type: <span class="text-white">${ev.source_type || 'SYNTHETIC_DATASET'}</span></div>
+                    <div>Evidence Reference IDs: <span class="text-emerald-400 font-bold">${(ev.evidence_ids || []).join(", ") || 'N/A'}</span></div>
+                </div>
+            </div>
+        </div>`;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeEventDetailModal() {
+    const modal = document.getElementById("event-details-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+function highlightEventOnGraph(eventId) {
+    const ev = allTimelineEvents.find(e => e.id === eventId);
+    if (!ev) return;
+
+    const entityIds = (ev.involved_entity_ids || []).filter(id => id.startsWith("PERSON_") || id.startsWith("PHONE_") || id.startsWith("VEHICLE_") || id.startsWith("LOC_") || id.startsWith("ACC_") || id.startsWith("CASE_"));
+    
+    switchTab("pane-graph");
+    if (entityIds.length > 0) {
+        highlightPathFromAI(entityIds);
+    }
+}
+
+
 
