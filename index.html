@@ -323,11 +323,54 @@
             </section>
 
             <!-- PANE 4: NETWORK GRAPH / INVESTIGATION WORKSPACE (MAIN PRIORITY) -->
-            <section id="pane-graph" class="tab-pane hidden space-y-3 h-[calc(100vh-100px)] flex flex-col">
+            <section id="pane-graph" class="tab-pane hidden space-y-3 h-[calc(100vh-100px)] flex flex-col font-sans">
+                <!-- Network Intelligence Live Analytics Bar -->
+                <div id="network-intelligence-bar" class="bg-surface-container-low border border-surface-container-high rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 font-sans">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <div class="flex items-center gap-1.5 font-bold text-white uppercase text-[11px] tracking-wider">
+                            <span class="material-symbols-outlined text-primary text-base" aria-hidden="true">hub</span>
+                            <span>Network Intelligence Summary</span>
+                        </div>
+                        <div class="h-4 w-px bg-surface-container-high hidden sm:block"></div>
+                        <div class="flex items-center gap-2 text-[11px] font-mono flex-wrap">
+                            <span class="px-2 py-0.5 rounded bg-surface-container-highest border border-surface-container-high text-slate-300">
+                                Nodes: <strong id="net-stat-nodes" class="text-primary">0</strong>
+                            </span>
+                            <span class="px-2 py-0.5 rounded bg-surface-container-highest border border-surface-container-high text-slate-300">
+                                Edges: <strong id="net-stat-edges" class="text-tertiary">0</strong>
+                            </span>
+                            <span class="px-2 py-0.5 rounded bg-tertiary-container/20 border border-tertiary/30 text-tertiary">
+                                Bridge Entities: <strong id="net-stat-bridges">0</strong>
+                            </span>
+                            <span class="px-2 py-0.5 rounded bg-amber-950/40 border border-amber-800/40 text-amber-300">
+                                Cross-Case Links: <strong id="net-stat-cross">0</strong>
+                            </span>
+                            <span class="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
+                                Evidence-Backed: <strong id="net-stat-evidence">0</strong>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Network Path Explorer Controls -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[11px] text-outline font-semibold">Path Explorer:</span>
+                        <select id="path-source-select" aria-label="Select Path Origin Entity" class="bg-surface-container-lowest border border-surface-container-high rounded px-2 py-0.5 text-[11px] text-white font-mono focus:outline-none focus:border-primary max-w-[130px]">
+                            <option value="CASE_101">CASE_101</option>
+                        </select>
+                        <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
+                        <select id="path-target-select" aria-label="Select Path Target Entity" class="bg-surface-container-lowest border border-surface-container-high rounded px-2 py-0.5 text-[11px] text-white font-mono focus:outline-none focus:border-primary max-w-[130px]">
+                            <option value="CASE_204">CASE_204</option>
+                        </select>
+                        <button id="btn-trace-path" class="px-2.5 py-1 bg-primary-container hover:bg-blue-600 text-white text-[11px] font-semibold rounded shadow flex items-center gap-1" aria-label="Trace Connection Path">
+                            <span class="material-symbols-outlined text-xs" aria-hidden="true">route</span> Trace Path
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Controls & Filter Toolbar -->
                 <div class="bg-surface-container-low border border-surface-container-high rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
                     <!-- Graph Controls -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <button id="graph-zoom-in" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom In" aria-label="Zoom In Graph View">
                             <span class="material-symbols-outlined text-sm" aria-hidden="true">zoom_in</span>
                         </button>
@@ -352,15 +395,18 @@
                         <input type="text" id="graph-search-input" aria-label="Search Node in Graph" placeholder="Search node in graph..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded pl-7 pr-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary">
                     </div>
 
-                    <!-- Entity Filter Options -->
+                    <!-- Entity & Intelligence Filter Options -->
                     <div class="flex items-center gap-3 flex-wrap">
-                        <span class="text-on-surface-variant text-[11px]">Filter Types:</span>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PERSON"> Person</label>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PHONE"> Phone</label>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="VEHICLE"> Vehicle</label>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="LOCATION"> Location</label>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="CASE"> Case</label>
-                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="ACCOUNT"> Account</label>
+                        <span class="text-on-surface-variant text-[11px] font-semibold">Filters:</span>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="PERSON"> Person</label>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="PHONE"> Phone</label>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="VEHICLE"> Vehicle</label>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="LOCATION"> Location</label>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="CASE"> Case</label>
+                        <label class="flex items-center gap-1 text-[11px] cursor-pointer"><input type="checkbox" checked class="filter-type" value="ACCOUNT"> Account</label>
+                        <div class="h-3 w-px bg-surface-container-high"></div>
+                        <label class="flex items-center gap-1 text-[11px] text-amber-300 font-semibold cursor-pointer"><input type="checkbox" id="filter-cross-case-toggle"> Cross-Case Only</label>
+                        <label class="flex items-center gap-1 text-[11px] text-emerald-300 font-semibold cursor-pointer"><input type="checkbox" id="filter-evidence-only-toggle"> Evidence-Backed</label>
                     </div>
                 </div>
 
