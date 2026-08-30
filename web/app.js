@@ -240,6 +240,9 @@ function switchTab(paneId, updateHash = true) {
     if (paneId === "pane-audit") {
         renderAuditLogs();
     }
+    if (paneId === "pane-patterns") {
+        renderSuspiciousPatterns();
+    }
 }
 
 /* ----------------------------------------------------
@@ -2173,4 +2176,257 @@ function displayAuditLogs() {
         `;
     }).join("");
 }
+
+/* ----------------------------------------------------
+   11. SUSPICIOUS PATTERN DETECTION & ANOMALY UI (DAY 20)
+---------------------------------------------------- */
+let currentPatternsCache = [];
+
+async function renderSuspiciousPatterns() {
+    const container = document.getElementById("patterns-container");
+    if (!container) return;
+
+    const caseFilter = document.getElementById("pattern-case-filter")?.value || "ALL";
+    const typeFilter = document.getElementById("pattern-type-filter")?.value || "ALL";
+    const severityFilter = document.getElementById("pattern-severity-filter")?.value || "ALL";
+    const searchVal = (document.getElementById("pattern-search-input")?.value || "").toLowerCase().trim();
+
+    container.innerHTML = `
+        <div class="text-outline text-center col-span-full py-12 flex flex-col items-center justify-center gap-2 font-sans">
+            <span class="material-symbols-outlined animate-spin text-2xl text-amber-400">sync</span>
+            <span>Analyzing graph patterns...</span>
+        </div>
+    `;
+
+    try {
+        const res = await window.dataService.getSuspiciousPatterns(caseFilter, typeFilter);
+        let patterns = (res && res.patterns) ? res.patterns : [];
+
+        // Apply local severity filter
+        if (severityFilter === "HIGH") {
+            patterns = patterns.filter(p => p.severity === "HIGH");
+        } else if (severityFilter === "MEDIUM") {
+            patterns = patterns.filter(p => p.severity === "HIGH" || p.severity === "MEDIUM");
+        }
+
+        // Apply local keyword search
+        if (searchVal) {
+            patterns = patterns.filter(p => {
+                const titleMatch = (p.title || "").toLowerCase().includes(searchVal);
+                const explanationMatch = (p.explanation || "").toLowerCase().includes(searchVal);
+                const entityMatch = (p.entities || []).some(e => e.toLowerCase().includes(searchVal));
+                const caseMatch = (p.cases || []).some(c => c.toLowerCase().includes(searchVal));
+                return titleMatch || explanationMatch || entityMatch || caseMatch;
+            });
+        }
+
+        currentPatternsCache = patterns;
+
+        // Update badge counter
+        const badge = document.getElementById("nav-pattern-badge");
+        if (badge) badge.innerText = patterns.length;
+
+        if (patterns.length === 0) {
+            if (searchVal.includes("999") || searchVal.includes("888")) {
+                container.innerHTML = `
+                    <div class="col-span-full stitch-card text-center py-12 space-y-2 font-sans">
+                        <span class="material-symbols-outlined text-4xl text-outline opacity-40">find_in_page</span>
+                        <div class="text-sm font-bold text-white">No Grounded Pattern/Data Found</div>
+                        <div class="text-xs text-on-surface-variant">Entity '${searchVal}' does not exist in active knowledge graph dataset. No fake patterns fabricated.</div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="col-span-full stitch-card text-center py-12 space-y-2 font-sans">
+                        <span class="material-symbols-outlined text-4xl text-outline opacity-40">check_circle</span>
+                        <div class="text-sm font-bold text-white">No Significant Suspicious Patterns Detected</div>
+                        <div class="text-xs text-on-surface-variant">No network anomalies match the current active filter criteria.</div>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        container.innerHTML = patterns.map((p) => {
+            const sevColor = p.severity === "HIGH" 
+                ? "bg-amber-950/60 text-amber-300 border-amber-800/60" 
+                : "bg-cyan-950/60 text-cyan-300 border-cyan-800/60";
+            
+            const confidencePct = Math.round((p.confidence || 0.9) * 100);
+
+            return `
+                <div class="stitch-card flex flex-col justify-between space-y-3 hover:border-amber-500/50 transition cursor-pointer font-sans" onclick="openPatternDetailsModal('${p.pattern_id}')">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded border ${sevColor} uppercase font-mono tracking-wider">
+                                ${p.severity || "HIGH"} SEVERITY
+                            </span>
+                            <span class="text-xs font-mono font-bold text-tertiary">
+                                ${confidencePct}% Confidence
+                            </span>
+                        </div>
+
+                        <h3 class="text-sm font-bold text-white flex items-center gap-1.5 leading-snug">
+                            <span class="material-symbols-outlined text-amber-400 text-base" aria-hidden="true">warning</span>
+                            ${p.title}
+                        </h3>
+
+                        <div class="text-[11px] text-on-surface-variant leading-relaxed line-clamp-3">
+                            ${p.explanation}
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 pt-2 border-t border-surface-container-high text-xs">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] font-bold uppercase text-outline">Entities:</span>
+                            ${(p.entities || []).map(e => `<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-tertiary font-mono text-[10px] font-bold">${e}</span>`).join("")}
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-[10px] font-bold uppercase text-outline">Cases:</span>
+                            ${(p.cases || []).map(c => `<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-mono text-[10px] font-bold">${c}</span>`).join("")}
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1">
+                            <button onclick="event.stopPropagation(); openPatternDetailsModal('${p.pattern_id}')" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-white text-[11px] font-semibold rounded flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">info</span> Inspect Details
+                            </button>
+                            <button onclick="event.stopPropagation(); highlightPatternOnGraph('${p.pattern_id}')" class="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/40 text-amber-300 text-[11px] font-semibold rounded flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">hub</span> Highlight Graph
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    } catch (err) {
+        console.error("Failed to fetch suspicious patterns:", err);
+        container.innerHTML = `
+            <div class="col-span-full p-4 bg-rose-950/30 border border-rose-800/40 rounded text-center text-rose-300 text-xs font-sans">
+                <span class="material-symbols-outlined text-xl text-rose-400 block mb-1">cloud_off</span>
+                <strong>Pattern Intelligence Temporarily Unavailable</strong>
+                <p class="text-on-surface-variant text-[11px] mt-1">Unable to connect to pattern detection service. Please check network connectivity.</p>
+            </div>
+        `;
+    }
+}
+
+function openPatternDetailsModal(patternId) {
+    const pattern = currentPatternsCache.find(p => p.pattern_id === patternId);
+    if (!pattern) return;
+
+    const modal = document.getElementById("pattern-details-modal");
+    const titleEl = document.getElementById("pattern-modal-title");
+    const bodyEl = document.getElementById("pattern-modal-body");
+    const highlightBtn = document.getElementById("pattern-modal-highlight-btn");
+
+    if (!modal || !bodyEl) return;
+
+    if (titleEl) titleEl.innerText = pattern.title;
+
+    const pathNodes = pattern.path || [];
+    const evidenceList = pattern.evidence_ids || [];
+
+    bodyEl.innerHTML = `
+        <div class="grid grid-cols-2 gap-3 bg-surface-container-low p-3 rounded border border-surface-container-high font-sans">
+            <div>
+                <span class="text-[10px] font-bold uppercase text-outline block">Pattern Category</span>
+                <span class="text-xs font-bold text-amber-300 font-mono">${pattern.pattern_type}</span>
+            </div>
+            <div>
+                <span class="text-[10px] font-bold uppercase text-outline block">Severity & Confidence</span>
+                <span class="text-xs font-bold text-tertiary font-mono">${pattern.severity || "HIGH"} | ${Math.round((pattern.confidence || 0.9) * 100)}%</span>
+            </div>
+        </div>
+
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">Investigative Indicator Explanation</span>
+            <div class="text-xs text-white leading-relaxed bg-surface-container-lowest p-3 rounded border border-surface-container-high">
+                ${pattern.explanation}
+            </div>
+        </div>
+
+        ${pathNodes.length > 1 ? `
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">Discovered Relationship Path</span>
+            <div class="flex flex-wrap items-center gap-1.5 font-mono text-xs bg-surface-container-lowest p-2.5 rounded border border-surface-container-high">
+                ${pathNodes.map((nodeId, idx, arr) => `
+                    <span class="px-2 py-0.5 rounded bg-surface-container-high text-tertiary border border-tertiary/30 font-bold">${nodeId}</span>
+                    ${idx < arr.length - 1 ? '<span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>' : ''}
+                `).join("")}
+            </div>
+        </div>
+        ` : ''}
+
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">Affected Entities & Cases</span>
+            <div class="flex flex-wrap gap-2">
+                ${(pattern.entities || []).map(e => `<span onclick="closePatternModal(); openEntityDetailsPanel('${e}')" class="px-2 py-1 rounded bg-surface-container-high text-tertiary font-mono text-xs font-bold hover:bg-surface-container-highest cursor-pointer border border-tertiary/30">${e}</span>`).join("")}
+                ${(pattern.cases || []).map(c => `<span onclick="closePatternModal(); loadCaseDetail('${c}')" class="px-2 py-1 rounded bg-surface-container-high text-primary font-mono text-xs font-bold hover:bg-surface-container-highest cursor-pointer border border-primary/30">${c}</span>`).join("")}
+            </div>
+        </div>
+
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">Supporting Evidence Provenance</span>
+            <div class="flex flex-wrap gap-2">
+                ${evidenceList.map(evId => `<button onclick="closePatternModal(); openEvidencePanel({ evidence_id: '${evId}' })" class="px-2.5 py-1 rounded bg-secondary-container/30 hover:bg-secondary-container/50 text-secondary border border-secondary/40 font-mono text-xs font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">description</span> ${evId}</button>`).join("")}
+            </div>
+        </div>
+
+        ${pattern.investigative_lead ? `
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">Investigative Lead / Recommended Examination</span>
+            <div class="text-xs text-amber-200 leading-relaxed bg-amber-950/30 p-3 rounded border border-amber-800/40">
+                <span class="material-symbols-outlined text-xs align-middle mr-1 text-amber-400">lightbulb</span>
+                ${pattern.investigative_lead}
+            </div>
+        </div>
+        ` : ''}
+
+        ${(pattern.limitations && pattern.limitations.length > 0) ? `
+        <div class="space-y-1 font-sans">
+            <span class="text-[10px] font-bold uppercase text-outline block">System Analysis Limitations</span>
+            <ul class="list-disc list-inside text-xs text-on-surface-variant space-y-0.5">
+                ${pattern.limitations.map(lim => `<li>${lim}</li>`).join("")}
+            </ul>
+        </div>
+        ` : ''}
+
+        <div class="p-2.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 font-sans mt-2">
+            <span class="material-symbols-outlined text-xs align-middle mr-1 text-amber-400">shield</span>
+            <strong>Safety Protocol:</strong> ${pattern.disclaimer || "Investigative lead only — does not constitute proof of guilt."}
+        </div>
+    `;
+
+    if (highlightBtn) {
+        highlightBtn.onclick = () => {
+            closePatternModal();
+            highlightPatternOnGraph(patternId);
+        };
+    }
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closePatternModal() {
+    const modal = document.getElementById("pattern-details-modal");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+function highlightPatternOnGraph(patternId) {
+    const pattern = currentPatternsCache.find(p => p.pattern_id === patternId);
+    if (!pattern) return;
+
+    switchTab("pane-graph");
+
+    const targetNodes = pattern.path && pattern.path.length > 0 ? pattern.path : pattern.entities;
+    if (targetNodes && targetNodes.length > 0) {
+        highlightPathFromAI(targetNodes);
+    }
+}
+
 

@@ -152,6 +152,12 @@
                     <span class="nav-badge bg-primary-container text-white">Core</span>
                 </button>
 
+                <button class="nav-item" data-tab="pane-patterns" aria-label="Suspicious Pattern Detection Workspace">
+                    <span class="material-symbols-outlined text-amber-400" aria-hidden="true">warning</span>
+                    <span>Patterns</span>
+                    <span id="nav-pattern-badge" class="nav-badge bg-amber-500/20 text-amber-300 border border-amber-500/40">3</span>
+                </button>
+
                 <button class="nav-item" data-tab="pane-ai-investigator" aria-label="AI Investigator Assistant Interface">
                     <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                     <span>AI Investigator</span>
@@ -626,6 +632,80 @@
                 </div>
             </section>
 
+            <!-- PANE 10: SUSPICIOUS PATTERN DETECTION -->
+            <section id="pane-patterns" class="tab-pane hidden space-y-4">
+                <div class="stitch-card space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-amber-400" aria-hidden="true">warning</span> Suspicious Pattern & Network Anomaly Intelligence
+                                </h2>
+                                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">SIH Day 20</span>
+                            </div>
+                            <p class="text-xs text-on-surface-variant">Automated graph anomaly detection identifying cross-case communication bridges, suspect hubs, and forensic co-occurrences.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="renderSuspiciousPatterns()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant flex items-center gap-1 transition">
+                                <span class="material-symbols-outlined text-sm">refresh</span> Refresh Patterns
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters & Search Controls -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-surface-container-lowest p-3 rounded border border-surface-container-high text-xs">
+                        <div>
+                            <label for="pattern-case-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Case Filter</label>
+                            <select id="pattern-case-filter" onchange="renderSuspiciousPatterns()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Cases</option>
+                                <option value="CASE_101">CASE_101 (Cargo Hijack)</option>
+                                <option value="CASE_204">CASE_204 (Zaveri Bazaar)</option>
+                                <option value="CASE_102">CASE_102 (Cyber Fraud)</option>
+                                <option value="CASE_305">CASE_305 (Hawala Intercept)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="pattern-type-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Pattern Category</label>
+                            <select id="pattern-type-filter" onchange="renderSuspiciousPatterns()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Pattern Categories</option>
+                                <option value="CROSS_CASE_BRIDGE">Cross-Case Communication Bridge</option>
+                                <option value="HIGH_CONNECTIVITY_HUB">High-Connectivity Suspect Hub</option>
+                                <option value="EVIDENCE_SUPPORTED_ANOMALY">Evidence-Supported Anomaly</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="pattern-severity-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Severity / Confidence</label>
+                            <select id="pattern-severity-filter" onchange="renderSuspiciousPatterns()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
+                                <option value="ALL">All Severities</option>
+                                <option value="HIGH">High Severity Only</option>
+                                <option value="MEDIUM">Medium Severity & Above</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="pattern-search-input" class="block text-[10px] font-bold uppercase text-outline mb-1">Search Entity / Keyword</label>
+                            <div class="relative">
+                                <input type="text" id="pattern-search-input" onkeyup="renderSuspiciousPatterns()" placeholder="Search PHONE_042, Aarav..." class="w-full bg-surface-container-low border border-surface-container-high rounded pl-8 pr-2 py-1 text-xs text-on-surface">
+                                <span class="material-symbols-outlined absolute left-2 top-1.5 text-xs text-outline">search</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Safety Banner -->
+                    <div class="p-2.5 bg-amber-950/30 border border-amber-800/40 rounded text-xs font-sans text-amber-300 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm text-amber-400" aria-hidden="true">shield</span>
+                        <span><strong>Safety Note:</strong> Suspicious pattern indicators highlight investigative anomalies only. They do not constitute legal declarations of guilt or criminal proof.</span>
+                    </div>
+
+                    <!-- Patterns Container -->
+                    <div id="patterns-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="text-outline text-center col-span-full py-12">Analyzing graph patterns...</div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -784,6 +864,34 @@
             <div class="bg-surface-container-lowest border-t border-[#30363D] px-6 py-3 flex justify-between items-center text-[10px] text-outline font-mono">
                 <span>SECURE NODE ACTIVE</span>
                 <span>V 1.0.0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PATTERN DETAILS DRAWER / MODAL -->
+    <div id="pattern-details-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-surface border border-surface-container-high rounded-xl max-w-2xl w-full p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-400 text-xl">warning</span>
+                    <h3 id="pattern-modal-title" class="text-base font-bold text-white">Suspicious Pattern Details</h3>
+                </div>
+                <button onclick="closePatternModal()" class="text-outline hover:text-white p-1 rounded" aria-label="Close Pattern Details Modal">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <div id="pattern-modal-body" class="space-y-4 font-sans text-xs">
+                <!-- Dynamic Content -->
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-surface-container-high pt-3">
+                <button id="pattern-modal-highlight-btn" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/50 text-amber-300 text-xs font-semibold rounded shadow flex items-center gap-1.5 transition">
+                    <span class="material-symbols-outlined text-sm">hub</span> Highlight on Network Graph
+                </button>
+                <button onclick="closePatternModal()" class="px-3.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-white text-xs font-semibold rounded">
+                    Close
+                </button>
             </div>
         </div>
     </div>

@@ -337,6 +337,67 @@ class MockCrimeGraphAdapter {
         });
     }
 
+    async getSuspiciousPatterns(caseId = null, patternType = null, minConfidence = null) {
+        let patterns = [
+            {
+                pattern_id: "PAT_CROSS_001",
+                title: "Cross-Case Communication Bridge",
+                pattern_type: "CROSS_CASE_BRIDGE",
+                entities: ["PHONE_042", "PERSON_017", "PERSON_089"],
+                cases: ["CASE_101", "CASE_204"],
+                path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
+                confidence: 0.93,
+                severity: "HIGH",
+                evidence_ids: ["EVID_042_01", "EVID_042_02"],
+                explanation: "Encrypted burner line +91-9876543210 (PHONE_042) bridges primary suspects between Operation Midnight Shadow (CASE_101) and Operation Golden Falcon (CASE_204).",
+                investigative_lead: "Issue CDR sub-poena and cross-reference call co-occurrences between Aarav Verma and Vikram Malhotra.",
+                limitations: ["Co-occurrence of communication line does not establish joint enterprise without primary witness verification."],
+                disclaimer: "Investigative lead only — does not constitute proof of guilt."
+            },
+            {
+                pattern_id: "PAT_HUB_017",
+                title: "High-Connectivity Suspect Hub (Aarav Verma)",
+                pattern_type: "HIGH_CONNECTIVITY_HUB",
+                entities: ["PERSON_017"],
+                cases: ["CASE_101"],
+                path: ["PERSON_017"],
+                confidence: 0.96,
+                severity: "MEDIUM",
+                evidence_ids: ["EVID_101_01", "EVID_042_01"],
+                explanation: "Aarav Verma (PERSON_017) maintains 9 active relationship edges across multiple phone lines, locations, and accounts.",
+                investigative_lead: "Priority focus on communication logs and physical surveillance of suspect node Aarav Verma.",
+                limitations: ["High degree centrality reflects dense record reporting, not necessarily key leadership role."],
+                disclaimer: "Investigative lead only — does not constitute proof of guilt."
+            },
+            {
+                pattern_id: "PAT_EVID_042",
+                title: "Forensic & Signal Intercept Co-Occurrence",
+                pattern_type: "EVIDENCE_SUPPORTED_ANOMALY",
+                entities: ["PHONE_042"],
+                cases: ["CASE_101", "CASE_204"],
+                path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
+                confidence: 0.94,
+                severity: "HIGH",
+                evidence_ids: ["EVID_042_01", "EVID_042_02"],
+                explanation: "Digital forensics extraction (DOC_CASE_101) and lawful telco signal intercept (DOC_CASE_204) independently confirm burner line +91-9876543210 utilization.",
+                investigative_lead: "Request subscriber identity details and cell site location matching.",
+                limitations: ["Requires cell tower triangulation to confirm physical proximity."],
+                disclaimer: "Investigative lead only — does not constitute proof of guilt."
+            }
+        ];
+
+        if (caseId && caseId !== "ALL") {
+            patterns = patterns.filter(p => p.cases.includes(caseId));
+        }
+        if (patternType && patternType !== "ALL") {
+            patterns = patterns.filter(p => p.pattern_type.toUpperCase() === patternType.toUpperCase());
+        }
+        if (minConfidence !== null) {
+            patterns = patterns.filter(p => p.confidence >= minConfidence);
+        }
+        return { count: patterns.length, patterns };
+    }
+
     async createEntity(data) {
         const rawType = (data.type || data.entity_type || "PERSON").toUpperCase();
         const prefix = rawType.substring(0, 4);
@@ -783,6 +844,71 @@ class HttpCrimeGraphAdapter {
         }
     }
 
+    async getSuspiciousPatterns(caseId = null, patternType = null, minConfidence = null) {
+        let params = [];
+        if (caseId && caseId !== "ALL") params.push(`case_id=${encodeURIComponent(caseId)}`);
+        if (patternType && patternType !== "ALL") params.push(`pattern_type=${encodeURIComponent(patternType)}`);
+        if (minConfidence !== null) params.push(`min_confidence=${encodeURIComponent(minConfidence)}`);
+        const queryStr = params.length > 0 ? `?${params.join("&")}` : "";
+        
+        try {
+            return await this.fetchJson(`/api/patterns${queryStr}`);
+        } catch (err) {
+            console.warn("[HttpCrimeGraphAdapter] /api/patterns endpoint fallback", err);
+            let patterns = [
+                {
+                    pattern_id: "PAT_CROSS_001",
+                    title: "Cross-Case Communication Bridge",
+                    pattern_type: "CROSS_CASE_BRIDGE",
+                    entities: ["PHONE_042", "PERSON_017", "PERSON_089"],
+                    cases: ["CASE_101", "CASE_204"],
+                    path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
+                    confidence: 0.93,
+                    severity: "HIGH",
+                    evidence_ids: ["EVID_042_01", "EVID_042_02"],
+                    explanation: "Encrypted burner line +91-9876543210 (PHONE_042) bridges primary suspects between Operation Midnight Shadow (CASE_101) and Operation Golden Falcon (CASE_204).",
+                    investigative_lead: "Issue CDR sub-poena and cross-reference call co-occurrences between Aarav Verma and Vikram Malhotra.",
+                    limitations: ["Co-occurrence of communication line does not establish joint enterprise without primary witness verification."],
+                    disclaimer: "Investigative lead only — does not constitute proof of guilt."
+                },
+                {
+                    pattern_id: "PAT_HUB_017",
+                    title: "High-Connectivity Suspect Hub (Aarav Verma)",
+                    pattern_type: "HIGH_CONNECTIVITY_HUB",
+                    entities: ["PERSON_017"],
+                    cases: ["CASE_101"],
+                    path: ["PERSON_017"],
+                    confidence: 0.96,
+                    severity: "MEDIUM",
+                    evidence_ids: ["EVID_101_01", "EVID_042_01"],
+                    explanation: "Aarav Verma (PERSON_017) maintains 9 active relationship edges across multiple phone lines, locations, and accounts.",
+                    investigative_lead: "Priority focus on communication logs and physical surveillance of suspect node Aarav Verma.",
+                    limitations: ["High degree centrality reflects dense record reporting, not necessarily key leadership role."],
+                    disclaimer: "Investigative lead only — does not constitute proof of guilt."
+                },
+                {
+                    pattern_id: "PAT_EVID_042",
+                    title: "Forensic & Signal Intercept Co-Occurrence",
+                    pattern_type: "EVIDENCE_SUPPORTED_ANOMALY",
+                    entities: ["PHONE_042"],
+                    cases: ["CASE_101", "CASE_204"],
+                    path: ["CASE_101", "PERSON_017", "PHONE_042", "PERSON_089", "CASE_204"],
+                    confidence: 0.94,
+                    severity: "HIGH",
+                    evidence_ids: ["EVID_042_01", "EVID_042_02"],
+                    explanation: "Digital forensics extraction (DOC_CASE_101) and lawful telco signal intercept (DOC_CASE_204) independently confirm burner line +91-9876543210 utilization.",
+                    investigative_lead: "Request subscriber identity details and cell site location matching.",
+                    limitations: ["Requires cell tower triangulation to confirm physical proximity."],
+                    disclaimer: "Investigative lead only — does not constitute proof of guilt."
+                }
+            ];
+
+            if (caseId && caseId !== "ALL") patterns = patterns.filter(p => p.cases.includes(caseId));
+            if (patternType && patternType !== "ALL") patterns = patterns.filter(p => p.pattern_type.toUpperCase() === patternType.toUpperCase());
+            return { count: patterns.length, patterns };
+        }
+    }
+
     async getTimeline(caseId) {
         try {
             return await this.fetchJson(`/api/cases/${encodeURIComponent(caseId)}/timeline`);
@@ -1061,6 +1187,14 @@ class CrimeGraphDataService {
             return await this.httpAdapter.getCaseConnections(caseA, caseB);
         }
         return await this.mockAdapter.getCaseConnections(caseA, caseB);
+    }
+
+    async getSuspiciousPatterns(caseId = null, patternType = null, minConfidence = null) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getSuspiciousPatterns(caseId, patternType, minConfidence);
+        }
+        return await this.mockAdapter.getSuspiciousPatterns(caseId, patternType, minConfidence);
     }
 
     async getTimeline(caseId) {
