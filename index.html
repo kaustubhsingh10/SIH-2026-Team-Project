@@ -413,6 +413,15 @@
                         <div class="h-3 w-px bg-surface-container-high"></div>
                         <label class="flex items-center gap-1 text-[11px] text-amber-300 font-semibold cursor-pointer"><input type="checkbox" id="filter-cross-case-toggle"> Cross-Case Only</label>
                         <label class="flex items-center gap-1 text-[11px] text-emerald-300 font-semibold cursor-pointer"><input type="checkbox" id="filter-evidence-only-toggle"> Evidence-Backed</label>
+                        <div class="h-3 w-px bg-surface-container-high"></div>
+                        <select id="filter-source-type" onchange="applyGraphFilters()" aria-label="Filter Graph by Data Source Method" class="bg-surface-container-lowest border border-surface-container-high rounded px-2 py-0.5 text-[11px] text-purple-300 font-semibold focus:outline-none focus:border-purple-500">
+                            <option value="ALL">Source: All Methods</option>
+                            <option value="DIGITAL_FORENSICS">Digital Forensics</option>
+                            <option value="TELCO_INTERCEPT">Telco Intercept</option>
+                            <option value="AI_NER">AI Document NER</option>
+                            <option value="TRAFFIC_CAM_OCR">Traffic Cam OCR</option>
+                            <option value="WITNESS_STATEMENT">Witness Statements</option>
+                        </select>
                     </div>
                 </div>
 
@@ -547,9 +556,22 @@
 
             <!-- PANE 7: EVIDENCE EXPLORER -->
             <section id="pane-evidence" class="tab-pane hidden space-y-4">
-                <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary" aria-hidden="true">description</span> Ingested Evidence Index
-                </h2>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary" aria-hidden="true">description</span> Ingested Evidence & Provenance Ledger
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-on-surface-variant">Filter Source Method:</span>
+                        <select id="evidence-source-filter" onchange="renderEvidenceExplorer()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-purple-300 font-mono focus:outline-none focus:border-purple-500">
+                            <option value="ALL">All Extraction Methods</option>
+                            <option value="DIGITAL_FORENSICS">Digital Forensics</option>
+                            <option value="TELCO_INTERCEPT">Telco Signal Intercept</option>
+                            <option value="AI_NER">AI Document NER</option>
+                            <option value="TRAFFIC_CAM_OCR">Traffic Cam OCR</option>
+                            <option value="WITNESS_STATEMENT">Witness Statements</option>
+                        </select>
+                    </div>
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="evidence-grid-container">
                     <!-- Injected via JS using CrimeGraphDataService -->

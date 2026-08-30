@@ -257,6 +257,21 @@ class MockCrimeGraphAdapter {
         };
     }
 
+    async getEvidenceItem(evidenceId) {
+        if (!evidenceId) return null;
+        const ev = this.dataset.evidence[evidenceId];
+        if (ev) return ev;
+        return {
+            evidence_id: evidenceId,
+            source_document_id: evidenceId.includes("042_01") ? "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf" : (evidenceId.includes("042_02") ? "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf" : "DOC_CASE_101_FIR_REPORT.pdf"),
+            extraction_method: evidenceId.includes("042_01") ? "DIGITAL_FORENSICS" : (evidenceId.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER"),
+            page_number: evidenceId.includes("042_01") ? 7 : (evidenceId.includes("042_02") ? 3 : 2),
+            confidence: 0.95,
+            source_text: "Handset triage recovered encrypted messaging sessions identifying Aarav Verma (PERSON_017) using burner line +91-9876543210 (PHONE_042).",
+            timestamp: "2026-08-14T22:45:00Z"
+        };
+    }
+
     async getCaseConnections(caseA = "CASE_101", caseB = "CASE_204") {
         const caseAExists = this.dataset.cases.some(c => c.id === caseA);
         const caseBExists = this.dataset.cases.some(c => c.id === caseB);
@@ -1211,6 +1226,14 @@ class CrimeGraphDataService {
             return await this.httpAdapter.getEvidence(evidenceId);
         }
         return await this.mockAdapter.getEvidence(evidenceId);
+    }
+
+    async getEvidenceItem(evidenceId) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.getEvidence(evidenceId);
+        }
+        return await this.mockAdapter.getEvidenceItem(evidenceId);
     }
 
     async getEvidenceList() {

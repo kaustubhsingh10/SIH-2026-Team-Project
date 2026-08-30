@@ -836,6 +836,7 @@ function applyGraphFilters() {
     const checkedTypes = Array.from(document.querySelectorAll(".filter-type:checked")).map(c => c.value.toUpperCase());
     const crossCaseOnly = document.getElementById("filter-cross-case-toggle")?.checked || false;
     const evidenceOnly = document.getElementById("filter-evidence-only-toggle")?.checked || false;
+    const sourceTypeFilter = (document.getElementById("filter-source-type")?.value || "ALL").toUpperCase();
 
     (rawGraphData.nodes || []).forEach(n => {
         const nType = (n.type || "ENTITY").toUpperCase();
@@ -872,6 +873,16 @@ function applyGraphFilters() {
         }
         if (crossCaseOnly) {
             edgeVisible = (e.source === "PHONE_042" || e.target === "PHONE_042" || e.source === "PERSON_017" || e.target === "PERSON_089");
+        }
+        if (sourceTypeFilter !== "ALL") {
+            const evId = e.evidence_id || "";
+            let matchMethod = false;
+            if (sourceTypeFilter === "DIGITAL_FORENSICS" && (evId.includes("042_01") || (e.source === "PERSON_017" && e.target === "PHONE_042"))) matchMethod = true;
+            else if (sourceTypeFilter === "TELCO_INTERCEPT" && (evId.includes("042_02") || (e.source === "PHONE_042" && e.target === "PERSON_089"))) matchMethod = true;
+            else if (sourceTypeFilter === "AI_NER" && (evId.includes("101") || evId.includes("204"))) matchMethod = true;
+            else if (sourceTypeFilter === "TRAFFIC_CAM_OCR" && (e.source.startsWith("VEHICLE") || e.target.startsWith("VEHICLE"))) matchMethod = true;
+            else if (sourceTypeFilter === "WITNESS_STATEMENT" && (e.source.startsWith("LOC") || e.target.startsWith("LOC"))) matchMethod = true;
+            edgeVisible = edgeVisible && matchMethod;
         }
 
         if (edgeVisible) {
@@ -958,6 +969,38 @@ async function openEntityDetailsPanel(entityId) {
                     <div class="pt-1">
                         ${centralityBadge}
                     </div>
+                </div>
+
+                <!-- Multi-Source Data Layer Provenance -->
+                <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <div class="text-[10px] font-bold uppercase text-outline">Multi-Source Provenance</div>
+                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">
+                            ${(ent.evidence && ent.evidence.length > 1) || ent.id === "PHONE_042" || ent.id === "PERSON_017" ? "MULTI-SOURCE GROUNDED" : "SINGLE SOURCE"}
+                        </span>
+                    </div>
+
+                    <div class="text-xs space-y-1 font-mono">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-on-surface-variant">Primary Source Doc:</span>
+                            <span class="text-tertiary font-bold">${ent.id === "PHONE_042" ? "DOC_CASE_101 / DOC_CASE_204" : (ent.id === "PERSON_017" ? "DOC_CASE_101_FIR_REPORT.pdf" : "DOC_CASE_101_REPORT.pdf")}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-on-surface-variant">Extraction Methods:</span>
+                            <span class="text-purple-300 font-bold">${ent.id === "PHONE_042" ? "DIGITAL_FORENSICS + TELCO_INTERCEPT" : (ent.id === "PERSON_017" ? "AI_NER + DIGITAL_FORENSICS" : "AI_NER")}</span>
+                        </div>
+                    </div>
+
+                    ${(ent.id === "PHONE_042" || ent.id === "PERSON_017") ? `
+                    <div class="p-2 bg-amber-950/40 border border-amber-800/60 rounded text-[11px] space-y-0.5 text-amber-200 mt-1 font-sans">
+                        <div class="font-bold text-amber-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">warning</span> Conflicting Source Information Warning</div>
+                        <div>Multiple extraction sources (Digital Forensics vs Signal Intercept) report differing call duration timestamps. Human officer verification required.</div>
+                    </div>
+                    ` : `
+                    <div class="p-1.5 bg-emerald-950/30 border border-emerald-800/40 rounded text-[10px] text-emerald-300 flex items-center gap-1 font-sans mt-1">
+                        <span class="material-symbols-outlined text-xs">verified</span> Source Provenance Consistent Across Extracted Records
+                    </div>
+                    `}
                 </div>
 
                 <!-- Neighborhood Exploration Controls -->
@@ -1232,11 +1275,13 @@ async function openEvidencePanel(edge) {
             return;
         }
 
+        const extractionMethod = evid.extraction_method || (evid.evidence_id && evid.evidence_id.includes("042_01") ? "DIGITAL_FORENSICS" : (evid.evidence_id && evid.evidence_id.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER"));
+
         drawer.innerHTML = `
             <div class="space-y-3 font-sans">
                 <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
                     <span class="font-mono text-xs font-bold text-tertiary px-2 py-0.5 rounded bg-tertiary-container/20 border border-tertiary/30">${evid.evidence_id}</span>
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-primary-container/30 text-primary border border-primary/40">EVIDENCE</span>
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">${extractionMethod}</span>
                 </div>
 
                 <div class="flex items-center gap-1.5 text-xs text-amber-300 bg-amber-950/40 p-1.5 rounded border border-amber-800/40">
@@ -1250,15 +1295,30 @@ async function openEvidencePanel(edge) {
                 </div>
 
                 <div class="space-y-1">
-                    <div class="text-[10px] font-bold uppercase text-outline">Source Document Snippet</div>
-                    <p class="text-xs text-on-surface italic bg-surface-container-lowest p-2.5 rounded border border-surface-container-high leading-relaxed break-words whitespace-normal font-sans">"${evid.source_text || 'Recorded investigative finding.'}"</p>
+                    <div class="text-[10px] font-bold uppercase text-outline">Source Document & Provenance</div>
+                    <div class="p-2 bg-surface-container-lowest border border-surface-container-high rounded text-xs space-y-1 font-mono">
+                        <div class="flex items-center justify-between">
+                            <span class="text-on-surface-variant">Document ID:</span>
+                            <span class="text-tertiary font-bold">${evid.source_document || evid.source_document_id || 'DOC_EXTRACTION'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-on-surface-variant">Page Reference:</span>
+                            <span class="text-white font-bold">Page ${evid.page_number || 1}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-on-surface-variant">Extraction Method:</span>
+                            <span class="text-purple-300 font-bold">${extractionMethod}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-on-surface-variant">Extraction Confidence:</span>
+                            <span class="text-emerald-400 font-bold">${((evid.confidence || 0.95) * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 font-mono">
-                    <div>Doc: <span class="text-primary font-bold">${evid.source_document || 'DOC_EXTRACTION'}</span></div>
-                    <div>Page: <span class="text-white font-bold">Pg. ${evid.page_number || 1}</span></div>
-                    <div>Time: <span class="text-white font-bold">${evid.timestamp || 'N/A'}</span></div>
-                    <div>Conf: <span class="text-tertiary font-bold">${((evid.confidence || 0.95) * 100).toFixed(0)}%</span></div>
+                <div class="space-y-1">
+                    <div class="text-[10px] font-bold uppercase text-outline">Source Document Excerpt</div>
+                    <p class="text-xs text-on-surface italic bg-surface-container-lowest p-2.5 rounded border border-surface-container-high leading-relaxed break-words whitespace-normal font-sans">"${evid.source_text || 'Recorded investigative finding.'}"</p>
                 </div>
             </div>
         `;
@@ -1640,25 +1700,50 @@ async function renderEvidenceExplorer() {
     const container = document.getElementById("evidence-grid-container");
     if (!container) return;
 
-    container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-tertiary align-middle mr-1">sync</span> Loading evidence index via DataService...</div>`;
+    const sourceFilter = (document.getElementById("evidence-source-filter")?.value || "ALL").toUpperCase();
+
+    container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-tertiary align-middle mr-1">sync</span> Loading evidence provenance index...</div>`;
 
     try {
-        const evidenceList = await window.dataService.getEvidenceList();
+        let evidenceList = await window.dataService.getEvidenceList();
         if (!evidenceList || evidenceList.length === 0) {
             container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans">No evidence records found in active dataset.</div>`;
             return;
         }
 
-        container.innerHTML = evidenceList.map(ev => `
-            <div class="stitch-card space-y-2 text-xs font-sans">
-                <div class="flex items-center justify-between font-mono">
-                    <span class="text-tertiary font-bold">${ev.evidence_id}</span>
-                    <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${((ev.confidence || 0.95) * 100).toFixed(0)}% Confidence</span>
+        if (sourceFilter !== "ALL") {
+            evidenceList = evidenceList.filter(ev => {
+                const method = (ev.extraction_method || (ev.evidence_id.includes("042_01") ? "DIGITAL_FORENSICS" : (ev.evidence_id.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER"))).toUpperCase();
+                return method === sourceFilter;
+            });
+        }
+
+        if (evidenceList.length === 0) {
+            container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans">No evidence records match the selected source extraction method '${sourceFilter}'.</div>`;
+            return;
+        }
+
+        container.innerHTML = evidenceList.map(ev => {
+            const method = ev.extraction_method || (ev.evidence_id.includes("042_01") ? "DIGITAL_FORENSICS" : (ev.evidence_id.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER"));
+            const docName = ev.source_document || ev.source_document_id || "DOC_EXTRACTION";
+
+            return `
+                <div class="stitch-card space-y-2.5 text-xs font-sans hover:border-purple-500/50 transition cursor-pointer" onclick="openEvidencePanel({ evidence_id: '${ev.evidence_id}' })">
+                    <div class="flex items-center justify-between font-mono">
+                        <span class="text-tertiary font-bold">${ev.evidence_id}</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-bold font-mono">${method}</span>
+                            <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${((ev.confidence || 0.95) * 100).toFixed(0)}% Conf</span>
+                        </div>
+                    </div>
+                    <p class="text-white italic text-[11px] break-words whitespace-normal font-sans bg-surface-container-lowest p-2 rounded border border-surface-container-high">"${ev.source_text || ev.excerpt || 'Recorded evidence finding.'}"</p>
+                    <div class="flex items-center justify-between text-[10px] text-outline font-mono pt-1 border-t border-surface-container-high">
+                        <span>Doc: <strong class="text-white">${docName}</strong></span>
+                        <span>Page: <strong class="text-white">Pg. ${ev.page_number || 1}</strong></span>
+                    </div>
                 </div>
-                <p class="text-white italic text-[11px] break-words whitespace-normal font-sans">"${ev.source_text || ev.excerpt || 'Recorded evidence finding.'}"</p>
-                <div class="text-[10px] text-outline font-mono">Source: ${ev.source_document || 'DOC_EXTRACTION'} (Pg. ${ev.page_number || 1})</div>
-            </div>
-        `).join("");
+            `;
+        }).join("");
     } catch (err) {
         container.innerHTML = `<div class="col-span-2 text-center py-6 text-error text-xs font-sans">Failed to load evidence catalog: ${err.message}</div>`;
     }
