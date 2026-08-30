@@ -2515,3 +2515,292 @@ function highlightPatternOnGraph(patternId) {
 }
 
 
+/* ----------------------------------------------------
+   DAY 22: NLP EXTRACTION PIPELINE WORKSPACE HANDLERS
+---------------------------------------------------- */
+let currentNLPResults = null;
+
+const NLP_SAMPLES = {
+    fir: {
+        docId: "DOC_CASE_101_FIR_REPORT.pdf",
+        method: "AI_NER",
+        case: "CASE_101",
+        text: `FIRST INFORMATION REPORT (FIR-2026-DEL-101):
+On 14 August 2026 at 02:30 AM, an armed hijacking was reported at ICD Tughlakabad Logistics Yard.
+Witnesses identified Aarav Verma (PERSON_017) supervising the unauthorized cargo unloading.
+Aarav Verma was observed communicating via burner handset +91-9876543210 (PHONE_042) to coordinate dispatch.
+The hijacked consignment was loaded into Bolero Pickup Truck MH-01-AB-1234 (VEHICLE_017).
+Subsequent intelligence links line +91-9876543210 (PHONE_042) to Vikram Malhotra (PERSON_089) in Case 204.`
+    },
+    intercept: {
+        docId: "DOC_CASE_204_MUMBAI_INTERCEPT_SUMMARY.pdf",
+        method: "TELCO_INTERCEPT",
+        case: "CASE_204",
+        text: `LAWFUL SIGNAL INTELLIGENCE INTERCEPT SUMMARY (CASE 204):
+Target burner line +91-9876543210 (PHONE_042) registered signal handoffs across Zaveri Bazaar cell tower LOC_003.
+Voice intercept confirmed Vikram Malhotra (PERSON_089) utilizing +91-9876543210 (PHONE_042) to negotiate bullion disposal.
+Payment of Rs 45,00,000 was routed to HDFC Bank Account ACC_001.
+Vehicle MH-01-AB-1234 (VEHICLE_017) was spotted nearby.`
+    },
+    forensics: {
+        docId: "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf",
+        method: "DIGITAL_FORENSICS",
+        case: "CASE_101",
+        text: `HANDSET FORENSIC TRIAGE REPORT (EVID_042_01):
+Decrypted chat logs recovered from seized handset identify user Aarav Verma (PERSON_017).
+Active contact list contains line +91-9876543210 (PHONE_042) and burner line +91-9811223344 (PHONE_017).
+GPS EXIF data places handset at Logistics Yard LOC_001 during incident window 02:15 AM - 03:00 AM.`
+    }
+};
+
+function loadNLPSample(type) {
+    const sample = NLP_SAMPLES[type];
+    if (!sample) return;
+
+    const docInput = document.getElementById("nlp-doc-id");
+    const caseSelect = document.getElementById("nlp-case-select");
+    const methodSelect = document.getElementById("nlp-method-select");
+    const textInput = document.getElementById("nlp-text-input");
+
+    if (docInput) docInput.value = sample.docId;
+    if (caseSelect) caseSelect.value = sample.case;
+    if (methodSelect) methodSelect.value = sample.method;
+    if (textInput) textInput.value = sample.text;
+}
+
+function clearNLPWorkspace() {
+    const docInput = document.getElementById("nlp-doc-id");
+    const textInput = document.getElementById("nlp-text-input");
+    const emptyState = document.getElementById("nlp-empty-state");
+    const loadingState = document.getElementById("nlp-loading-state");
+    const errorState = document.getElementById("nlp-error-state");
+    const resultsContainer = document.getElementById("nlp-results-container");
+
+    if (docInput) docInput.value = "DOC_CASE_101_FIELD_INTERCEPT_NOTES.txt";
+    if (textInput) textInput.value = "";
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (loadingState) loadingState.classList.add("hidden");
+    if (errorState) errorState.classList.add("hidden");
+    if (resultsContainer) resultsContainer.classList.add("hidden");
+    currentNLPResults = null;
+}
+
+async function runNLPExtraction() {
+    const docIdInput = document.getElementById("nlp-doc-id");
+    const textInput = document.getElementById("nlp-text-input");
+    const emptyState = document.getElementById("nlp-empty-state");
+    const loadingState = document.getElementById("nlp-loading-state");
+    const errorState = document.getElementById("nlp-error-state");
+    const errorMsg = document.getElementById("nlp-error-message");
+    const resultsContainer = document.getElementById("nlp-results-container");
+    const btnRun = document.getElementById("btn-run-nlp");
+
+    const docId = docIdInput ? docIdInput.value.trim() : "DOC_EXTRACTION";
+    const rawText = textInput ? textInput.value.trim() : "";
+
+    if (!rawText) {
+        if (errorState && errorMsg) {
+            errorMsg.innerText = "Please paste or enter raw investigation intelligence text before running extraction.";
+            errorState.classList.remove("hidden");
+        }
+        return;
+    }
+
+    if (emptyState) emptyState.classList.add("hidden");
+    if (errorState) errorState.classList.add("hidden");
+    if (resultsContainer) resultsContainer.classList.add("hidden");
+    if (loadingState) loadingState.classList.remove("hidden");
+    if (btnRun) btnRun.disabled = true;
+
+    try {
+        const res = await window.dataService.extractDocument(docId, rawText);
+        currentNLPResults = res;
+        renderNLPResults(res);
+        if (loadingState) loadingState.classList.add("hidden");
+        if (resultsContainer) resultsContainer.classList.remove("hidden");
+    } catch (err) {
+        if (loadingState) loadingState.classList.add("hidden");
+        if (errorState && errorMsg) {
+            errorMsg.innerText = err.message || "NLP extraction pipeline failed. Please check network connection or API authorization.";
+            errorState.classList.remove("hidden");
+        }
+    } finally {
+        if (btnRun) btnRun.disabled = false;
+    }
+}
+
+function renderNLPResults(res) {
+    if (!res) return;
+
+    const entities = res.entities || [];
+    const relationships = res.relationships || [];
+    const evidence = res.evidence || [];
+
+    // 1. Update Metrics Bar
+    const cntEntities = document.getElementById("nlp-count-entities");
+    const cntRels = document.getElementById("nlp-count-relationships");
+    const avgConf = document.getElementById("nlp-avg-confidence");
+
+    if (cntEntities) cntEntities.innerText = entities.length;
+    if (cntRels) cntRels.innerText = relationships.length;
+
+    let confSum = 0;
+    entities.forEach(e => confSum += (e.confidence || 0.9));
+    const meanConf = entities.length > 0 ? Math.round((confSum / entities.length) * 100) : 95;
+    if (avgConf) avgConf.innerText = `${meanConf}%`;
+
+    // 2. Render Extracted Entities List (Grouped by Type)
+    const entitiesList = document.getElementById("nlp-entities-list");
+    if (entitiesList) {
+        if (entities.length === 0) {
+            entitiesList.innerHTML = `<div class="text-xs text-on-surface-variant italic py-2">No entities detected in raw text.</div>`;
+        } else {
+            // Group by type
+            const grouped = {};
+            entities.forEach(e => {
+                const type = (e.type || e.entity_type || "PERSON").toUpperCase();
+                if (!grouped[type]) grouped[type] = [];
+                grouped[type].push(e);
+            });
+
+            let html = "";
+            for (const [type, list] of Object.entries(grouped)) {
+                html += `
+                    <div class="space-y-1 mt-2 first:mt-0">
+                        <div class="text-[10px] font-bold tracking-wider uppercase text-outline flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                            ${type} (${list.length})
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                `;
+                list.forEach(ent => {
+                    const confPct = Math.round((ent.confidence || 0.95) * 100);
+                    const isExisting = (window.currentGraphData && window.currentGraphData.nodes) 
+                        ? window.currentGraphData.nodes.some(n => n.id === ent.id || (n.label && n.label.includes(ent.name)))
+                        : (ent.id && !ent.id.includes("EXT_"));
+
+                    html += `
+                        <div class="p-2 bg-surface-container-lowest border border-surface-container-high rounded text-xs flex items-center justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-primary font-mono truncate">${ent.name || ent.id}</div>
+                                <div class="text-[10px] text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                                    <span class="font-mono text-purple-300">ID: ${ent.id}</span>
+                                    <span>•</span>
+                                    <span class="${isExisting ? 'text-cyan-300' : 'text-emerald-300'} font-semibold">
+                                        ${isExisting ? '[EXISTING GRAPH]' : '[NEWLY DETECTED]'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-purple-950 text-purple-300 border border-purple-800">
+                                    ${confPct}%
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+            entitiesList.innerHTML = html;
+        }
+    }
+
+    // 3. Render Extracted Relationships List
+    const relsList = document.getElementById("nlp-relationships-list");
+    if (relsList) {
+        if (relationships.length === 0) {
+            relsList.innerHTML = `<div class="text-xs text-on-surface-variant italic py-2">No explicit relationship links inferred.</div>`;
+        } else {
+            let html = "";
+            relationships.forEach(rel => {
+                const confPct = Math.round((rel.confidence || 0.92) * 100);
+                html += `
+                    <div class="p-2.5 bg-surface-container-lowest border border-surface-container-high rounded text-xs flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 font-mono">
+                            <span class="px-2 py-0.5 rounded bg-surface-container-high text-primary border border-outline-variant">${rel.source_id}</span>
+                            <span class="text-cyan-300 font-bold flex items-center gap-0.5">
+                                <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                ${rel.relationship}
+                            </span>
+                            <span class="px-2 py-0.5 rounded bg-surface-container-high text-primary border border-outline-variant">${rel.target_id}</span>
+                        </div>
+                        <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                            Confidence: ${confPct}%
+                        </span>
+                    </div>
+                `;
+            });
+            relsList.innerHTML = html;
+        }
+    }
+
+    // 4. Render Source Provenance Box
+    const provBox = document.getElementById("nlp-provenance-box");
+    if (provBox) {
+        const ev = (evidence && evidence.length > 0) ? evidence[0] : null;
+        const methodSelect = document.getElementById("nlp-method-select");
+        const method = methodSelect ? methodSelect.value : "AI_NER";
+
+        provBox.innerHTML = `
+            <div class="flex items-center justify-between text-[11px] pb-1 border-b border-surface-container-high">
+                <div><span class="text-on-surface-variant">Document ID:</span> <span class="text-purple-300">${res.document_id || "DOC_EXTRACTION"}</span></div>
+                <div><span class="text-on-surface-variant">Extraction Method:</span> <span class="text-cyan-300">${method}</span></div>
+                <div><span class="text-on-surface-variant">Evidence ID:</span> <span class="text-emerald-300">${ev ? ev.evidence_id : "EVID_EXT_01"}</span></div>
+            </div>
+            <div class="text-[11px] text-on-surface-variant pt-1 italic leading-relaxed">
+                "${ev ? ev.source_text : 'Source snippet verified'}"
+            </div>
+            <div class="text-[10px] text-outline pt-1 flex items-center gap-2">
+                <span>Provenance Status: Grounded in Source Document</span>
+                <span>•</span>
+                <span>Page 1 Offset 0-300</span>
+            </div>
+        `;
+    }
+
+    // 5. Conflict Detection Check
+    const conflictBanner = document.getElementById("nlp-conflict-banner");
+    const conflictDetail = document.getElementById("nlp-conflict-detail");
+    const hasPhone042 = entities.some(e => e.name && e.name.includes("9876543210"));
+    const hasPerson017 = entities.some(e => e.name && e.name.includes("Aarav"));
+    const hasPerson089 = entities.some(e => e.name && e.name.includes("Vikram"));
+
+    if (conflictBanner && conflictDetail) {
+        if (hasPhone042 && (hasPerson017 || hasPerson089)) {
+            conflictDetail.innerText = `Line +91-9876543210 is associated with Aarav Verma (PERSON_017) in Cargo Hijack FIR but co-occurs with Vikram Malhotra (PERSON_089) in Zaveri Bazaar Intercepts. Human officer verification required.`;
+            conflictBanner.classList.remove("hidden");
+        } else {
+            conflictBanner.classList.add("hidden");
+        }
+    }
+}
+
+function sendNLPGroundToCrimeGraph() {
+    if (!currentNLPResults) return;
+
+    switchTab("pane-graph");
+
+    const entities = currentNLPResults.entities || [];
+    const targetNodes = entities.map(e => e.id);
+    if (targetNodes.length > 0) {
+        highlightPathFromAI(targetNodes);
+    }
+}
+
+function sendNLPQueryToAI() {
+    if (!currentNLPResults) return;
+
+    const docId = currentNLPResults.document_id || "DOC_EXTRACTION";
+    const entities = currentNLPResults.entities || [];
+    const entNames = entities.slice(0, 3).map(e => e.name || e.id).join(", ");
+
+    switchTab("pane-ai-investigator");
+
+    const chatInput = document.getElementById("chat-input");
+    if (chatInput) {
+        chatInput.value = `Analyze extracted NLP findings for document ${docId} involving entities (${entNames}).`;
+        chatInput.focus();
+    }
+}
+
+

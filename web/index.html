@@ -158,6 +158,12 @@
                     <span id="nav-pattern-badge" class="nav-badge bg-amber-500/20 text-amber-300 border border-amber-500/40">3</span>
                 </button>
 
+                <button class="nav-item" data-tab="pane-nlp-extract" aria-label="NLP Extraction Pipeline Workspace">
+                    <span class="material-symbols-outlined text-purple-400" aria-hidden="true">manage_search</span>
+                    <span>NLP Extraction</span>
+                    <span class="nav-badge bg-purple-500/20 text-purple-300 border border-purple-500/40">NER</span>
+                </button>
+
                 <button class="nav-item" data-tab="pane-ai-investigator" aria-label="AI Investigator Assistant Interface">
                     <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                     <span>AI Investigator</span>
@@ -725,6 +731,194 @@
                     <div id="patterns-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div class="text-outline text-center col-span-full py-12">Analyzing graph patterns...</div>
                     </div>
+                </div>
+            </section>
+
+            <!-- TAB PANE: NLP EXTRACTION PIPELINE WORKSPACE -->
+            <section id="pane-nlp-extract" class="tab-pane hidden p-6 space-y-6 max-w-7xl mx-auto" aria-labelledby="nlp-workspace-title">
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-surface-container-high">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-400 text-2xl">manage_search</span>
+                            <h1 id="nlp-workspace-title" class="text-xl font-bold text-primary tracking-tight">NLP Text Extraction Pipeline</h1>
+                            <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-800">
+                                AI NER & Pattern Mining
+                            </span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant mt-1">
+                            Parse raw intelligence text, field notes, and digital forensics triage into structured CrimeGraph entities, relationships, evidence, and provenance snippets.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-on-surface-variant">Extraction Engine:</span>
+                        <span class="px-2 py-1 text-xs font-mono rounded bg-surface-container-high text-primary border border-outline-variant">
+                            CRIMEGRAPH-NLP-v2.1
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Main 2-Column Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    <!-- Left Column: Input Form (5 cols) -->
+                    <div class="lg:col-span-5 space-y-4">
+                        <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-4">
+                            <h2 class="text-sm font-semibold text-primary flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base text-purple-400">article</span>
+                                Document Input & Parameters
+                            </h2>
+
+                            <!-- Document Identifier -->
+                            <div>
+                                <label for="nlp-doc-id" class="block text-xs font-medium text-on-surface mb-1">Source Document Reference ID:</label>
+                                <input type="text" id="nlp-doc-id" value="DOC_CASE_101_FIELD_INTERCEPT_NOTES.txt" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-xs text-primary font-mono focus:outline-none focus:border-primary" placeholder="e.g. DOC_CASE_101_FIR_REPORT.pdf">
+                            </div>
+
+                            <!-- Case Selector -->
+                            <div>
+                                <label for="nlp-case-select" class="block text-xs font-medium text-on-surface mb-1">Target Case Context:</label>
+                                <select id="nlp-case-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-xs text-primary font-mono focus:outline-none focus:border-primary">
+                                    <option value="CASE_101">CASE_101 (Cargo Hijack)</option>
+                                    <option value="CASE_204">CASE_204 (Zaveri Bazaar)</option>
+                                    <option value="CASE_102">CASE_102 (Cyber Fraud)</option>
+                                    <option value="CASE_305">CASE_305 (Hawala Intercept)</option>
+                                </select>
+                            </div>
+
+                            <!-- Extraction Method -->
+                            <div>
+                                <label for="nlp-method-select" class="block text-xs font-medium text-on-surface mb-1">Primary Extraction Method:</label>
+                                <select id="nlp-method-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-xs text-primary font-mono focus:outline-none focus:border-primary">
+                                    <option value="AI_NER">AI Named Entity Recognition (AI_NER)</option>
+                                    <option value="DIGITAL_FORENSICS">Handset Triage (DIGITAL_FORENSICS)</option>
+                                    <option value="TELCO_INTERCEPT">Signal Intercept (TELCO_INTERCEPT)</option>
+                                    <option value="TRAFFIC_CAM_OCR">ANPR / OCR (TRAFFIC_CAM_OCR)</option>
+                                    <option value="WITNESS_STATEMENT">Witness Statement Parsing (WITNESS_STATEMENT)</option>
+                                </select>
+                            </div>
+
+                            <!-- Sample Load Presets -->
+                            <div>
+                                <span class="block text-[11px] text-on-surface-variant mb-1">Load Preset Intelligence Samples:</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button type="button" onclick="loadNLPSample('fir')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] rounded border border-outline-variant transition">
+                                        📄 FIR Cargo Hijack
+                                    </button>
+                                    <button type="button" onclick="loadNLPSample('intercept')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] rounded border border-outline-variant transition">
+                                        📡 Telco Intercept
+                                    </button>
+                                    <button type="button" onclick="loadNLPSample('forensics')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] rounded border border-outline-variant transition">
+                                        📱 Handset Triage
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Raw Text Area -->
+                            <div>
+                                <label for="nlp-text-input" class="block text-xs font-medium text-on-surface mb-1">Raw Investigation Intelligence Text:</label>
+                                <textarea id="nlp-text-input" rows="8" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-3 text-xs text-primary font-mono focus:outline-none focus:border-primary resize-y" placeholder="Paste intelligence text, FIR details, or digital forensics triage excerpts here..."></textarea>
+                            </div>
+
+                            <!-- Action Controls -->
+                            <div class="flex items-center gap-3 pt-2">
+                                <button id="btn-run-nlp" onclick="runNLPExtraction()" class="flex-1 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded shadow flex items-center justify-center gap-1.5 transition">
+                                    <span class="material-symbols-outlined text-sm">play_arrow</span> Run NLP Extraction
+                                </button>
+                                <button type="button" onclick="clearNLPWorkspace()" class="px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant transition">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Results & Workspace (7 cols) -->
+                    <div class="lg:col-span-7 space-y-4">
+                        
+                        <!-- Default / Empty State -->
+                        <div id="nlp-empty-state" class="bg-surface-container-low border border-surface-container-high rounded-lg p-8 text-center space-y-3">
+                            <span class="material-symbols-outlined text-4xl text-outline">query_stats</span>
+                            <h3 class="text-sm font-semibold text-primary">NLP Extraction Pipeline Ready</h3>
+                            <p class="text-xs text-on-surface-variant max-w-md mx-auto">
+                                Paste raw field text or select a preset sample on the left to extract structured entities, communication links, confidence ratings, and source provenance snippets.
+                            </p>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="nlp-loading-state" class="hidden bg-surface-container-low border border-surface-container-high rounded-lg p-8 text-center space-y-3">
+                            <div class="inline-block animate-spin w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full"></div>
+                            <h3 class="text-sm font-semibold text-purple-300">Extracting Intelligence Entities & Links...</h3>
+                            <p class="text-xs text-on-surface-variant font-mono">Running AI NER Engine & RegEx Pattern Matching...</p>
+                        </div>
+
+                        <!-- Error State -->
+                        <div id="nlp-error-state" class="hidden bg-red-950/40 border border-red-800/60 rounded-lg p-4 space-y-2">
+                            <div class="flex items-center gap-2 text-red-300 text-xs font-semibold">
+                                <span class="material-symbols-outlined text-sm">error</span>
+                                <span id="nlp-error-message">Extraction request failed.</span>
+                            </div>
+                        </div>
+
+                        <!-- Results Workspace Container -->
+                        <div id="nlp-results-container" class="hidden space-y-4">
+                            
+                            <!-- Results Header Metrics Bar -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <div class="flex items-center gap-4">
+                                    <div><span class="text-on-surface-variant">Extracted Entities:</span> <strong id="nlp-count-entities" class="text-purple-300 font-mono">0</strong></div>
+                                    <div><span class="text-on-surface-variant">Extracted Links:</span> <strong id="nlp-count-relationships" class="text-cyan-300 font-mono">0</strong></div>
+                                    <div><span class="text-on-surface-variant">Avg Confidence:</span> <strong id="nlp-avg-confidence" class="text-emerald-300 font-mono">0%</strong></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="sendNLPGroundToCrimeGraph()" class="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                                        <span class="material-symbols-outlined text-xs">account_tree</span> View in CrimeGraph
+                                    </button>
+                                    <button onclick="sendNLPQueryToAI()" class="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                                        <span class="material-symbols-outlined text-xs">auto_awesome</span> Query AI Investigator
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Conflict Warning Banner (rendered if conflict detected) -->
+                            <div id="nlp-conflict-banner" class="hidden bg-amber-950/40 border border-amber-800/60 rounded-lg p-3 text-xs text-amber-300 space-y-1">
+                                <div class="flex items-center gap-2 font-semibold text-amber-200">
+                                    <span class="material-symbols-outlined text-sm text-amber-400">warning</span>
+                                    <span>Conflicting Source Claims Detected</span>
+                                </div>
+                                <p id="nlp-conflict-detail" class="text-[11px] text-amber-300/90 leading-relaxed"></p>
+                            </div>
+
+                            <!-- Extracted Entities Panel -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-3">
+                                <h3 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-purple-400">category</span>
+                                    Extracted Entities (Grouped by Type)
+                                </h3>
+                                <div id="nlp-entities-list" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+                            </div>
+
+                            <!-- Extracted Relationships Panel -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-3">
+                                <h3 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-cyan-400">hub</span>
+                                    Extracted Relationships & Links
+                                </h3>
+                                <div id="nlp-relationships-list" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                            </div>
+
+                            <!-- Source Provenance & Evidence Panel -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-3">
+                                <h3 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-emerald-400">verified</span>
+                                    Source Provenance & Evidence Snippet
+                                </h3>
+                                <div id="nlp-provenance-box" class="bg-surface-container-lowest border border-surface-container-high rounded p-3 text-xs font-mono text-on-surface space-y-1.5"></div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
                 </div>
             </section>
 

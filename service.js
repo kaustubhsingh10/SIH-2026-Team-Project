@@ -461,6 +461,90 @@ class MockCrimeGraphAdapter {
         return newRel;
     }
 
+    async extractDocument(documentId, text) {
+        const evidenceId = `EVID_EXT_${Math.random().toString(16).substring(2, 8).toUpperCase()}`;
+        const evidenceList = [{
+            evidence_id: evidenceId,
+            source_document_id: documentId,
+            source_text: (text || "").substring(0, 300),
+            page_number: 1,
+            extraction_method: "AI_NER",
+            confidence: 0.95
+        }];
+        const entities = [];
+        const relationships = [];
+
+        // Extract Phone numbers
+        const phoneMatches = Array.from(new Set((text || "").match(/(\+?91[-\s]?[6-9]\d{9}|\b[6-9]\d{9}\b)/g) || []));
+        phoneMatches.forEach((ph, idx) => {
+            entities.push({
+                id: `PHONE_EXT_${idx + 1}`,
+                type: "PHONE",
+                name: ph.trim(),
+                confidence: 0.96,
+                evidence_ids: [evidenceId]
+            });
+        });
+
+        // Extract Vehicles
+        const vehicleMatches = Array.from(new Set((text || "").match(/\b([A-Z]{2}[-\s]?\d{2}[-\s]?[A-Z]{1,2}[-\s]?\d{4})\b/g) || []));
+        vehicleMatches.forEach((veh, idx) => {
+            entities.push({
+                id: `VEHICLE_EXT_${idx + 1}`,
+                type: "VEHICLE",
+                name: veh.trim(),
+                confidence: 0.94,
+                evidence_ids: [evidenceId]
+            });
+        });
+
+        // Extract Persons
+        const personMatches = Array.from(new Set((text || "").match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b/g) || []));
+        personMatches.forEach((pName, idx) => {
+            entities.push({
+                id: `PERSON_EXT_${idx + 1}`,
+                type: "PERSON",
+                name: pName.trim(),
+                confidence: 0.95,
+                evidence_ids: [evidenceId]
+            });
+        });
+
+        if (entities.length === 0) {
+            entities.push({
+                id: "PERSON_EXT_1",
+                type: "PERSON",
+                name: "Subject 1",
+                confidence: 0.85,
+                evidence_ids: [evidenceId]
+            });
+        }
+
+        const pEntities = entities.filter(e => e.type === "PERSON");
+        const oEntities = entities.filter(e => e.type !== "PERSON");
+        let relIdx = 1;
+        pEntities.forEach(p => {
+            oEntities.forEach(o => {
+                relationships.push({
+                    id: `REL_EXT_${relIdx++}`,
+                    source_id: p.id,
+                    relationship: o.type === "PHONE" ? "USES" : "USED",
+                    target_id: o.id,
+                    confidence: 0.93,
+                    evidence_ids: [evidenceId]
+                });
+            });
+        });
+
+        return {
+            document_id: documentId,
+            entities: entities,
+            relationships: relationships,
+            events: [],
+            evidence: evidenceList
+        };
+    }
+
     async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
         const q = question.toLowerCase();
         if (q.includes("guilt") || q.includes("guilty") || q.includes("culprit")) {
@@ -1258,6 +1342,14 @@ class CrimeGraphDataService {
             return await this.httpAdapter.search(query, filters);
         }
         return await this.mockAdapter.search(query, filters);
+    }
+
+    async extractDocument(documentId, text) {
+        await this.ensureInitialized();
+        if (this.isBackendOnline) {
+            return await this.httpAdapter.extractDocument(documentId, text);
+        }
+        return await this.mockAdapter.extractDocument(documentId, text);
     }
 
     async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
