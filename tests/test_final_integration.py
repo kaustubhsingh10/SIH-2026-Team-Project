@@ -258,7 +258,7 @@ class TestFinalThreeWayIntegration(unittest.TestCase):
     def test_14_production_config(self):
         """Verify production URL fallback exists in frontend service configuration."""
         import re
-        service_js = (Path(__file__).resolve().parent.parent / "service.js").read_text(encoding="utf-8")
+        service_js = (Path(__file__).resolve().parent.parent / "web" / "service.js").read_text(encoding="utf-8")
         self.assertIn("https://sih-2026-team-project.onrender.com", service_js)
 
 

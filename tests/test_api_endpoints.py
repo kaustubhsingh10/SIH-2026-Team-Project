@@ -98,6 +98,81 @@ class TestCasesAPI:
             assert "type" in ev
             assert "timestamp" in ev
 
+    def test_create_case_success(self, client):
+        payload = {
+            "title": "Operation Northern Lights — Trans-State Syndicate",
+            "case_type": "Logistics Hijack",
+            "priority": "HIGH",
+            "status": "ACTIVE",
+            "location": "LOC_001",
+            "description": "Intercepted cargo syndicate operating across northern state borders.",
+            "notes": "Initial lead from telco intercept.",
+            "created_by": "OFFICER_VERMA"
+        }
+        response = client.post("/api/cases", json=payload)
+        assert response.status_code == 201
+        created = response.json()
+        assert created["title"] == "Operation Northern Lights — Trans-State Syndicate"
+        assert created["entity_type"] == "CASE"
+        assert created["id"].startswith("CASE_")
+        assert created["status"] == "ACTIVE"
+
+        # Verify case is now listed
+        list_res = client.get("/api/cases")
+        assert list_res.status_code == 200
+        case_ids = [c["id"] for c in list_res.json()]
+        assert created["id"] in case_ids
+
+        # Verify case detail retrieval
+        detail_res = client.get(f"/api/cases/{created['id']}")
+        assert detail_res.status_code == 200
+        assert detail_res.json()["title"] == "Operation Northern Lights — Trans-State Syndicate"
+
+    def test_create_case_validation_missing_title(self, client):
+        payload = {
+            "description": "Case without title"
+        }
+        response = client.post("/api/cases", json=payload)
+        assert response.status_code == 422
+        assert "title" in response.json()["detail"].lower()
+
+    def test_create_case_duplicate_id(self, client):
+        payload = {
+            "id": "CASE_101",
+            "title": "Duplicate Case 101 Attempt"
+        }
+        response = client.post("/api/cases", json=payload)
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+    def test_create_case_attach_entity_and_relationship(self, client):
+        # 1. Create a new case
+        case_res = client.post("/api/cases", json={"title": "Operation Alpha Falcon — Money Laundering"})
+        assert case_res.status_code == 201
+        new_case_id = case_res.json()["id"]
+
+        # 2. Create a new entity
+        ent_res = client.post("/api/entities", json={"type": "PERSON", "name": "Rohan Sharma", "age": 34})
+        assert ent_res.status_code == 201
+        person_id = ent_res.json()["id"]
+
+        # 3. Connect person to new case
+        rel_res = client.post("/api/relationships", json={
+            "source_id": person_id,
+            "relationship": "INVOLVED_IN",
+            "target_id": new_case_id,
+            "confidence": 0.95
+        })
+        assert rel_res.status_code == 201
+
+        # 4. Verify case graph contains both nodes and the edge
+        graph_res = client.get(f"/api/cases/{new_case_id}/graph")
+        assert graph_res.status_code == 200
+        nodes = [n["id"] for n in graph_res.json()["nodes"]]
+        assert new_case_id in nodes
+        assert person_id in nodes
+
+
 
 class TestMainDemoCrossCaseAPI:
     def test_main_demo_path_discovery(self, client):

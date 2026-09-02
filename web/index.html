@@ -6,13 +6,13 @@
     <title>CrimeGraph AI — Investigative Intelligence Platform (SIH 2026)</title>
 
     <!-- Tailwind CSS with custom Stitch theme extensions -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script defer src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     
     <!-- Google Fonts & Material Symbols -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     
     <!-- Vis.js Network for Graph Visualization -->
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script defer type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
     <!-- Custom Stitch Design System Stylesheet -->
     <link rel="stylesheet" href="styles.css">
@@ -101,13 +101,16 @@
                 </select>
             </div>
 
-            <!-- Manual Entity & Relationship Creation Action Buttons -->
+            <!-- Manual Entity, Relationship & Case Creation Action Buttons -->
             <div class="flex items-center gap-2">
                 <button onclick="openAddEntityModal()" class="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition" aria-label="Add New Entity">
                     <span class="material-symbols-outlined text-xs" aria-hidden="true">person_add</span> + Add Entity
                 </button>
                 <button onclick="openAddRelationshipModal()" class="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition" aria-label="Add New Relationship">
                     <span class="material-symbols-outlined text-xs" aria-hidden="true">share</span> + Add Relationship
+                </button>
+                <button onclick="openCreateCaseModal()" class="px-2.5 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition cursor-pointer" aria-label="Create New Investigation Case">
+                    <span class="material-symbols-outlined text-xs" aria-hidden="true">add_circle</span> + CREATE CASE
                 </button>
             </div>
 
@@ -164,6 +167,30 @@
                     <span class="nav-badge bg-purple-500/20 text-purple-300 border border-purple-500/40">NER</span>
                 </button>
 
+                <button class="nav-item" data-tab="pane-entity-resolution" aria-label="Advanced Entity Resolution & Identity Linking Workspace">
+                    <span class="material-symbols-outlined text-indigo-400" aria-hidden="true">fingerprint</span>
+                    <span>Entity Resolution</span>
+                    <span id="nav-resolution-badge" class="nav-badge bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">Link</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-communities" aria-label="Community & Criminal Group Detection Workspace">
+                    <span class="material-symbols-outlined text-amber-400" aria-hidden="true">groups</span>
+                    <span>Communities & Groups</span>
+                    <span id="nav-communities-badge" class="nav-badge bg-amber-500/20 text-amber-300 border border-amber-500/40">Cluster</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-key-players" aria-label="Key Player & Influencer Intelligence Workspace">
+                    <span class="material-symbols-outlined text-rose-400" aria-hidden="true">stars</span>
+                    <span>Key Players & Influencers</span>
+                    <span id="nav-kp-badge" class="nav-badge bg-rose-500/20 text-rose-300 border border-rose-500/40">Rank</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-link-analysis" aria-label="Advanced Link Analysis & Path Discovery Workspace">
+                    <span class="material-symbols-outlined text-cyan-400" aria-hidden="true">alt_route</span>
+                    <span>Link Analysis</span>
+                    <span id="nav-path-badge" class="nav-badge bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Path</span>
+                </button>
+
                 <button class="nav-item" data-tab="pane-ai-investigator" aria-label="AI Investigator Assistant Interface">
                     <span class="material-symbols-outlined text-tertiary" aria-hidden="true">auto_awesome</span>
                     <span>AI Investigator</span>
@@ -203,90 +230,341 @@
         <!-- MAIN CONTENT PANES -->
         <main class="flex-1 bg-background p-5 overflow-y-auto" role="main">
             
-            <!-- PANE 1: DASHBOARD -->
-            <section id="pane-dashboard" class="tab-pane active space-y-5">
-                <!-- Metrics Bar -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="stitch-card flex items-center gap-3">
-                        <div class="w-10 h-10 rounded bg-primary-container/20 border border-primary-container/40 flex items-center justify-center text-primary">
-                            <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+            <!-- PANE 1: DASHBOARD (INVESTIGATION COMMAND DASHBOARD) -->
+            <section id="pane-dashboard" class="tab-pane active space-y-6">
+
+                <!-- Header Title & Operational Status -->
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                    <div>
+                        <h1 class="text-lg font-extrabold text-white tracking-tight flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-xl" aria-hidden="true">view_quilt</span>
+                            INVESTIGATION COMMAND DASHBOARD
+                        </h1>
+                        <p class="text-xs text-on-surface-variant mt-0.5">Real-time operational intelligence home screen for multi-source investigation support.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-1 text-xs font-mono font-bold rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center gap-1.5 shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> SYSTEM ONLINE
+                        </span>
+                        <button onclick="renderDashboard()" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded shadow flex items-center gap-1 transition" title="Refresh Dashboard Intelligence">
+                            <span class="material-symbols-outlined text-xs">refresh</span> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Actions Toolbar Bar -->
+                <div class="stitch-card bg-surface-container-low/90 border-surface-container-high p-3 flex flex-wrap items-center justify-between gap-2 shadow-md">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-outline uppercase tracking-wider font-mono mr-1">Quick Actions:</span>
+                        <button onclick="openAddEntityModal()" class="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs" aria-hidden="true">person_add</span> + Add Entity
+                        </button>
+                        <button onclick="openAddRelationshipModal()" class="px-2.5 py-1 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs" aria-hidden="true">share</span> + Add Relationship
+                        </button>
+                        <button onclick="openCreateCaseModal()" class="px-2.5 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition cursor-pointer">
+                            <span class="material-symbols-outlined text-xs" aria-hidden="true">add_circle</span> + Create Case
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1.5 overflow-x-auto">
+                        <button onclick="switchTab('pane-cases')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">briefcase</span> Cases
+                        </button>
+                        <button onclick="switchTab('pane-entities')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">groups</span> Entities
+                        </button>
+                        <button onclick="switchTab('pane-graph')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">hub</span> Network Graph
+                        </button>
+                        <button onclick="switchTab('pane-patterns')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">search_insights</span> Patterns
+                        </button>
+                        <button onclick="switchTab('pane-timeline')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">timeline</span> Timeline
+                        </button>
+                        <button onclick="switchTab('pane-reports')" class="px-2 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11px] font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-xs">summarize</span> Reports
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Metrics Bar (6 Cards) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-primary-container/20 border border-primary-container/40 flex items-center justify-center text-primary shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">folder_open</span>
                         </div>
                         <div>
-                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Active Cases</div>
-                            <div class="text-xl font-bold text-white font-mono" id="dash-metric-cases">4</div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">Active Cases</div>
+                            <div class="text-lg font-bold text-white font-mono" id="dash-metric-cases">--</div>
                         </div>
                     </div>
 
-                    <div class="stitch-card flex items-center gap-3">
-                        <div class="w-10 h-10 rounded bg-tertiary-container/20 border border-tertiary-container/40 flex items-center justify-center text-tertiary">
-                            <span class="material-symbols-outlined" aria-hidden="true">groups</span>
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-rose-950/40 border border-rose-800/40 flex items-center justify-center text-rose-400 shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">priority_high</span>
                         </div>
                         <div>
-                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Extracted Entities</div>
-                            <div class="text-xl font-bold text-white font-mono" id="dash-metric-entities">34</div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">High Priority</div>
+                            <div class="text-lg font-bold text-rose-400 font-mono" id="dash-metric-priority">--</div>
                         </div>
                     </div>
 
-                    <div class="stitch-card flex items-center gap-3">
-                        <div class="w-10 h-10 rounded bg-secondary-container/20 border border-secondary-container/40 flex items-center justify-center text-secondary">
-                            <span class="material-symbols-outlined" aria-hidden="true">route</span>
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-tertiary-container/20 border border-tertiary-container/40 flex items-center justify-center text-tertiary shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">groups</span>
                         </div>
                         <div>
-                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Cross-Case Links</div>
-                            <div class="text-xl font-bold text-primary font-mono" id="dash-metric-links">2</div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">Key Entities</div>
+                            <div class="text-lg font-bold text-white font-mono" id="dash-metric-entities">--</div>
                         </div>
                     </div>
 
-                    <div class="stitch-card flex items-center gap-3">
-                        <div class="w-10 h-10 rounded bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
-                            <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-purple-950/40 border border-purple-800/40 flex items-center justify-center text-purple-400 shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">radar</span>
                         </div>
                         <div>
-                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Ingested Evidence</div>
-                            <div class="text-xl font-bold text-amber-400 font-mono" id="dash-metric-evidence">19</div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">AI Patterns</div>
+                            <div class="text-lg font-bold text-purple-300 font-mono" id="dash-metric-patterns">--</div>
+                        </div>
+                    </div>
+
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-secondary-container/20 border border-secondary-container/40 flex items-center justify-center text-secondary shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">route</span>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">Cross Links</div>
+                            <div class="text-lg font-bold text-primary font-mono" id="dash-metric-links">--</div>
+                        </div>
+                    </div>
+
+                    <div class="stitch-card p-3 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400 shrink-0">
+                            <span class="material-symbols-outlined text-lg" aria-hidden="true">description</span>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-on-surface-variant uppercase font-semibold">Evidence Items</div>
+                            <div class="text-lg font-bold text-amber-400 font-mono" id="dash-metric-evidence">--</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Featured Cross-Case Connection Banner -->
-                <div class="stitch-card bg-surface-container-low border-primary/30 p-4 space-y-3">
+                <!-- Featured Automated Cross-Case Connection Banner (Canonical Path) -->
+                <div class="stitch-card bg-surface-container-low border-primary/30 p-4 space-y-3 shadow-lg">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="material-symbols-outlined text-primary" aria-hidden="true">auto_awesome</span>
-                            <span class="text-xs font-bold text-white uppercase tracking-wider">Automated Cross-Case Discovery</span>
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">Automated Cross-Case Traversal Chain</span>
                         </div>
-                        <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">
-                            Composite Confidence: 0.93 (High)
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">
+                                Composite Confidence: 0.93 (High)
+                            </span>
+                            <button onclick="switchTab('pane-graph')" class="px-2.5 py-1 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 rounded text-xs font-semibold flex items-center gap-1 transition">
+                                <span class="material-symbols-outlined text-xs">hub</span> Open Graph Path
+                            </button>
+                        </div>
                     </div>
 
                     <div class="text-xs text-on-surface-variant">
-                        Discovered hidden 4-hop connection chain linking <strong>CASE_101</strong> (Cargo Hijack) to <strong>CASE_204</strong> (Zaveri Bazaar Fencing) via shared burner line <strong>PHONE_042</strong> (+91-9876543210).
+                        Discovered multi-hop intelligence path linking <strong>CASE_101</strong> (Cargo Hijack) to <strong>CASE_204</strong> (Zaveri Bazaar Fencing) via shared burner line <strong>PHONE_042</strong> (+91-9876543210).
                     </div>
 
                     <div class="flex items-center gap-2 overflow-x-auto py-2">
-                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_101</span>
+                        <button onclick="openCaseDetail('CASE_101')" class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-slate-800 text-error border border-error/40 text-xs font-mono font-bold transition">CASE_101</button>
                         <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
-                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_017 (Aarav Verma)</span>
+                        <button onclick="openEntityDetails('PERSON_017')" class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-slate-800 text-primary border border-primary/40 text-xs font-mono font-bold transition">PERSON_017 (Aarav Verma)</button>
                         <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
-                        <span class="px-2.5 py-1 rounded bg-tertiary-container/30 text-tertiary border border-tertiary/50 text-xs font-mono font-bold">PHONE_042 (Burner Line)</span>
+                        <button onclick="openEntityDetails('PHONE_042')" class="px-2.5 py-1 rounded bg-tertiary-container/30 hover:bg-tertiary-container/50 text-tertiary border border-tertiary/50 text-xs font-mono font-bold transition">PHONE_042 (Burner Line)</button>
                         <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
-                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_089 (Vikram Malhotra)</span>
+                        <button onclick="openEntityDetails('PERSON_089')" class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-slate-800 text-primary border border-primary/40 text-xs font-mono font-bold transition">PERSON_089 (Vikram Malhotra)</button>
                         <span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>
-                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_204</span>
+                        <button onclick="openCaseDetail('CASE_204')" class="px-2.5 py-1 rounded bg-surface-container-high hover:bg-slate-800 text-error border border-error/40 text-xs font-mono font-bold transition">CASE_204</button>
                     </div>
                 </div>
 
-                <!-- Active Cases Grid -->
-                <div class="space-y-3">
-                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary text-base" aria-hidden="true">briefcase</span> Active Investigation Cases
-                    </h3>
+                <!-- Main Two-Column Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="dashboard-cases-container">
-                        <!-- Rendered via JS using CrimeGraphDataService -->
+                    <!-- Left Column: Active Cases & Investigation Signals (Span 2) -->
+                    <div class="lg:col-span-2 space-y-6">
+
+                        <!-- Active Cases Grid -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-primary text-base" aria-hidden="true">briefcase</span> Active & Priority Cases
+                                </h3>
+                                <button onclick="switchTab('pane-cases')" class="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+                                    View All Cases <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="dashboard-cases-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Investigation Signals & AI Intelligence Review -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-purple-400 text-base" aria-hidden="true">psychology</span> Investigation Signals & AI Intelligence Leads
+                                </h3>
+                                <button onclick="switchTab('pane-patterns')" class="text-xs text-purple-400 font-semibold hover:underline flex items-center gap-1">
+                                    View Patterns <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                </button>
+                            </div>
+
+                            <div class="space-y-3" id="dashboard-signals-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Cross-Source Intelligence Correlation Section (Day 32) -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high pb-2">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-cyan-400 text-base" aria-hidden="true">compare_arrows</span>
+                                    Cross-Source Intelligence Correlation
+                                </h3>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <select id="corr-filter-type" onchange="filterCorrelationsUI()" class="bg-surface-container-high text-on-surface border border-surface-container-highest rounded px-2 py-1 text-xs">
+                                        <option value="ALL">All Types</option>
+                                        <option value="SAME_RESOLVED_ENTITY">Resolved Entity</option>
+                                        <option value="RELATIONSHIP_CORRELATION">Relationship Link</option>
+                                        <option value="CROSS_CASE_CORRELATION">Cross-Case Overlap</option>
+                                        <option value="CONTRADICTION">Contradictions</option>
+                                    </select>
+                                    <select id="corr-filter-conf" onchange="filterCorrelationsUI()" class="bg-surface-container-high text-on-surface border border-surface-container-highest rounded px-2 py-1 text-xs">
+                                        <option value="0.0">All Confidence</option>
+                                        <option value="0.85">High (&ge;0.85)</option>
+                                        <option value="0.90">Very High (&ge;0.90)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono" id="corr-stats-bar">
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Total Signals</span>
+                                    <strong class="text-cyan-300 text-sm" id="corr-stat-total">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">High Confidence</span>
+                                    <strong class="text-emerald-400 text-sm" id="corr-stat-high">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Entity Matches</span>
+                                    <strong class="text-indigo-300 text-sm" id="corr-stat-entities">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Contradictions</span>
+                                    <strong class="text-amber-400 text-sm" id="corr-stat-conflicts">0</strong>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3" id="dashboard-correlations-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
+                        <!-- DAY 33 — INVESTIGATIVE RISK & PRIORITY INTELLIGENCE PANEL -->
+                        <div class="stitch-card space-y-4 border border-rose-900/40 bg-gradient-to-br from-surface-container-low to-rose-950/20">
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                                        <span class="material-symbols-outlined text-lg" aria-hidden="true">warning</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white tracking-wide">Investigative Risk & Priority Intelligence</h3>
+                                        <p class="text-[11px] text-on-surface-variant font-sans">ML Data Mining & Entity Risk Scoring Engine</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select id="risk-filter-priority" onchange="filterRiskUI()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-rose-300 font-mono focus:outline-none focus:border-rose-500 cursor-pointer">
+                                        <option value="ALL">Priority: ALL</option>
+                                        <option value="HIGH">Priority: HIGH (>=75)</option>
+                                        <option value="MODERATE">Priority: MODERATE (50-74)</option>
+                                        <option value="LOW">Priority: LOW (<50)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Summary Metrics Bar -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Scored Entities</span>
+                                    <strong class="text-white text-sm" id="risk-stat-total">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">High Priority</span>
+                                    <strong class="text-rose-400 text-sm" id="risk-stat-high">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Moderate Priority</span>
+                                    <strong class="text-amber-400 text-sm" id="risk-stat-mod">0</strong>
+                                </div>
+                                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high">
+                                    <span class="text-on-surface-variant block text-[10px] uppercase font-sans">Top Risk Entity</span>
+                                    <strong class="text-emerald-400 text-xs truncate block" id="risk-stat-top">N/A</strong>
+                                </div>
+                            </div>
+
+                            <!-- Safety UX Disclaimer -->
+                            <div class="p-2 rounded bg-rose-950/30 border border-rose-900/40 text-[11px] text-rose-200/90 font-sans flex items-center gap-2">
+                                <span class="material-symbols-outlined text-rose-400 text-sm">shield</span>
+                                <span><strong>Safety UX Disclaimer:</strong> Risk scores indicate investigative priority based on observed data signals. Risk score is not a determination of guilt.</span>
+                            </div>
+
+                            <!-- Container for Ranked Entity Risk Cards -->
+                            <div class="space-y-3" id="dashboard-risk-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
                     </div>
+
+                    <!-- Right Column: Key Entities & Recent Activity (Span 1) -->
+                    <div class="space-y-6">
+
+                        <!-- Key Entities (Day 28 Key Players) -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-tertiary text-base" aria-hidden="true">star</span> Key Player Intelligence
+                                </h3>
+                                <button onclick="switchTab('pane-entities')" class="text-xs text-tertiary font-semibold hover:underline flex items-center gap-1">
+                                    Explorer <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                </button>
+                            </div>
+
+                            <div class="space-y-2.5" id="dashboard-key-entities-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Recent Ingested Evidence & Activity -->
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-amber-400 text-base" aria-hidden="true">receipt_long</span> Ingested Evidence & Activity
+                                </h3>
+                                <button onclick="switchTab('pane-evidence')" class="text-xs text-amber-400 font-semibold hover:underline flex items-center gap-1">
+                                    View Feed <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                </button>
+                            </div>
+
+                            <div class="space-y-2.5" id="dashboard-activity-container">
+                                <!-- Rendered via JS -->
+                            </div>
+                        </div>
+
+                    </div>
+
                 </div>
+
             </section>
 
             <!-- PANE 2: CASE EXPLORER -->
@@ -296,6 +574,9 @@
                         <span class="material-symbols-outlined text-primary" aria-hidden="true">briefcase</span> Case Explorer
                     </h2>
                     <div class="flex items-center gap-2">
+                        <button onclick="openCreateCaseModal()" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1 transition cursor-pointer" aria-label="Create New Investigation Case">
+                            <span class="material-symbols-outlined text-xs" aria-hidden="true">add_circle</span> + CREATE CASE
+                        </button>
                         <select id="case-status-filter" aria-label="Filter Cases by Status" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-tertiary font-mono focus:outline-none focus:border-primary">
                             <option value="ALL">Status: ALL</option>
                             <option value="ACTIVE">Status: ACTIVE</option>
@@ -422,11 +703,13 @@
                         <div class="h-3 w-px bg-surface-container-high"></div>
                         <select id="filter-source-type" onchange="applyGraphFilters()" aria-label="Filter Graph by Data Source Method" class="bg-surface-container-lowest border border-surface-container-high rounded px-2 py-0.5 text-[11px] text-purple-300 font-semibold focus:outline-none focus:border-purple-500">
                             <option value="ALL">Source: All Methods</option>
+                            <option value="SYNTHETIC_DATASET">Synthetic Dataset</option>
+                            <option value="MANUAL_INVESTIGATION">Manual Investigation</option>
+                            <option value="NLP_EXTRACT">NLP Extract</option>
+                            <option value="EXTERNAL_CONNECTOR">External Adapter</option>
+                            <option value="SOCIAL_MEDIA_SYNTHETIC">Social Media Synthetic</option>
                             <option value="DIGITAL_FORENSICS">Digital Forensics</option>
                             <option value="TELCO_INTERCEPT">Telco Intercept</option>
-                            <option value="AI_NER">AI Document NER</option>
-                            <option value="TRAFFIC_CAM_OCR">Traffic Cam OCR</option>
-                            <option value="WITNESS_STATEMENT">Witness Statements</option>
                         </select>
                     </div>
                 </div>
@@ -683,17 +966,53 @@
             <!-- PANE 8: REPORTS -->
             <section id="pane-reports" class="tab-pane hidden space-y-4">
                 <div class="stitch-card space-y-4">
-                    <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
-                        <h2 class="text-base font-bold text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary" aria-hidden="true">summarize</span> Evidence-Backed Investigation Report
-                        </h2>
-                        <button onclick="generateReport()" class="px-3 py-1.5 bg-primary-container text-white text-xs font-semibold rounded flex items-center gap-1" aria-label="Generate Evidence Report">
-                            <span class="material-symbols-outlined text-sm" aria-hidden="true">print</span> Generate Report
-                        </button>
+                    <!-- Header Bar -->
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-surface-container-high pb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-xl" aria-hidden="true">summarize</span> Investigation Intelligence Report & Export
+                            </h2>
+                            <p class="text-xs text-outline mt-0.5">Comprehensive, evidence-linked report synthesis combining Network Intelligence, Timeline, Patterns, NLP, and Provenance.</p>
+                        </div>
+                        
+                        <!-- Control Actions -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="report-case-select" onchange="renderInvestigationReport(this.value)" class="px-2.5 py-1.5 bg-surface-container-lowest border border-surface-container-high text-white text-xs font-mono rounded focus:border-primary focus:outline-none" aria-label="Select Target Case for Report">
+                                <option value="CASE_101">CASE_101 — Operation Midnight Shadow</option>
+                                <option value="CASE_204">CASE_204 — Operation Golden Falcon</option>
+                                <option value="CASE_102">CASE_102 — Operation Silver Shield</option>
+                                <option value="CASE_305">CASE_305 — Operation Falcon Eye</option>
+                            </select>
+
+                            <button onclick="renderInvestigationReport()" id="btn-generate-report" class="px-3 py-1.5 bg-primary-container hover:bg-primary-container/80 text-white text-xs font-semibold rounded flex items-center gap-1.5 transition shadow" aria-label="Generate Complete Report">
+                                <span class="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                                <span>Generate Report</span>
+                            </button>
+
+                            <!-- Export Controls -->
+                            <div class="flex items-center gap-1 border-l border-surface-container-high pl-2">
+                                <button onclick="exportInvestigationReport('json')" id="btn-export-json" class="px-2.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-emerald-400 border border-emerald-800/60 text-xs font-mono font-bold rounded flex items-center gap-1 transition" title="Export full report as structured JSON">
+                                    <span class="material-symbols-outlined text-xs">javascript</span> EXPORT JSON
+                                </button>
+                                <button onclick="exportInvestigationReport('pdf')" id="btn-export-pdf" class="px-2.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-rose-400 border border-rose-800/60 text-xs font-mono font-bold rounded flex items-center gap-1 transition" title="Export report as PDF document">
+                                    <span class="material-symbols-outlined text-xs">picture_as_pdf</span> EXPORT PDF
+                                </button>
+                                <button onclick="exportInvestigationReport('markdown')" id="btn-export-md" class="px-2.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-purple-400 border border-purple-800/60 text-xs font-mono font-bold rounded flex items-center gap-1 transition" title="Export report as Markdown text file">
+                                    <span class="material-symbols-outlined text-xs">markdown</span> EXPORT MD
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div id="report-view-box" class="bg-surface-container-lowest border border-surface-container-high rounded p-5 text-xs font-mono leading-relaxed space-y-3">
-                        <div class="text-outline text-center py-10">Click "Generate Report" to preview evidence summary.</div>
+                    <!-- Export Status Banner / Loading / Error Container -->
+                    <div id="report-export-status" class="hidden rounded p-3 text-xs font-sans"></div>
+
+                    <!-- Main Report Viewer Container -->
+                    <div id="report-view-box" class="space-y-4">
+                        <div class="text-outline text-center py-12 text-xs font-sans">
+                            <span class="material-symbols-outlined text-3xl text-outline mb-2 block">description</span>
+                            Select a case and click "Generate Report" to view evidence-linked intelligence summary.
+                        </div>
                     </div>
                 </div>
             </section>
@@ -763,16 +1082,36 @@
                         <div>
                             <div class="flex items-center gap-2">
                                 <h2 class="text-base font-bold text-white flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-amber-400" aria-hidden="true">warning</span> Suspicious Pattern & Network Anomaly Intelligence
+                                    <span class="material-symbols-outlined text-amber-400" aria-hidden="true">warning</span> AI Pattern & Anomaly Intelligence
                                 </h2>
-                                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">SIH Day 20</span>
+                                <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">Day 30 — AI Anomaly Engine</span>
                             </div>
-                            <p class="text-xs text-on-surface-variant">Automated graph anomaly detection identifying cross-case communication bridges, suspect hubs, and forensic co-occurrences.</p>
+                            <p class="text-xs text-on-surface-variant">Automated graph anomaly detection identifying cross-case bridges, suspect hubs, temporal clusters, repeated contacts, and multi-source corroborations.</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button onclick="renderSuspiciousPatterns()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-semibold rounded border border-outline-variant flex items-center gap-1 transition">
                                 <span class="material-symbols-outlined text-sm">refresh</span> Refresh Patterns
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Metrics Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+                        <div class="bg-surface-container-low border border-surface-container-high p-3 rounded-lg text-center">
+                            <span class="text-[10px] uppercase text-outline block font-sans">Total Patterns</span>
+                            <strong id="pat-metric-total" class="text-lg font-bold text-white">7</strong>
+                        </div>
+                        <div class="bg-surface-container-low border border-surface-container-high p-3 rounded-lg text-center">
+                            <span class="text-[10px] uppercase text-outline block font-sans">High Anomaly Index</span>
+                            <strong id="pat-metric-high" class="text-lg font-bold text-rose-400">5</strong>
+                        </div>
+                        <div class="bg-surface-container-low border border-surface-container-high p-3 rounded-lg text-center">
+                            <span class="text-[10px] uppercase text-outline block font-sans">Cross-Case Bridges</span>
+                            <strong id="pat-metric-bridges" class="text-lg font-bold text-amber-400">3</strong>
+                        </div>
+                        <div class="bg-surface-container-low border border-surface-container-high p-3 rounded-lg text-center">
+                            <span class="text-[10px] uppercase text-outline block font-sans">Corroborated</span>
+                            <strong id="pat-metric-corrob" class="text-lg font-bold text-emerald-400">2</strong>
                         </div>
                     </div>
 
@@ -792,10 +1131,14 @@
                         <div>
                             <label for="pattern-type-filter" class="block text-[10px] font-bold uppercase text-outline mb-1">Pattern Category</label>
                             <select id="pattern-type-filter" onchange="renderSuspiciousPatterns()" class="w-full bg-surface-container-low border border-surface-container-high rounded px-2.5 py-1 text-xs text-on-surface">
-                                <option value="ALL">All Pattern Categories</option>
-                                <option value="CROSS_CASE_BRIDGE">Cross-Case Communication Bridge</option>
+                                <option value="ALL">All 7 Pattern Categories</option>
                                 <option value="HIGH_CONNECTIVITY_HUB">High-Connectivity Suspect Hub</option>
-                                <option value="EVIDENCE_SUPPORTED_ANOMALY">Evidence-Supported Anomaly</option>
+                                <option value="CROSS_CASE_BRIDGE">Cross-Case Communication Bridge</option>
+                                <option value="TEMPORAL_CLUSTER">Tight Temporal Burst Cluster</option>
+                                <option value="REPEATED_CONTACT_PATTERN">High-Frequency Contact Pattern</option>
+                                <option value="ENTITY_ACTIVITY_ANOMALY">Entity Activity Spike</option>
+                                <option value="MULTI_SOURCE_CORROBORATION">Multi-Source Intelligence Corroboration</option>
+                                <option value="UNUSUAL_PATH_PATTERN">Unusual Multi-Hop Path Pattern</option>
                             </select>
                         </div>
 
@@ -820,7 +1163,7 @@
                     <!-- Safety Banner -->
                     <div class="p-2.5 bg-amber-950/30 border border-amber-800/40 rounded text-xs font-sans text-amber-300 flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm text-amber-400" aria-hidden="true">shield</span>
-                        <span><strong>Safety Note:</strong> Suspicious pattern indicators highlight investigative anomalies only. They do not constitute legal declarations of guilt or criminal proof.</span>
+                        <span><strong>Investigative Lead Policy:</strong> Patterns and anomaly scores are investigative leads only. They do not establish criminal intent, legal culpability, or guilt.</span>
                     </div>
 
                     <!-- Patterns Container -->
@@ -1018,6 +1361,608 @@
                 </div>
             </section>
 
+            <!-- TAB PANE: ADVANCED ENTITY RESOLUTION & IDENTITY LINKING WORKSPACE -->
+            <section id="pane-entity-resolution" class="tab-pane hidden p-6 space-y-6 max-w-7xl mx-auto" aria-labelledby="resolution-workspace-title">
+                <!-- Header & Toolbar -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-surface-container-high">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-indigo-400 text-2xl">fingerprint</span>
+                            <h1 id="resolution-workspace-title" class="text-xl font-bold text-primary tracking-tight">Advanced Entity Resolution & Identity Linking</h1>
+                            <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
+                                Day 26 — Multi-Attribute Linking
+                            </span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant mt-1">
+                            Discover, compare, and trace candidate duplicate identities across cases with complete source provenance, confidence tiers, matching/conflicting fields, and investigative lead generation.
+                        </p>
+                    </div>
+
+                    <!-- Toolbar Filters -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Entity Selector -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Entity:</span>
+                            <select id="resolution-entity-filter" onchange="filterResolutionCandidates()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="ALL">All Candidates (Queue)</option>
+                                <option value="PERSON_017">Aarav Verma (PERSON_017)</option>
+                                <option value="PERSON_092">A. Verma (PERSON_092)</option>
+                                <option value="PERSON_089">Vikram Malhotra (PERSON_089)</option>
+                                <option value="PERSON_056">Karan Shah (PERSON_056)</option>
+                            </select>
+                        </div>
+
+                        <!-- Confidence Tier Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Tier:</span>
+                            <select id="resolution-tier-filter" onchange="filterResolutionCandidates()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="ALL">All Tiers</option>
+                                <option value="HIGH">HIGH (≥85%)</option>
+                                <option value="MEDIUM">MEDIUM (70-84%)</option>
+                                <option value="LOW">LOW (50-69%)</option>
+                            </select>
+                        </div>
+
+                        <!-- Match Status Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Status:</span>
+                            <select id="resolution-status-filter" onchange="filterResolutionCandidates()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-indigo-500">
+                                <option value="ALL">All Statuses</option>
+                                <option value="MATCH">MATCH</option>
+                                <option value="POSSIBLE MATCH">POSSIBLE MATCH</option>
+                                <option value="UNRESOLVED">UNRESOLVED</option>
+                                <option value="CONFLICT">CONFLICT ONLY</option>
+                            </select>
+                        </div>
+
+                        <!-- Pending Count Badge -->
+                        <span id="resolution-pending-badge" class="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-mono font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">pending</span>
+                            <span id="resolution-candidate-count">2</span> Pending
+                        </span>
+
+                        <button onclick="renderEntityResolutionWorkspace()" class="p-1.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-primary transition" title="Refresh Candidates">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Split Layout (Left: Candidate Queue, Right: Match Comparison Workspace) -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    <!-- Left Column: Candidate List (4 cols) -->
+                    <div class="lg:col-span-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm text-indigo-400">recent_actors</span>
+                                Flagged Identity Candidates
+                            </h2>
+                            <span class="text-[11px] text-on-surface-variant font-mono">Select to compare</span>
+                        </div>
+
+                        <div id="resolution-candidates-list" class="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Detailed Match Comparison (8 cols) -->
+                    <div class="lg:col-span-8 space-y-4">
+                        
+                        <!-- Empty Selection State -->
+                        <div id="resolution-empty-state" class="bg-surface-container-low border border-surface-container-high rounded-lg p-12 text-center space-y-3">
+                            <span class="material-symbols-outlined text-4xl text-on-surface-variant">join_full</span>
+                            <h3 class="text-sm font-semibold text-primary">No Candidate Match Selected</h3>
+                            <p class="text-xs text-on-surface-variant max-w-md mx-auto">
+                                Select a candidate identity resolution pair from the left panel to inspect the side-by-side attribute comparison, provenance records, confidence metrics, and conflict claims.
+                            </p>
+                        </div>
+
+                        <!-- Comparison Workspace Container -->
+                        <div id="resolution-comparison-workspace" class="hidden space-y-4">
+                            <!-- Comparison Header Card -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span id="resolution-match-status-badge" class="px-2 py-0.5 text-xs font-bold rounded uppercase">POSSIBLE MATCH</span>
+                                        <span id="resolution-confidence-tier-badge" class="px-2 py-0.5 text-xs font-bold rounded uppercase">HIGH</span>
+                                        <span class="text-xs text-on-surface-variant font-mono">Similarity: <strong id="resolution-similarity-score" class="text-primary font-mono font-bold">92%</strong></span>
+                                    </div>
+                                    <h3 class="text-base font-bold text-primary flex items-center gap-2">
+                                        <span id="res-name-a" class="text-indigo-300">Entity A</span>
+                                        <span class="text-on-surface-variant text-sm font-mono font-normal">vs</span>
+                                        <span id="res-name-b" class="text-cyan-300">Entity B</span>
+                                    </h3>
+                                    <p id="resolution-explanation-narrative" class="text-xs text-on-surface-variant leading-relaxed"></p>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button onclick="highlightResolutionInGraph()" class="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1.5 transition">
+                                        <span class="material-symbols-outlined text-sm">account_tree</span> Highlight in Graph
+                                    </button>
+                                    <button onclick="sendResolutionToAIInvestigator()" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded shadow flex items-center gap-1.5 transition">
+                                        <span class="material-symbols-outlined text-sm">auto_awesome</span> Query AI Investigator
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Prominent Conflict Warning Banner (rendered if conflict exists) -->
+                            <div id="resolution-conflict-banner" class="hidden bg-rose-950/50 border-2 border-rose-600/80 rounded-lg p-4 text-xs text-rose-200 space-y-2 shadow-lg animate-pulse-subtle">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 text-rose-300 font-bold text-xs uppercase tracking-wider">
+                                        <span class="material-symbols-outlined text-base text-rose-400">warning</span>
+                                        <span>PROMINENT CONFLICT DETECTED — CONFLICTING IDENTITY CLAIMS</span>
+                                    </div>
+                                    <span class="px-2 py-0.5 text-[10px] font-bold font-mono rounded bg-rose-900 text-rose-100 border border-rose-700">HUMAN REVIEW</span>
+                                </div>
+                                <div id="resolution-conflict-claims" class="space-y-1.5 text-xs text-rose-100/90 font-mono bg-rose-950/80 p-3 rounded border border-rose-800/80"></div>
+                                <div class="p-2.5 rounded bg-amber-950/70 border border-amber-800/80 text-amber-200 text-[11px] flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-sm text-amber-400">shield_person</span>
+                                    <strong>HUMAN OFFICER VERIFICATION REQUIRED BEFORE FORMAL PROCEEDINGS:</strong> Graph AI system does not automatically select or overwrite conflicting identity claims.
+                                </div>
+                            </div>
+
+                            <!-- Side-by-Side Comparison Table -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-3">
+                                <h4 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-indigo-400">compare_arrows</span>
+                                    Side-by-Side Attribute Comparison (Entity A vs Entity B)
+                                </h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr class="border-b border-surface-container-high text-on-surface-variant uppercase font-mono text-[11px]">
+                                                <th class="py-2 px-3">Attribute</th>
+                                                <th class="py-2 px-3 text-indigo-300 font-bold" id="table-header-a">Entity A</th>
+                                                <th class="py-2 px-3 text-cyan-300 font-bold" id="table-header-b">Entity B</th>
+                                                <th class="py-2 px-3">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resolution-comparison-tbody" class="divide-y divide-surface-container-high font-mono">
+                                            <!-- Rows rendered dynamically via JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Source Provenance & Evidence Base -->
+                            <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-3">
+                                <h4 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-emerald-400">verified</span>
+                                    Identity Link Provenance & Supporting Evidence Base
+                                </h4>
+                                <div id="resolution-provenance-box" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- ====================================================
+                 DAY 27 — COMMUNITY & CRIMINAL GROUP DETECTION WORKSPACE
+                 ==================================================== -->
+            <section id="pane-communities" class="tab-pane hidden p-6 space-y-6 max-w-7xl mx-auto">
+                <!-- Header Title & Overview -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-surface-container-high">
+                    <div>
+                        <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-amber-400 text-2xl">groups</span>
+                            Community & Criminal Group Detection
+                        </h2>
+                        <p class="text-xs text-on-surface-variant mt-1">
+                            Topology-driven modularity and density clustering across multi-source evidence graphs.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <div class="bg-amber-950/40 border border-amber-800/60 rounded px-3 py-1.5 text-xs text-amber-300 font-mono flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm text-amber-400">hub</span>
+                            <span>Detected Communities: <strong id="community-count-badge" class="text-white">0</strong></span>
+                        </div>
+                        <button onclick="renderCommunitiesWorkspace()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition border border-surface-container-highest">
+                            <span class="material-symbols-outlined text-sm">refresh</span> Refresh Clusters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Non-Culpability Safety Disclaimer Banner -->
+                <div class="bg-amber-950/30 border border-amber-800/60 rounded-lg p-3 text-xs text-amber-200 flex items-start gap-2.5 shadow-sm">
+                    <span class="material-symbols-outlined text-amber-400 text-base shrink-0 mt-0.5">gavel</span>
+                    <div class="space-y-1">
+                        <div class="font-bold text-amber-300 uppercase tracking-wide text-[11px]">LEGAL & INVESTIGATIVE SAFETY MANDATE</div>
+                        <p class="text-[11px] leading-relaxed">
+                            Community detection identifies structural relationships in available evidence. It does not establish criminality, guilt, or legal culpability. All structural findings represent potential investigative leads requiring human verification.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Split Layout: Left Queue & Right Community Profile -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <!-- Left Column: Community Filter & Queue List (5 Cols) -->
+                    <div class="lg:col-span-5 space-y-4">
+
+                        <!-- Filter Controls -->
+                        <div class="bg-surface-container-low border border-surface-container-high rounded-xl p-4 space-y-3 shadow-md">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-xs text-amber-400">filter_alt</span> Filter Communities
+                                </h3>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-2.5">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-outline block mb-1">Classification</label>
+                                    <select id="community-type-filter" onchange="filterCommunities()" class="w-full bg-surface-container border border-surface-container-high rounded px-2.5 py-1.5 text-xs text-on-surface focus:border-amber-400 focus:outline-none">
+                                        <option value="ALL">All Classifications</option>
+                                        <option value="ORGANIZED_CELL">Organized Cell</option>
+                                        <option value="TRANSACTION_HUB">Transaction Hub</option>
+                                        <option value="COMMUNICATION_RING">Communication Ring</option>
+                                        <option value="CO_LOCATION_CLUSTER">Co-Location Cluster</option>
+                                        <option value="LOGISTICS_NETWORK">Logistics Network</option>
+                                    </select>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-[10px] font-bold uppercase text-outline block mb-1">Confidence Tier</label>
+                                        <select id="community-tier-filter" onchange="filterCommunities()" class="w-full bg-surface-container border border-surface-container-high rounded px-2.5 py-1.5 text-xs text-on-surface focus:border-amber-400 focus:outline-none">
+                                            <option value="ALL">All Tiers</option>
+                                            <option value="HIGH">High (≥85%)</option>
+                                            <option value="MEDIUM">Medium (70-84%)</option>
+                                            <option value="LOW">Low (&lt;70%)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold uppercase text-outline block mb-1">Cross-Case</label>
+                                        <select id="community-crosscase-filter" onchange="filterCommunities()" class="w-full bg-surface-container border border-surface-container-high rounded px-2.5 py-1.5 text-xs text-on-surface focus:border-amber-400 focus:outline-none">
+                                            <option value="ALL">All Networks</option>
+                                            <option value="CROSS_CASE">Cross-Case Only</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Community List Container -->
+                        <div id="communities-list-container" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                            <!-- Populated dynamically by app.js -->
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Selected Community Detail Panel (7 Cols) -->
+                    <div class="lg:col-span-7">
+                        <div id="community-empty-state" class="bg-surface-container-low border border-surface-container-high rounded-xl p-12 text-center text-on-surface-variant space-y-3">
+                            <span class="material-symbols-outlined text-4xl text-amber-400/60">groups</span>
+                            <div class="text-sm font-semibold text-white">Select a Community Cluster</div>
+                            <p class="text-xs max-w-sm mx-auto">Choose a community from the queue on the left to inspect its structural members, core/bridge roles, shared assets, cross-case links, and supporting evidence.</p>
+                        </div>
+
+                        <div id="community-detail-panel" class="hidden bg-surface-container-low border border-surface-container-high rounded-xl p-6 space-y-6 shadow-xl">
+                            <!-- Community Header -->
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-surface-container-high">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span id="comm-detail-classification-badge" class="px-2.5 py-0.5 text-xs font-bold rounded uppercase bg-amber-950 text-amber-300 border border-amber-800">ORGANIZED CELL</span>
+                                        <span id="comm-detail-tier-badge" class="px-2 py-0.5 text-xs font-bold rounded border bg-emerald-500/20 text-emerald-300 border-emerald-500/40">HIGH</span>
+                                    </div>
+                                    <h3 id="comm-detail-name" class="text-lg font-bold text-white mt-1.5">Community C-001</h3>
+                                    <div id="comm-detail-subtitle" class="text-xs text-on-surface-variant font-mono mt-0.5">5 Members • Density: 0.85</div>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button onclick="highlightCommunityInGraph()" class="px-3 py-1.5 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/60 rounded text-xs font-semibold flex items-center gap-1.5 transition">
+                                        <span class="material-symbols-outlined text-sm">hub</span> Highlight in Graph
+                                    </button>
+                                    <button onclick="sendCommunityToAIInvestigator()" class="px-3 py-1.5 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 rounded text-xs font-semibold flex items-center gap-1.5 transition">
+                                        <span class="material-symbols-outlined text-sm">auto_awesome</span> Query AI
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Cross-Case Link Banner if applicable -->
+                            <div id="comm-crosscase-banner" class="hidden bg-indigo-950/60 border border-indigo-800/80 rounded-lg p-3 text-xs text-indigo-200 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-indigo-400">alt_route</span>
+                                    <div><strong>Cross-Case Community:</strong> Connects multiple case files (<span id="comm-linked-cases-list" class="font-mono text-indigo-300">CASE_101, CASE_204</span>)</div>
+                                </div>
+                                <button onclick="switchTab('pane-graph')" class="text-[11px] text-indigo-300 hover:underline font-mono">View Topology</button>
+                            </div>
+
+                            <!-- Community Members Breakdown Table -->
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-xs text-amber-400">person</span> Community Members & Topological Roles
+                                </h4>
+                                <div class="overflow-x-auto border border-surface-container-high rounded-lg">
+                                    <table class="w-full text-left text-xs">
+                                        <thead class="bg-surface-container-low text-on-surface-variant font-mono uppercase text-[10px] border-b border-surface-container-high">
+                                            <tr>
+                                                <th class="py-2 px-3">Entity Name / ID</th>
+                                                <th class="py-2 px-3">Type</th>
+                                                <th class="py-2 px-3">Role</th>
+                                                <th class="py-2 px-3">Centrality</th>
+                                                <th class="py-2 px-3">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="comm-members-tbody" class="divide-y divide-surface-container-high">
+                                            <!-- Populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Shared Assets Grid -->
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-xs text-amber-400">inventory_2</span> Shared Assets & Interconnects
+                                </h4>
+                                <div id="comm-shared-assets-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Provenance & Evidence Base -->
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-xs text-amber-400">verified</span> Supporting Evidence & Provenance
+                                </h4>
+                                <div id="comm-provenance-box" class="space-y-2 text-xs">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Investigative Leads -->
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-xs text-amber-400">lightbulb</span> AI Structural Leads
+                                </h4>
+                                <ul id="comm-leads-list" class="list-disc list-inside text-xs text-on-surface-variant space-y-1 bg-surface-container-lowest border border-surface-container-high p-3 rounded-lg">
+                                    <!-- Populated dynamically -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- ====================================================
+                 DAY 28 — ADVANCED KEY PLAYER & INFLUENCER INTELLIGENCE WORKSPACE
+                 ==================================================== -->
+            <section id="pane-key-players" class="tab-pane hidden p-6 space-y-6 max-w-7xl mx-auto" aria-labelledby="kp-workspace-title">
+                <!-- Header & Toolbar -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-surface-container-high">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-rose-400 text-2xl">stars</span>
+                            <h1 id="kp-workspace-title" class="text-xl font-bold text-primary tracking-tight">Key Player & Influencer Intelligence</h1>
+                            <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-rose-950 text-rose-300 border border-rose-800">
+                                Day 28 — Network Influencer Engine
+                            </span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant mt-1">
+                            Analyze topological centrality, bridge scores, community influence ranks, and cross-case conduits with full evidence provenance and non-culpable safety disclaimers.
+                        </p>
+                    </div>
+
+                    <!-- Toolbar Filters -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Case Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Case:</span>
+                            <select id="kp-filter-case" onchange="renderKeyPlayersWorkspace()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-rose-500">
+                                <option value="ALL">All Cases</option>
+                                <option value="CASE_101">CASE_101 (Midnight Shadow)</option>
+                                <option value="CASE_204">CASE_204 (Golden Falcon)</option>
+                            </select>
+                        </div>
+
+                        <!-- Entity Type Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Type:</span>
+                            <select id="kp-filter-type" onchange="renderKeyPlayersWorkspace()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-rose-500">
+                                <option value="ALL">All Types</option>
+                                <option value="PERSON">PERSON</option>
+                                <option value="PHONE">PHONE</option>
+                                <option value="VEHICLE">VEHICLE</option>
+                                <option value="ACCOUNT">ACCOUNT</option>
+                                <option value="LOCATION">LOCATION</option>
+                            </select>
+                        </div>
+
+                        <!-- Role Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Role:</span>
+                            <select id="kp-filter-role" onchange="renderKeyPlayersWorkspace()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-rose-500">
+                                <option value="ALL">All Roles</option>
+                                <option value="CORE_HUB">CORE_HUB</option>
+                                <option value="BRIDGE_ENTITY">BRIDGE_ENTITY</option>
+                                <option value="CROSS_CASE_INFLUENCER">CROSS_CASE_INFLUENCER</option>
+                                <option value="COMMUNITY_INFLUENCER">COMMUNITY_INFLUENCER</option>
+                                <option value="INFORMATION_BROKER">INFORMATION_BROKER</option>
+                                <option value="EMERGING_KEY_PLAYER">EMERGING_KEY_PLAYER</option>
+                            </select>
+                        </div>
+
+                        <!-- Cross-Case Filter -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-on-surface-variant font-medium">Cross-Case:</span>
+                            <select id="kp-filter-crosscase" onchange="renderKeyPlayersWorkspace()" class="bg-surface-container-lowest border border-surface-container-high rounded px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-rose-500">
+                                <option value="ALL">All</option>
+                                <option value="true">Cross-Case Only</option>
+                                <option value="false">Single-Case Only</option>
+                            </select>
+                        </div>
+
+                        <button onclick="renderKeyPlayersWorkspace()" class="p-1.5 rounded bg-surface-container-high hover:bg-surface-container-highest text-primary transition" title="Refresh Key Players">
+                            <span class="material-symbols-outlined text-base">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Non-Culpability Safety Disclaimer Banner -->
+                <div class="bg-surface-container-low border border-surface-container-high border-l-4 border-l-amber-500 rounded-lg p-3.5 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-400 text-lg mt-0.5">gavel</span>
+                    <div class="text-xs text-on-surface space-y-1">
+                        <div class="font-bold text-amber-300">INVESTIGATIVE LEAD METRICS ONLY — NON-CULPABILITY DISCLAIMER</div>
+                        <p id="kp-safety-banner-text" class="text-on-surface-variant leading-relaxed">
+                            Influencer scores and network roles reflect graph topological centrality, bridge connectivity, and evidence record co-occurrences. Ranking does NOT establish criminal guilt, liability, or illegal intent. All leads require independent human officer verification.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Overview Metrics Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-1">
+                        <div class="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Total Ranked Players</div>
+                        <div id="kp-metric-total" class="text-2xl font-bold text-primary font-mono">--</div>
+                        <div class="text-[10px] text-on-surface-variant">Active graph entities analyzed</div>
+                    </div>
+                    <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-1">
+                        <div class="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Core Network Hubs</div>
+                        <div id="kp-metric-hubs" class="text-2xl font-bold text-rose-400 font-mono">--</div>
+                        <div class="text-[10px] text-on-surface-variant">High-degree local hubs</div>
+                    </div>
+                    <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-1">
+                        <div class="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Bridge Entities</div>
+                        <div id="kp-metric-bridges" class="text-2xl font-bold text-amber-400 font-mono">--</div>
+                        <div class="text-[10px] text-on-surface-variant">Inter-cluster / sub-graph bridges</div>
+                    </div>
+                    <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-4 space-y-1">
+                        <div class="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Cross-Case Influencers</div>
+                        <div id="kp-metric-crosscase" class="text-2xl font-bold text-purple-400 font-mono">--</div>
+                        <div class="text-[10px] text-on-surface-variant">Spanning multiple case files</div>
+                    </div>
+                </div>
+
+                <!-- Main Ranked Key Players Container -->
+                <div class="bg-surface-container-low border border-surface-container-high rounded-lg p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-bold text-primary tracking-wider uppercase flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm text-rose-400">workspace_premium</span>
+                            Ranked Influencer Intelligence Directory
+                        </h2>
+                        <span id="kp-count-summary" class="text-xs text-on-surface-variant font-mono">Showing -- key players</span>
+                    </div>
+
+                    <!-- Ranked Table / List Container -->
+                    <div id="kp-players-container" class="space-y-4">
+                        <!-- Dynamic Key Player Cards populated via app.js -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- WORKSPACE PANE 12: ADVANCED LINK ANALYSIS & PATH DISCOVERY -->
+            <section id="pane-link-analysis" class="workspace-pane hidden p-6 space-y-6">
+                <!-- Legal Non-Culpability Safety Disclaimer Banner -->
+                <div class="bg-cyan-950/40 border border-cyan-500/30 rounded-xl p-4 flex items-start gap-3 text-cyan-200">
+                    <span class="material-symbols-outlined text-cyan-400 mt-0.5 shrink-0">shield</span>
+                    <div class="text-xs space-y-1">
+                        <span class="font-bold text-cyan-300 uppercase tracking-wider block">Investigative Lead Assertion & Safety Policy</span>
+                        <p class="leading-relaxed">
+                            Graph path discovery identifies multi-hop topological pathways connecting entities and cases across cataloged evidence records. 
+                            <strong>Graph connections serve solely as potential investigative leads and do not establish guilt, intent, or legal culpability.</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Path Discovery Controls -->
+                <div class="bg-surface-container border border-surface-container-high rounded-xl p-6 shadow-xl space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-container-high pb-4">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                <span class="material-symbols-outlined text-cyan-400">alt_route</span> Multi-Hop Path Discovery Engine
+                            </h2>
+                            <p class="text-xs text-on-surface-variant mt-0.5">Discover topological connections, bridge entities, and cross-case conduits</p>
+                        </div>
+                        <!-- Quick Preset Shortcuts -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs text-on-surface-variant font-mono">Presets:</span>
+                            <button id="btn-preset-c101-c204" class="px-2.5 py-1 text-xs rounded bg-surface-container-high text-cyan-300 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors">CASE_101 → CASE_204</button>
+                            <button id="btn-preset-p017-p089" class="px-2.5 py-1 text-xs rounded bg-surface-container-high text-cyan-300 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors">PERSON_017 → PERSON_089</button>
+                            <button id="btn-preset-c101-audit" class="px-2.5 py-1 text-xs rounded bg-surface-container-high text-cyan-300 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors">CASE_101 → AUDIT_99</button>
+                        </div>
+                    </div>
+
+                    <!-- Search Form Inputs -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                        <!-- Source Entity / Case -->
+                        <div class="md:col-span-4 space-y-1.5">
+                            <label for="la-source-input" class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block">Source Entity / Case ID</label>
+                            <div class="relative">
+                                <input type="text" id="la-source-input" list="la-entity-list" placeholder="e.g. CASE_101 or PERSON_017" class="w-full bg-surface-container-low border border-surface-container-high rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono" value="CASE_101" />
+                            </div>
+                        </div>
+
+                        <!-- Target Entity / Case -->
+                        <div class="md:col-span-4 space-y-1.5">
+                            <label for="la-target-input" class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block">Target Entity / Case ID</label>
+                            <div class="relative">
+                                <input type="text" id="la-target-input" list="la-entity-list" placeholder="e.g. CASE_204 or PERSON_089" class="w-full bg-surface-container-low border border-surface-container-high rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono" value="CASE_204" />
+                            </div>
+                        </div>
+
+                        <datalist id="la-entity-list">
+                            <!-- Populated dynamically via JS -->
+                        </datalist>
+
+                        <!-- Max Depth Hops -->
+                        <div class="md:col-span-2 space-y-1.5">
+                            <label for="la-max-hops" class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block flex justify-between">
+                                Max Hops: <span id="la-hops-val" class="text-cyan-400 font-bold">6</span>
+                            </label>
+                            <input type="range" id="la-max-hops" min="1" max="10" value="6" class="w-full accent-cyan-400 cursor-pointer" />
+                        </div>
+
+                        <!-- Search Button -->
+                        <div class="md:col-span-2">
+                            <button id="btn-find-paths" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/40 transition-all active:scale-95">
+                                <span class="material-symbols-outlined text-lg">search</span> FIND PATHS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Path Discovery Overview Metrics -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-surface-container border border-surface-container-high rounded-xl p-4">
+                        <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Discovered Paths</div>
+                        <div id="la-metric-count" class="text-2xl font-black text-cyan-400 mt-1 font-mono">--</div>
+                    </div>
+                    <div class="bg-surface-container border border-surface-container-high rounded-xl p-4">
+                        <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Shortest Path</div>
+                        <div id="la-metric-shortest" class="text-2xl font-black text-emerald-400 mt-1 font-mono">--</div>
+                    </div>
+                    <div class="bg-surface-container border border-surface-container-high rounded-xl p-4">
+                        <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Max Confidence</div>
+                        <div id="la-metric-confidence" class="text-2xl font-black text-indigo-400 mt-1 font-mono">--</div>
+                    </div>
+                    <div class="bg-surface-container border border-surface-container-high rounded-xl p-4">
+                        <div class="text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Conduit Entities</div>
+                        <div id="la-metric-conduits" class="text-2xl font-black text-amber-400 mt-1 font-mono">--</div>
+                    </div>
+                </div>
+
+                <!-- Path Results Container -->
+                <div class="bg-surface-container border border-surface-container-high rounded-xl p-6 space-y-4">
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-cyan-400">route</span> Discovered Topological Pathways
+                        </h3>
+                        <span id="la-results-summary" class="text-xs text-on-surface-variant font-mono">Select source & target to discover paths</span>
+                    </div>
+
+                    <div id="la-paths-container" class="space-y-4">
+                        <!-- Path cards dynamically rendered via app.js -->
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -1050,10 +1995,105 @@
                     <!-- Dynamic fields rendered by JS -->
                 </div>
 
+                <div>
+                    <label for="entity-link-case-select" class="block font-semibold text-on-surface mb-1">Link to Active Case (Optional)</label>
+                    <select id="entity-link-case-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                        <option value="">-- Do Not Link to Case --</option>
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
                 <div class="pt-3 border-t border-surface-container-high flex items-center justify-end gap-2">
                     <button type="button" onclick="closeAddEntityModal()" class="px-3 py-1.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition">Cancel</button>
                     <button type="submit" id="btn-save-entity" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1 transition">
                         <span class="material-symbols-outlined text-sm">save</span> Save Entity
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CREATE CASE -->
+    <div id="modal-create-case" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-surface-container border border-surface-container-high rounded-xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-surface-container-high flex items-center justify-between bg-surface-container-low">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">briefcase</span> Create New Investigation Case
+                </h3>
+                <button onclick="closeCreateCaseModal()" class="text-on-surface-variant hover:text-white p-1 rounded"><span class="material-symbols-outlined text-sm">close</span></button>
+            </div>
+            
+            <form id="form-create-case" onsubmit="handleCreateCaseSubmit(event)" class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+                <div id="create-case-error-msg" class="hidden p-3 bg-rose-950/60 border border-rose-800 text-rose-200 rounded text-xs font-sans"></div>
+
+                <div>
+                    <label for="create-case-title" class="block font-semibold text-on-surface mb-1">Case Title <span class="text-rose-400">*</span></label>
+                    <input type="text" id="create-case-title" required placeholder="e.g. Operation Northern Lights — Trans-State Syndicate" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="create-case-type" class="block font-semibold text-on-surface mb-1">Case Type</label>
+                        <select id="create-case-type" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                            <option value="Logistics Hijack">Logistics Hijack</option>
+                            <option value="Fencing Syndicate">Fencing Syndicate</option>
+                            <option value="Cyber Fraud">Cyber Fraud</option>
+                            <option value="Hawala Intercept">Hawala Intercept</option>
+                            <option value="Homicide">Homicide</option>
+                            <option value="Narcotics">Narcotics</option>
+                            <option value="Money Laundering">Money Laundering</option>
+                            <option value="Organized Crime">Organized Crime</option>
+                            <option value="General Investigation">General Investigation</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="create-case-priority" class="block font-semibold text-on-surface mb-1">Priority</label>
+                        <select id="create-case-priority" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                            <option value="HIGH" selected>HIGH</option>
+                            <option value="URGENT">URGENT</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="LOW">LOW</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="create-case-status" class="block font-semibold text-on-surface mb-1">Status</label>
+                        <select id="create-case-status" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                            <option value="ACTIVE" selected>ACTIVE</option>
+                            <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION</option>
+                            <option value="OPEN">OPEN</option>
+                            <option value="CLOSED">CLOSED</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="create-case-location" class="block font-semibold text-on-surface mb-1">Primary Location</label>
+                        <input type="text" id="create-case-location" placeholder="e.g. LOC_001 or Nhava Sheva Yard, Mumbai" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="create-case-description" class="block font-semibold text-on-surface mb-1">Description</label>
+                    <textarea id="create-case-description" rows="3" placeholder="Overview of the case, incident context, or crime scope..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label for="create-case-notes" class="block font-semibold text-on-surface mb-1">Investigative Notes</label>
+                    <textarea id="create-case-notes" rows="2" placeholder="Initial evidence leads, agency partners, or preliminary observations..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-sans text-xs focus:border-primary focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label for="create-case-created-by" class="block font-semibold text-on-surface mb-1">Created By (Investigator)</label>
+                    <input type="text" id="create-case-created-by" placeholder="e.g. OFFICER_VERMA" class="w-full bg-surface-container-lowest border border-surface-container-high rounded p-2 text-white font-mono text-xs focus:border-primary focus:outline-none">
+                </div>
+
+                <div class="pt-3 border-t border-surface-container-high flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeCreateCaseModal()" class="px-3 py-1.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition">Cancel</button>
+                    <button type="submit" id="btn-save-case" class="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center gap-1 transition">
+                        <span class="material-symbols-outlined text-sm">save</span> Create Case
                     </button>
                 </div>
             </form>

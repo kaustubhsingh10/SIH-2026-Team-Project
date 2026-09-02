@@ -24,7 +24,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     initAIInvestigator();
     await renderTimeline("CASE_101");
     await renderEvidenceExplorer();
+    await renderKeyPlayersWorkspace();
+    initLinkAnalysisControls();
     initGlobalSearch();
+    await populateCaseDropdowns("CASE_101");
 });
 
 /* ----------------------------------------------------
@@ -165,6 +168,8 @@ function initNavigation() {
             await renderGraphWorkspace(selectedCase);
             await renderCaseDetail(selectedCase);
             await renderTimeline(selectedCase);
+            if (typeof renderCorrelations === "function") await renderCorrelations(selectedCase);
+            if (typeof renderRiskIntelligence === "function") await renderRiskIntelligence(selectedCase);
         });
     }
 }
@@ -243,80 +248,376 @@ function switchTab(paneId, updateHash = true) {
     if (paneId === "pane-patterns") {
         renderSuspiciousPatterns();
     }
+    if (paneId === "pane-reports") {
+        renderInvestigationReport();
+    }
+    if (paneId === "pane-entity-resolution") {
+        renderEntityResolutionWorkspace();
+    }
+    if (paneId === "pane-communities") {
+        renderCommunitiesWorkspace();
+    }
+    if (paneId === "pane-key-players") {
+        renderKeyPlayersWorkspace();
+    }
+    if (paneId === "pane-link-analysis") {
+        renderLinkAnalysisWorkspace();
+    }
 }
 
 /* ----------------------------------------------------
    2. DASHBOARD & CASE EXPLORER (PHASE 3 & 5)
 ---------------------------------------------------- */
 async function renderDashboard() {
-    const container = document.getElementById("dashboard-cases-container");
-    if (!container) return;
+    const casesContainer = document.getElementById("dashboard-cases-container");
+    const signalsContainer = document.getElementById("dashboard-signals-container");
+    const keyEntitiesContainer = document.getElementById("dashboard-key-entities-container");
+    const activityContainer = document.getElementById("dashboard-activity-container");
 
-    container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-primary align-middle mr-1">sync</span> Loading active cases via DataService...</div>`;
+    if (casesContainer) {
+        casesContainer.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-primary align-middle mr-1">sync</span> Loading Investigation Command Dashboard...</div>`;
+    }
 
     try {
-        const cases = await window.dataService.getCases();
+        const dashData = await window.dataService.getInvestigationDashboard();
+        const metrics = dashData.metrics || {};
+        const cases = dashData.active_cases || [];
+        const keyEntities = dashData.key_entities || [];
+        const patterns = dashData.patterns || [];
+        const anomalies = dashData.anomalies || [];
+        const aiFindings = dashData.ai_findings || [];
+        const recentEvidence = dashData.recent_evidence || [];
 
-        // Update dashboard metrics dynamically if elements present
-        try {
-            const graphData = await window.dataService.getCaseGraph("ALL");
-            const evidenceData = await window.dataService.getEvidenceList();
-            const connData = await window.dataService.getCaseConnections("CASE_101", "CASE_204");
-            
-            const caseElem = document.getElementById("dash-metric-cases");
-            if (caseElem) caseElem.innerText = cases ? cases.length : 4;
-            
-            const entElem = document.getElementById("dash-metric-entities");
-            if (entElem) entElem.innerText = (graphData && graphData.nodes) ? graphData.nodes.length : 34;
+        // 1. Update Metric Counter Cards
+        const setMetric = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined && val !== null ? val : 0;
+        };
 
-            const linkElem = document.getElementById("dash-metric-links");
-            if (linkElem) linkElem.innerText = (connData && connData.connections) ? connData.connections.length : 2;
+        setMetric("dash-metric-cases", metrics.total_cases || cases.length);
+        setMetric("dash-metric-priority", metrics.high_priority_cases || cases.filter(c => ['HIGH', 'URGENT'].includes((c.priority || '').toUpperCase())).length);
+        setMetric("dash-metric-entities", metrics.key_entities_count || keyEntities.length);
+        setMetric("dash-metric-patterns", (metrics.patterns_count || 0) + (metrics.anomalies_count || 0));
+        setMetric("dash-metric-links", metrics.cross_case_links_count || 2);
+        setMetric("dash-metric-evidence", metrics.evidence_count || recentEvidence.length);
 
-            const evidElem = document.getElementById("dash-metric-evidence");
-            if (evidElem) evidElem.innerText = evidenceData ? evidenceData.length : 19;
+        // Update sidebar metrics if present
+        setMetric("sidebar-metric-nodes", metrics.key_entities_count || 34);
+        setMetric("sidebar-metric-edges", 24);
+        setMetric("sidebar-metric-evidence", metrics.evidence_count || 19);
 
-            // Sidebar quick metrics
-            const sideNodes = document.getElementById("sidebar-metric-nodes");
-            if (sideNodes) sideNodes.innerText = (graphData && graphData.nodes) ? graphData.nodes.length : 34;
-
-            const sideEdges = document.getElementById("sidebar-metric-edges");
-            if (sideEdges) sideEdges.innerText = (graphData && graphData.edges) ? graphData.edges.length : 24;
-
-            const sideEvid = document.getElementById("sidebar-metric-evidence");
-            if (sideEvid) sideEvid.innerText = evidenceData ? evidenceData.length : 19;
-        } catch (_) {}
-
-        if (!cases || cases.length === 0) {
-            container.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans">No active cases found in investigation store.</div>`;
-            return;
+        // 2. Render Active Cases Grid
+        if (casesContainer) {
+            if (!cases || cases.length === 0) {
+                casesContainer.innerHTML = `<div class="col-span-2 text-center py-6 text-outline text-xs font-sans">No active cases found in investigation store.</div>`;
+            } else {
+                casesContainer.innerHTML = cases.slice(0, 6).map(c => `
+                    <div class="stitch-card stitch-card-interactive space-y-2.5 font-sans">
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono text-xs text-error font-bold px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${c.id}</span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                    (c.priority || '').toUpperCase() === 'HIGH' || (c.priority || '').toUpperCase() === 'URGENT'
+                                    ? 'bg-rose-950/60 text-rose-300 border-rose-800/60'
+                                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                                }">${c.priority || 'MEDIUM'}</span>
+                                <span class="text-[10px] font-bold text-tertiary bg-tertiary-container/20 px-2 py-0.5 rounded border border-tertiary/30">${c.status || 'ACTIVE'}</span>
+                            </div>
+                        </div>
+                        <h4 class="text-xs font-bold text-white line-clamp-1">${c.title || c.id}</h4>
+                        <div class="text-[11px] text-on-surface-variant flex items-center gap-2">
+                            <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-xs">location_on</span> ${c.location || 'LOC_001'}</span>
+                            <span>•</span>
+                            <span>${c.entity_count || 0} entities</span>
+                            <span>•</span>
+                            <span>${c.evidence_count || 0} evidence</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-surface-container-high text-[11px]">
+                            <span class="text-outline font-mono text-[10px]">${c.date || c.incident_date || ''}</span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="exploreCase('${c.id}')" class="text-primary font-semibold flex items-center gap-0.5 hover:underline" aria-label="Explore Graph for ${c.id}">
+                                    Graph <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                                </button>
+                                <button onclick="openCaseDetail('${c.id}')" class="text-tertiary font-semibold flex items-center gap-0.5 hover:underline" aria-label="Open Case Detail for ${c.id}">
+                                    Inspect <span class="material-symbols-outlined text-xs">open_in_new</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join("");
+            }
         }
 
-        container.innerHTML = cases.map(c => `
-            <div class="stitch-card stitch-card-interactive space-y-2 font-sans">
-                <div class="flex items-center justify-between">
-                    <span class="font-mono text-xs text-error font-bold px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${c.id}</span>
-                    <span class="text-[10px] font-bold text-tertiary bg-tertiary-container/20 px-2 py-0.5 rounded border border-tertiary/30">${c.status || 'ACTIVE'}</span>
-                </div>
-                <h4 class="text-xs font-bold text-white">${c.title || c.id}</h4>
-                <div class="text-[11px] text-on-surface-variant">${c.location || 'LOC_001'}</div>
-                <div class="flex items-center justify-between pt-2 border-t border-surface-container-high text-[11px]">
-                    <span class="text-outline font-mono">${c.date || ''}</span>
-                    <button onclick="exploreCase('${c.id}')" class="text-primary font-semibold flex items-center gap-0.5 hover:underline" aria-label="Explore Network Graph for ${c.id}">
-                        Explore Network <span class="material-symbols-outlined text-xs" aria-hidden="true">arrow_forward</span>
-                    </button>
-                </div>
-            </div>
-        `).join("");
+        // 3. Render Investigation Signals & AI Review Findings
+        if (signalsContainer) {
+            const combinedSignals = [
+                ...aiFindings,
+                ...patterns.map(p => ({
+                    id: p.pattern_id || p.id || 'PAT_001',
+                    title: p.title || p.pattern_type || 'Suspicious Pattern Detected',
+                    type: 'SUSPICIOUS_PATTERN',
+                    description: p.description || 'Pattern matching financial loop or shared infrastructure.',
+                    confidence: p.confidence || 0.89,
+                    status: 'Suspicious Pattern',
+                    case_a: p.case_id || 'CASE_101',
+                    entity_id: (p.entities && p.entities[0]) || null
+                })),
+                ...anomalies.map(a => ({
+                    id: a.anomaly_id || a.id || 'ANO_001',
+                    title: a.title || a.anomaly_type || 'Network Anomaly Signal',
+                    type: 'ANOMALY_SIGNAL',
+                    description: a.description || 'Deviance score exceeds threshold.',
+                    confidence: a.confidence || a.anomaly_score || 0.86,
+                    status: 'Investigative Lead',
+                    entity_id: a.entity_id || null
+                }))
+            ].slice(0, 4);
+
+            if (combinedSignals.length === 0) {
+                signalsContainer.innerHTML = `<div class="p-3 bg-surface-container-low border border-surface-container-high rounded text-xs text-on-surface-variant">No active AI pattern signals require review.</div>`;
+            } else {
+                signalsContainer.innerHTML = combinedSignals.map(s => `
+                    <div class="stitch-card bg-surface-container-low border-surface-container-high p-3 space-y-2 hover:border-purple-500/40 transition">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-purple-400 text-sm">psychology</span>
+                                <span class="text-xs font-bold text-white">${s.title}</span>
+                            </div>
+                            <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded ${
+                                s.status === 'Requires Review' ? 'bg-amber-950/60 text-amber-300 border border-amber-800/60' : 'bg-purple-950/60 text-purple-300 border border-purple-800/60'
+                            }">${s.status} (${Math.round((s.confidence || 0.85) * 100)}%)</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant line-clamp-2">${s.description}</p>
+                        <div class="flex items-center justify-between pt-2 border-t border-surface-container-high text-[11px]">
+                            <span class="text-outline text-[10px] font-mono">${s.type}</span>
+                            <div class="flex items-center gap-2">
+                                ${s.entity_id ? `<button onclick="openEntityDetails('${s.entity_id}')" class="text-tertiary font-semibold hover:underline text-[11px]">Inspect Entity</button>` : ''}
+                                <button onclick="switchTab('pane-patterns')" class="text-purple-400 font-semibold hover:underline text-[11px]">View Analysis</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join("");
+            }
+        }
+
+        // 4. Render Key Entities (Day 28 Key Players)
+        if (keyEntitiesContainer) {
+            if (!keyEntities || keyEntities.length === 0) {
+                keyEntitiesContainer.innerHTML = `<div class="p-3 bg-surface-container-low border border-surface-container-high rounded text-xs text-on-surface-variant">No key player centrality metrics computed yet.</div>`;
+            } else {
+                keyEntitiesContainer.innerHTML = keyEntities.slice(0, 5).map(e => `
+                    <div class="stitch-card bg-surface-container-low border-surface-container-high p-2.5 flex items-center justify-between hover:border-tertiary/40 transition">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded bg-tertiary-container/20 border border-tertiary-container/40 flex items-center justify-center text-tertiary shrink-0">
+                                <span class="material-symbols-outlined text-sm">${e.type === 'PERSON' ? 'person' : (e.type === 'PHONE' ? 'call' : 'account_balance')}</span>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold text-white flex items-center gap-1">
+                                    <span>${e.name || e.id}</span>
+                                    <span class="text-[9px] font-mono font-normal text-tertiary bg-tertiary-container/30 px-1 py-0.2 rounded">${e.role || 'CORE_HUB'}</span>
+                                </div>
+                                <div class="text-[10px] text-on-surface-variant font-mono">${e.id} • ${e.type || 'ENTITY'}</div>
+                            </div>
+                        </div>
+                        <button onclick="openEntityDetails('${e.id}')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-primary border border-surface-container-high rounded text-[10px] font-mono font-bold transition">
+                            View
+                        </button>
+                    </div>
+                `).join("");
+            }
+        }
+
+        // 5. Render Recent Activity & Ingested Evidence
+        if (activityContainer) {
+            if (!recentEvidence || recentEvidence.length === 0) {
+                activityContainer.innerHTML = `<div class="p-3 bg-surface-container-low border border-surface-container-high rounded text-xs text-on-surface-variant">No recent evidence items logged.</div>`;
+            } else {
+                activityContainer.innerHTML = recentEvidence.slice(0, 5).map(ev => `
+                    <div class="stitch-card bg-surface-container-low border-surface-container-high p-2.5 space-y-1.5 hover:border-amber-500/40 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-300 font-mono">${ev.id || 'EVID_001'}</span>
+                            <span class="text-[9px] font-mono text-outline">${ev.date || ev.created_at || 'Recent'}</span>
+                        </div>
+                        <div class="text-[11px] text-on-surface line-clamp-1">${ev.title || ev.description || 'Ingested evidence item'}</div>
+                        <div class="flex items-center justify-between text-[10px] text-on-surface-variant pt-1 border-t border-surface-container-high">
+                            <span>Case: <strong class="text-white">${ev.case_id || 'CASE_101'}</strong></span>
+                            <button onclick="switchTab('pane-evidence')" class="text-amber-400 font-semibold hover:underline">Inspect Evidence</button>
+                        </div>
+                    </div>
+                `).join("");
+            }
+        }
+
+        // 6. Render Day 32 Cross-Source Intelligence Correlations
+        await renderCorrelations(aiActiveCaseId);
+
+        // 7. Render Day 33 ML & Investigative Risk Intelligence
+        await renderRiskIntelligence(aiActiveCaseId);
+
     } catch (err) {
+        console.error("Failed to render Investigation Command Dashboard:", err);
+        if (casesContainer) {
+            casesContainer.innerHTML = `
+                <div class="col-span-2 p-4 text-center text-error text-xs space-y-2 font-sans">
+                    <span class="material-symbols-outlined text-2xl text-error" aria-hidden="true">error</span>
+                    <div class="font-bold text-sm">Failed to load Investigation Command Dashboard</div>
+                    <div class="text-on-surface-variant">${err.message || 'Backend connection error.'}</div>
+                    <button onclick="renderDashboard()" class="px-3 py-1 bg-surface-container-high hover:bg-surface-container-highest text-white rounded text-[11px]">Retry</button>
+                </div>
+            `;
+        }
+    }
+}
+
+/* ----------------------------------------------------
+   DAY 32 — CROSS-SOURCE INTELLIGENCE CORRELATION UI
+---------------------------------------------------- */
+let currentCorrelationsData = [];
+
+async function renderCorrelations(caseId = null) {
+    const container = document.getElementById("dashboard-correlations-container");
+    if (!container) return;
+
+    container.innerHTML = `<div class="text-center py-4 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-cyan-400 align-middle mr-1">sync</span> Loading Cross-Source Intelligence Correlations...</div>`;
+
+    try {
+        const resp = await window.dataService.getCorrelations(caseId);
+        const summary = resp.summary || {};
+        currentCorrelationsData = resp.correlations || [];
+
+        const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined && val !== null ? val : 0;
+        };
+        setTxt("corr-stat-total", summary.total_correlations || currentCorrelationsData.length);
+        setTxt("corr-stat-high", summary.high_confidence_count || 0);
+        setTxt("corr-stat-entities", summary.entity_correlations_count || 0);
+        setTxt("corr-stat-conflicts", summary.contradictions_count || 0);
+
+        filterCorrelationsUI();
+    } catch (err) {
+        console.error("Failed to load cross-source correlations:", err);
+        container.innerHTML = `<div class="p-3 bg-surface-container-low border border-surface-container-high rounded text-xs text-on-surface-variant">Cross-source intelligence correlation unavailable or offline.</div>`;
+    }
+}
+
+function filterCorrelationsUI() {
+    const container = document.getElementById("dashboard-correlations-container");
+    if (!container) return;
+
+    const typeFilter = (document.getElementById("corr-filter-type")?.value || "ALL").toUpperCase();
+    const confFilter = parseFloat(document.getElementById("corr-filter-conf")?.value || "0.0");
+
+    let filtered = currentCorrelationsData;
+    if (typeFilter !== "ALL") {
+        filtered = filtered.filter(c => (c.correlation_type || '').toUpperCase() === typeFilter);
+    }
+    if (confFilter > 0) {
+        filtered = filtered.filter(c => (c.confidence || 0) >= confFilter);
+    }
+
+    if (filtered.length === 0) {
         container.innerHTML = `
-            <div class="col-span-2 p-4 text-center text-error text-xs space-y-2 font-sans">
-                <span class="material-symbols-outlined text-2xl text-error" aria-hidden="true">error</span>
-                <div class="font-bold text-sm">Failed to load active cases</div>
-                <div class="text-on-surface-variant">${err.message || 'Backend connection error.'}</div>
-                <button onclick="renderDashboard()" class="px-3 py-1 bg-surface-container-high hover:bg-surface-container-highest text-white rounded text-[11px]">Retry</button>
+            <div class="p-4 rounded-lg bg-surface-container-low border border-surface-container-high text-center text-xs text-on-surface-variant font-sans">
+                <span class="material-symbols-outlined text-base text-outline block mb-1">info</span>
+                No matching cross-source correlations found for selected filter criteria.
             </div>
         `;
+        return;
     }
+
+    container.innerHTML = filtered.map(c => {
+        const isConflict = c.correlation_type === "CONTRADICTION";
+        const badgeClass = isConflict 
+            ? "bg-amber-950/80 text-amber-300 border-amber-700/60" 
+            : c.correlation_type === "SAME_RESOLVED_ENTITY"
+            ? "bg-indigo-950/80 text-indigo-300 border-indigo-700/60"
+            : c.correlation_type === "CROSS_CASE_CORRELATION"
+            ? "bg-cyan-950/80 text-cyan-300 border-cyan-700/60"
+            : "bg-emerald-950/80 text-emerald-300 border-emerald-700/60";
+
+        const typeLabel = (c.correlation_type || "CORRELATION").replace(/_/g, " ");
+
+        let sourceComparisonHtml = "";
+        if (isConflict && c.source_a && c.source_b) {
+            sourceComparisonHtml = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 p-3 rounded bg-surface-container border border-surface-container-high text-xs">
+                    <div class="p-2.5 rounded bg-surface-container-low border border-amber-900/40 space-y-1 font-mono">
+                        <div class="text-[10px] font-bold text-amber-400 uppercase">SOURCE A (${escapeHtml(c.source_a.source_id || 'EVID_A')})</div>
+                        <div class="text-white"><strong>Doc:</strong> ${escapeHtml(c.source_a.document_id || 'DOC_A')}</div>
+                        <div class="text-white"><strong>Location:</strong> ${escapeHtml(c.source_a.location || 'N/A')}</div>
+                        <div class="text-on-surface-variant text-[10px]"><strong>Time:</strong> ${escapeHtml(c.source_a.timestamp || 'N/A')}</div>
+                    </div>
+                    <div class="p-2.5 rounded bg-surface-container-low border border-amber-900/40 space-y-1 font-mono">
+                        <div class="text-[10px] font-bold text-amber-400 uppercase">SOURCE B (${escapeHtml(c.source_b.source_id || 'EVID_B')})</div>
+                        <div class="text-white"><strong>Doc:</strong> ${escapeHtml(c.source_b.document_id || 'DOC_B')}</div>
+                        <div class="text-white"><strong>Location:</strong> ${escapeHtml(c.source_b.location || 'N/A')}</div>
+                        <div class="text-on-surface-variant text-[10px]"><strong>Time:</strong> ${escapeHtml(c.source_b.timestamp || 'N/A')}</div>
+                    </div>
+                </div>
+            `;
+        } else if (c.sources && c.sources.length > 0) {
+            const srcBadges = c.sources.map(s => `
+                <span class="px-2 py-0.5 rounded bg-surface-container-high text-cyan-300 border border-cyan-800/40 text-[10px] font-mono">
+                    ${escapeHtml(s.source_id || s.document_id || 'EVID')}
+                </span>
+            `).join(' ');
+            sourceComparisonHtml = `
+                <div class="flex items-center gap-1.5 pt-1 text-[11px] font-mono">
+                    <span class="text-on-surface-variant">Sources:</span>
+                    <div class="flex items-center gap-1 flex-wrap">${srcBadges}</div>
+                </div>
+            `;
+        }
+
+        const entTriggers = (c.entities || []).map(entId => `
+            <button onclick="openEntityDetails('${escapeHtml(entId)}')" class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 font-mono text-xs font-bold transition">
+                ${escapeHtml(entId)}
+            </button>
+        `).join(' ');
+
+        return `
+            <div class="stitch-card bg-surface-container-low border-surface-container-high p-4 space-y-3 hover:border-cyan-500/40 transition font-sans shadow">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono border uppercase tracking-wider ${badgeClass}">
+                            ${escapeHtml(typeLabel)}
+                        </span>
+                        <h4 class="text-xs font-bold text-white">${escapeHtml(c.title || c.id)}</h4>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span class="text-emerald-400 font-bold">${Math.round((c.confidence || 0.90) * 100)}% Confidence</span>
+                    </div>
+                </div>
+
+                <div class="text-xs text-on-surface-variant leading-relaxed">
+                    ${escapeHtml(c.explanation || '')}
+                </div>
+
+                ${sourceComparisonHtml}
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-surface-container-high text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-on-surface-variant font-mono text-[11px]">Entities:</span>
+                        <div class="flex items-center gap-1">${entTriggers}</div>
+                    </div>
+
+                    <div class="flex items-center gap-2 font-mono text-[11px]">
+                        <button onclick="switchTab('pane-graph')" class="text-cyan-400 font-bold hover:underline flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-xs">hub</span> View Graph
+                        </button>
+                        <button onclick="switchTab('pane-evidence')" class="text-amber-400 font-bold hover:underline flex items-center gap-0.5">
+                            <span class="material-symbols-outlined text-xs">description</span> View Evidence
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-outline italic bg-surface-container/40 p-2 rounded border border-surface-container-high">
+                    <strong class="text-on-surface-variant font-mono">Investigative Lead:</strong> ${escapeHtml(c.interpretation || 'Investigative lead requiring human officer verification. Does not constitute proof of guilt.')}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 async function renderCaseExplorer() {
@@ -366,6 +667,9 @@ async function renderCaseExplorer() {
 
         searchInput?.addEventListener("input", renderTable);
         statusSelect?.addEventListener("change", renderTable);
+
+        // Update all case dropdown pickers
+        await populateCaseDropdowns();
     } catch (err) {
         tableBody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-error text-xs font-sans">
             <span class="material-symbols-outlined text-xl align-middle mr-1" aria-hidden="true">error</span>
@@ -542,6 +846,15 @@ async function exploreCase(caseId) {
     const select = document.getElementById("header-case-select");
     if (select) select.value = caseId;
     switchTab("pane-graph", true);
+    await renderCaseDetail(caseId);
+    await renderGraphWorkspace(caseId);
+    await renderTimeline(caseId);
+}
+
+async function openCaseDetail(caseId) {
+    const select = document.getElementById("header-case-select");
+    if (select && caseId) select.value = caseId;
+    switchTab("pane-case-detail", true);
     await renderCaseDetail(caseId);
     await renderGraphWorkspace(caseId);
     await renderTimeline(caseId);
@@ -745,13 +1058,19 @@ async function renderGraphWorkspace(caseId = "CASE_101") {
         const visEdgesArray = edgesList.map(e => {
             const hasEvidence = !!e.evidence_id;
             const isCrossCaseEdge = (e.source === "PHONE_042" || e.target === "PHONE_042");
+            const isSocialEdge = ["POSTED_BY", "MENTIONS", "INTERACTS_WITH", "LINKED_TO"].includes(e.relationship) || e.source_type === "SOCIAL_MEDIA_SYNTHETIC";
 
             let edgeColor = { color: "#424656", highlight: "#b3c5ff" };
             let edgeWidth = 1.5;
+            let dashesConfig = false;
 
             if (isCrossCaseEdge) {
                 edgeColor = { color: "#f59e0b", highlight: "#fbbf24" };
                 edgeWidth = 3.0;
+            } else if (isSocialEdge) {
+                edgeColor = { color: "#c084fc", highlight: "#e879f9" };
+                edgeWidth = 2.0;
+                dashesConfig = [5, 5];
             } else if (hasEvidence) {
                 edgeColor = { color: "#38bdf8", highlight: "#7dd3fc" };
                 edgeWidth = 2.2;
@@ -762,13 +1081,15 @@ async function renderGraphWorkspace(caseId = "CASE_101") {
                 from: e.source,
                 to: e.target,
                 label: e.relationship,
-                font: { color: isCrossCaseEdge ? "#f59e0b" : "#8c90a1", size: 9, align: "horizontal" },
+                font: { color: isSocialEdge ? "#c084fc" : (isCrossCaseEdge ? "#f59e0b" : "#8c90a1"), size: 9, align: "horizontal" },
                 color: edgeColor,
                 width: edgeWidth,
+                dashes: dashesConfig,
                 arrows: { to: { enabled: true, scaleFactor: 0.6 } },
                 evidenceId: e.evidence_id,
                 hasEvidence: hasEvidence,
-                isCrossCase: isCrossCaseEdge
+                isCrossCase: isCrossCaseEdge,
+                isSocial: isSocialEdge
             };
         });
 
@@ -876,12 +1197,16 @@ function applyGraphFilters() {
         }
         if (sourceTypeFilter !== "ALL") {
             const evId = e.evidence_id || "";
+            const srcType = e.source_type || "";
             let matchMethod = false;
-            if (sourceTypeFilter === "DIGITAL_FORENSICS" && (evId.includes("042_01") || (e.source === "PERSON_017" && e.target === "PHONE_042"))) matchMethod = true;
+
+            if (sourceTypeFilter === "SOCIAL_MEDIA_SYNTHETIC" && (srcType === "SOCIAL_MEDIA_SYNTHETIC" || evId.includes("SOC") || e.source.startsWith("SOC") || e.target.startsWith("SOC"))) matchMethod = true;
+            else if (sourceTypeFilter === "SYNTHETIC_DATASET" && (srcType === "SYNTHETIC_DATASET" || evId.includes("101") || evId.includes("204"))) matchMethod = true;
+            else if (sourceTypeFilter === "MANUAL_INVESTIGATION" && (srcType === "MANUAL_INVESTIGATION" || evId.includes("MAN"))) matchMethod = true;
+            else if (sourceTypeFilter === "NLP_EXTRACT" && (srcType === "NLP_EXTRACTED" || evId.includes("EXT"))) matchMethod = true;
+            else if (sourceTypeFilter === "EXTERNAL_CONNECTOR" && (srcType === "EXTERNAL_CONNECTOR")) matchMethod = true;
+            else if (sourceTypeFilter === "DIGITAL_FORENSICS" && (evId.includes("042_01") || (e.source === "PERSON_017" && e.target === "PHONE_042"))) matchMethod = true;
             else if (sourceTypeFilter === "TELCO_INTERCEPT" && (evId.includes("042_02") || (e.source === "PHONE_042" && e.target === "PERSON_089"))) matchMethod = true;
-            else if (sourceTypeFilter === "AI_NER" && (evId.includes("101") || evId.includes("204"))) matchMethod = true;
-            else if (sourceTypeFilter === "TRAFFIC_CAM_OCR" && (e.source.startsWith("VEHICLE") || e.target.startsWith("VEHICLE"))) matchMethod = true;
-            else if (sourceTypeFilter === "WITNESS_STATEMENT" && (e.source.startsWith("LOC") || e.target.startsWith("LOC"))) matchMethod = true;
             edgeVisible = edgeVisible && matchMethod;
         }
 
@@ -930,9 +1255,15 @@ async function openEntityDetailsPanel(entityId) {
 
         const badgeClass = `badge-${(ent.type || "person").toLowerCase()}`;
         const isManual = ent.is_manual || ent.source === "Manual";
-        const sourceBadge = isManual
+        const isSocial = ent.source_type === "SOCIAL_MEDIA_SYNTHETIC" || ent.id.startsWith("SOC_") || ent.platform;
+
+        let sourceBadge = isManual
             ? `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">edit_note</span> Source: Manual</span>`
             : `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700 flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">database</span> Source: Dataset</span>`;
+
+        if (isSocial) {
+            sourceBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-800 flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">share</span> SOCIAL MEDIA — SYNTHETIC</span>`;
+        }
 
         const connectedEdges = (rawGraphData.edges || []).filter(e => e.source === entityId || e.target === entityId);
         const connectionDegree = connectedEdges.length || (ent.relationships ? ent.relationships.length : 0);
@@ -950,7 +1281,7 @@ async function openEntityDetailsPanel(entityId) {
             <div class="space-y-3 font-sans">
                 <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
                     <span class="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant">${ent.id}</span>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1 flex-wrap">
                         ${sourceBadge}
                         <span class="px-2 py-0.5 text-[10px] font-bold rounded ${badgeClass}">${ent.type}</span>
                     </div>
@@ -958,6 +1289,21 @@ async function openEntityDetailsPanel(entityId) {
 
                 <h3 class="text-sm font-bold text-white">${ent.name}</h3>
                 <p class="text-xs text-on-surface-variant leading-relaxed">${ent.details || "Active Knowledge Graph Entity"}</p>
+
+                ${isSocial || ent.platform ? `
+                <!-- Social Media Identity & Interaction Block -->
+                <div class="bg-fuchsia-950/30 p-2.5 rounded border border-fuchsia-800/50 space-y-1.5 text-xs font-sans">
+                    <div class="flex items-center justify-between text-[10px] font-bold uppercase text-fuchsia-300">
+                        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">forum</span> Synthetic Social Record</span>
+                        <span class="px-1.5 py-0.5 rounded bg-fuchsia-900/60 border border-fuchsia-700 font-mono text-[9px]">SOCIAL_SOURCE_ADAPTER</span>
+                    </div>
+                    <div class="space-y-1 font-mono text-[11px]">
+                        <div>Platform: <strong class="text-white">${ent.platform || 'X / Telegram (Synthetic)'}</strong></div>
+                        <div>Handle / Account: <strong class="text-fuchsia-300">${ent.name}</strong></div>
+                        <div>Record Lineage: <strong class="text-tertiary">SOCIAL_017_04</strong></div>
+                    </div>
+                </div>
+                ` : ''}
 
                 <!-- Network Intelligence Centrality Block -->
                 <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1.5">
@@ -974,27 +1320,27 @@ async function openEntityDetailsPanel(entityId) {
                 <!-- Multi-Source Data Layer Provenance -->
                 <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1.5">
                     <div class="flex items-center justify-between">
-                        <div class="text-[10px] font-bold uppercase text-outline">Multi-Source Provenance</div>
-                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">
-                            ${(ent.evidence && ent.evidence.length > 1) || ent.id === "PHONE_042" || ent.id === "PERSON_017" ? "MULTI-SOURCE GROUNDED" : "SINGLE SOURCE"}
+                        <div class="text-[10px] font-bold uppercase text-outline">Multi-Source Provenance & Corroboration</div>
+                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded ${ent.id === "PERSON_017" ? "bg-rose-950 text-rose-300 border border-rose-800" : "bg-emerald-950 text-emerald-300 border border-emerald-800"} font-mono">
+                            ${ent.id === "PERSON_017" ? "CONFLICT DETECTED" : ((ent.evidence && ent.evidence.length > 1) || ent.id === "PHONE_042" ? "CORROBORATED (2 SOURCES)" : "SINGLE SOURCE")}
                         </span>
                     </div>
 
                     <div class="text-xs space-y-1 font-mono">
                         <div class="flex items-center justify-between text-[11px]">
                             <span class="text-on-surface-variant">Primary Source Doc:</span>
-                            <span class="text-tertiary font-bold">${ent.id === "PHONE_042" ? "DOC_CASE_101 / DOC_CASE_204" : (ent.id === "PERSON_017" ? "DOC_CASE_101_FIR_REPORT.pdf" : "DOC_CASE_101_REPORT.pdf")}</span>
+                            <span class="text-tertiary font-bold">${isSocial ? "SOCIAL_017_04" : (ent.id === "PHONE_042" ? "DOC_CASE_101 / DOC_CASE_204" : (ent.id === "PERSON_017" ? "DOC_CASE_101_FIR_REPORT.pdf" : "DOC_CASE_101_REPORT.pdf"))}</span>
                         </div>
                         <div class="flex items-center justify-between text-[11px]">
                             <span class="text-on-surface-variant">Extraction Methods:</span>
-                            <span class="text-purple-300 font-bold">${ent.id === "PHONE_042" ? "DIGITAL_FORENSICS + TELCO_INTERCEPT" : (ent.id === "PERSON_017" ? "AI_NER + DIGITAL_FORENSICS" : "AI_NER")}</span>
+                            <span class="text-purple-300 font-bold">${isSocial ? "SOCIAL_SOURCE_ADAPTER" : (ent.id === "PHONE_042" ? "DIGITAL_FORENSICS + TELCO_INTERCEPT" : (ent.id === "PERSON_017" ? "AI_NER + SOCIAL_SOURCE" : "AI_NER"))}</span>
                         </div>
                     </div>
 
                     ${(ent.id === "PHONE_042" || ent.id === "PERSON_017") ? `
-                    <div class="p-2 bg-amber-950/40 border border-amber-800/60 rounded text-[11px] space-y-0.5 text-amber-200 mt-1 font-sans">
-                        <div class="font-bold text-amber-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">warning</span> Conflicting Source Information Warning</div>
-                        <div>Multiple extraction sources (Digital Forensics vs Signal Intercept) report differing call duration timestamps. Human officer verification required.</div>
+                    <div class="p-2 bg-rose-950/40 border border-rose-800/60 rounded text-[11px] space-y-0.5 text-rose-200 mt-1 font-sans">
+                        <div class="font-bold text-rose-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">warning</span> Conflicting Source Information Detected</div>
+                        <div>Conflicting values: Alias 'Arjun' vs 'Aarav' (Social Media Synthetic vs Manual Notes). Confidence: 70%. HUMAN OFFICER VERIFICATION REQUIRED BEFORE FORMAL PROCEEDINGS.</div>
                     </div>
                     ` : `
                     <div class="p-1.5 bg-emerald-950/30 border border-emerald-800/40 rounded text-[10px] text-emerald-300 flex items-center gap-1 font-sans mt-1">
@@ -1661,40 +2007,7 @@ async function askAIAboutEntity(entityId) {
 /* ----------------------------------------------------
    9. TIMELINE, EVIDENCE EXPLORER & GLOBAL SEARCH (PHASE 12)
 ---------------------------------------------------- */
-async function renderTimeline(caseId = "CASE_101") {
-    const container = document.getElementById("timeline-container");
-    if (!container) return;
-
-    if (caseId === "ALL") {
-        container.innerHTML = `<div class="text-center py-6 text-outline text-xs font-sans">Select a specific case (e.g. CASE_101, CASE_204) to view its chronological event timeline.</div>`;
-        return;
-    }
-
-    container.innerHTML = `<div class="text-center py-6 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-tertiary align-middle mr-1">sync</span> Loading timeline for ${caseId}...</div>`;
-
-    try {
-        const data = await window.dataService.getTimeline(caseId);
-        const events = data ? (data.events || []) : [];
-
-        if (events.length === 0) {
-            container.innerHTML = `<div class="text-center py-6 text-outline text-xs font-sans">No chronological events found for <strong>${caseId}</strong>.</div>`;
-            return;
-        }
-
-        container.innerHTML = events.map(ev => `
-            <div class="p-3 bg-surface-container-low border border-surface-container-high rounded space-y-1 text-xs font-sans">
-                <div class="flex items-center justify-between text-[11px] font-mono">
-                    <span class="text-tertiary font-bold">${ev.timestamp || 'N/A'}</span>
-                    <span class="px-2 py-0.5 rounded bg-surface-container-highest text-primary font-bold">${ev.type || 'EVENT'}</span>
-                </div>
-                <p class="text-white font-medium">${ev.description || 'Recorded incident'}</p>
-                <div class="text-[10px] text-on-surface-variant">Location Tag: <strong class="text-outline font-mono">${ev.location_id || 'N/A'}</strong></div>
-            </div>
-        `).join("");
-    } catch (err) {
-        container.innerHTML = `<div class="text-center py-6 text-error text-xs font-sans">Failed to load timeline for ${caseId}: ${err.message}</div>`;
-    }
-}
+/* Note: renderTimeline is defined in Day 23 section below (line 3790) */
 
 async function renderEvidenceExplorer() {
     const container = document.getElementById("evidence-grid-container");
@@ -1724,19 +2037,35 @@ async function renderEvidenceExplorer() {
         }
 
         container.innerHTML = evidenceList.map(ev => {
-            const method = ev.extraction_method || (ev.evidence_id.includes("042_01") ? "DIGITAL_FORENSICS" : (ev.evidence_id.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER"));
+            const method = ev.extraction_method || (ev.evidence_id.includes("SOC") ? "SOCIAL_SOURCE_ADAPTER" : (ev.evidence_id.includes("042_01") ? "DIGITAL_FORENSICS" : (ev.evidence_id.includes("042_02") ? "TELCO_INTERCEPT" : "AI_NER")));
             const docName = ev.source_document || ev.source_document_id || "DOC_EXTRACTION";
+            const isSocial = method === "SOCIAL_SOURCE_ADAPTER" || ev.source_type === "SOCIAL_MEDIA_SYNTHETIC";
+            const corroboration = ev.corroboration || (ev.conflict_detected ? "CONFLICT DETECTED" : (ev.evidence_id.includes("SOC_017") ? "CORROBORATED" : "SINGLE SOURCE"));
+            const corrBadge = corroboration === "CONFLICT DETECTED"
+                ? `<span class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 text-[9px] font-bold font-mono">CONFLICT DETECTED</span>`
+                : (corroboration === "CORROBORATED"
+                    ? `<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[9px] font-bold font-mono">CORROBORATED (${ev.sources_count || 2} SOURCES)</span>`
+                    : `<span class="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 text-[9px] font-bold font-mono">SINGLE SOURCE</span>`);
 
             return `
                 <div class="stitch-card space-y-2.5 text-xs font-sans hover:border-purple-500/50 transition cursor-pointer" onclick="openEvidencePanel({ evidence_id: '${ev.evidence_id}' })">
                     <div class="flex items-center justify-between font-mono">
                         <span class="text-tertiary font-bold">${ev.evidence_id}</span>
-                        <div class="flex items-center gap-1.5">
-                            <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-bold font-mono">${method}</span>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            ${corrBadge}
+                            <span class="px-2 py-0.5 rounded ${isSocial ? 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-800' : 'bg-purple-950 text-purple-300 border border-purple-800'} text-[10px] font-bold font-mono">${isSocial ? 'SOCIAL MEDIA — SYNTHETIC' : method}</span>
                             <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${((ev.confidence || 0.95) * 100).toFixed(0)}% Conf</span>
                         </div>
                     </div>
                     <p class="text-white italic text-[11px] break-words whitespace-normal font-sans bg-surface-container-lowest p-2 rounded border border-surface-container-high">"${ev.source_text || ev.excerpt || 'Recorded evidence finding.'}"</p>
+                    
+                    ${ev.conflict_detected ? `
+                    <div class="p-2 bg-rose-950/40 border border-rose-800/60 rounded text-[10px] text-rose-200 font-sans space-y-0.5">
+                        <div class="font-bold text-rose-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">warning</span> Conflicting Claim Warning</div>
+                        <div>${ev.conflict_details ? ev.conflict_details.conflicting_values : "Source conflict detected across extraction streams."} — HUMAN OFFICER VERIFICATION REQUIRED.</div>
+                    </div>
+                    ` : ''}
+
                     <div class="flex items-center justify-between text-[10px] text-outline font-mono pt-1 border-t border-surface-container-high">
                         <span>Doc: <strong class="text-white">${docName}</strong></span>
                         <span>Page: <strong class="text-white">Pg. ${ev.page_number || 1}</strong></span>
@@ -1749,43 +2078,422 @@ async function renderEvidenceExplorer() {
     }
 }
 
+/* ----------------------------------------------------
+   INVESTIGATION REPORT VIEWER & EXPORT (DAY 24)
+---------------------------------------------------- */
 async function generateReport(caseId = null) {
+    return await renderInvestigationReport(caseId);
+}
+
+async function renderInvestigationReport(caseId = null) {
     const viewBox = document.getElementById("report-view-box");
     if (!viewBox) return;
 
     let targetCaseId = caseId;
-    if (!targetCaseId || targetCaseId === "ALL") {
-        const select = document.getElementById("header-case-select");
-        targetCaseId = (select && select.value && select.value !== "ALL") ? select.value : "CASE_101";
+    if (!targetCaseId || typeof targetCaseId !== "string" || targetCaseId === "ALL") {
+        const repSelect = document.getElementById("report-case-select");
+        const headSelect = document.getElementById("header-case-select");
+        targetCaseId = (repSelect && repSelect.value) ? repSelect.value : ((headSelect && headSelect.value && headSelect.value !== "ALL") ? headSelect.value : "CASE_101");
     }
 
-    viewBox.innerHTML = `<div class="text-center py-10 text-outline text-xs font-sans"><span class="material-symbols-outlined animate-spin text-primary align-middle mr-1">sync</span> Generating Evidence-Linked Investigation Report for ${targetCaseId}...</div>`;
+    const repSelect = document.getElementById("report-case-select");
+    if (repSelect && repSelect.value !== targetCaseId) {
+        repSelect.value = targetCaseId;
+    }
+
+    viewBox.innerHTML = `
+        <div class="stitch-card text-center py-12 text-outline text-xs font-sans">
+            <span class="material-symbols-outlined animate-spin text-primary text-3xl align-middle mb-2">sync</span>
+            <div class="font-semibold text-white">Synthesizing Investigation Report for ${targetCaseId}...</div>
+            <div class="text-[11px] text-outline mt-1">Aggregating Network Graph, Day-23 Timeline, Day-20 Patterns, Day-21 Multi-Source Provenance & Day-22 NLP...</div>
+        </div>
+    `;
 
     try {
         const report = await window.dataService.generateReport(targetCaseId);
-        if (!report || !report.content) {
-            viewBox.innerHTML = `<div class="text-center py-10 text-error text-xs font-sans">Unable to generate report for ${targetCaseId}.</div>`;
+        if (!report) {
+            viewBox.innerHTML = `<div class="stitch-card text-center py-10 text-rose-400 text-xs font-sans">Unable to retrieve report data for ${targetCaseId}.</div>`;
             return;
         }
 
-        const formattedHtml = report.content
-            .replace(/# (.*)/g, '<h1 class="text-base font-bold text-primary border-b border-surface-container-high pb-2 mb-2">$1</h1>')
-            .replace(/## (.*)/g, '<h2 class="text-xs font-bold text-tertiary mt-3 mb-1 uppercase tracking-wider">$1</h2>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-            .replace(/- (.*)/g, '<li class="ml-4 list-disc text-on-surface-variant">$1</li>')
-            .replace(/\n\n/g, '<br><br>');
+        const caseTitle = report.case_title || targetCaseId;
+        const confidencePct = report.overall_confidence ? (report.overall_confidence * 100).toFixed(0) : "95";
+        const sources = report.source_provenance || ["Synthetic Dataset", "Digital Forensics", "NLP Extract"];
+        const keyEntities = report.key_entities || [];
+        const relationships = report.relationships || [];
+        const timelineEvents = report.timeline_events || [];
+        const suspiciousPatterns = report.suspicious_patterns || [];
+        const networkIntel = report.network_intelligence || { node_count: keyEntities.length, edge_count: relationships.length, cross_case_bridges_count: 0 };
+        const evidenceItems = report.evidence || [];
+        const leads = report.investigative_leads || [];
+        const limitations = report.limitations || [];
+        const disclaimer = report.safety_disclaimer || "CrimeGraph AI provides investigative leads and association mappings based solely on ingested documents. This output does NOT declare guilt, make legal judgments, or represent conclusive criminal proof. All generated leads require mandatory human verification by authorized case officers.";
 
         viewBox.innerHTML = `
-            <div class="space-y-3 font-sans">
-                <div class="flex items-center justify-between text-[11px] font-mono text-outline border-b border-surface-container-high pb-2">
-                    <span>Report ID: <strong class="text-tertiary">${report.report_id || 'REPORT_001'}</strong></span>
-                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase font-bold">${report.status || 'generated'}</span>
+            <div class="space-y-5 font-sans">
+                
+                <!-- 1. REPORT HEADER CARD -->
+                <div class="stitch-card space-y-3 bg-surface-container-low border border-surface-container-high p-4 rounded-lg">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-surface-container-high pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-white">${report.title || `CrimeGraph Investigation Report — ${caseTitle}`}</span>
+                                <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold font-mono uppercase">${report.status || 'GENERATED'}</span>
+                            </div>
+                            <div class="text-xs text-outline font-mono mt-1">
+                                Report ID: <strong class="text-tertiary">${report.report_id || 'REPORT_001'}</strong> | Case: <strong class="text-primary hover:underline cursor-pointer" onclick="openReportCase('${targetCaseId}')">${targetCaseId} (${caseTitle})</strong> | Generated: ${report.timestamp ? new Date(report.timestamp).toLocaleString() : 'Just now'}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="text-right">
+                                <div class="text-[10px] text-outline font-mono uppercase">Overall Confidence</div>
+                                <div class="text-base font-bold text-tertiary font-mono">${confidencePct}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Source Provenance Badges -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <span class="text-outline text-[11px] font-mono">Multi-Source Provenance:</span>
+                        ${sources.map(src => `<span class="px-2 py-0.5 rounded bg-purple-950/70 text-purple-300 border border-purple-800/60 text-[10px] font-bold font-mono">${src}</span>`).join("")}
+                    </div>
                 </div>
-                <div class="text-xs font-sans text-on-surface leading-relaxed whitespace-pre-wrap">${formattedHtml}</div>
+
+                <!-- 2. SAFETY & LEGAL DISCLAIMER BANNER -->
+                <div class="bg-amber-950/40 border border-amber-800/80 rounded-lg p-4 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-400 text-xl shrink-0 mt-0.5" aria-hidden="true">gavel</span>
+                    <div class="space-y-1 text-xs">
+                        <div class="font-bold text-amber-300 uppercase tracking-wider text-[11px]">Safety Policy & Legal Disclaimer</div>
+                        <p class="text-amber-200/90 leading-relaxed">${disclaimer}</p>
+                    </div>
+                </div>
+
+                <!-- 3. EXECUTIVE SUMMARY CARD -->
+                <div class="stitch-card space-y-2">
+                    <h3 class="text-sm font-bold text-primary flex items-center gap-2 border-b border-surface-container-high pb-2">
+                        <span class="material-symbols-outlined text-base">article</span> 1. Executive Summary
+                    </h3>
+                    <p class="text-xs text-on-surface-variant leading-relaxed">${report.executive_summary || report.content || 'Investigation summary synthesized from knowledge graph dataset.'}</p>
+                </div>
+
+                <!-- 4. KEY ENTITIES & RELATIONSHIP NETWORK -->
+                <div class="stitch-card space-y-4">
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">hub</span> 2. Identified Key Entities & Relationships (${keyEntities.length} Entities, ${relationships.length} Edges)
+                        </h3>
+                        <button onclick="openReportGraph('${targetCaseId}')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-tertiary border border-tertiary/40 text-[11px] font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">account_tree</span> Report → Graph
+                        </button>
+                    </div>
+
+                    <!-- Entities Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs font-sans">
+                            <thead class="bg-surface-container-lowest text-outline font-mono text-[10px] uppercase">
+                                <tr>
+                                    <th class="p-2">Entity ID</th>
+                                    <th class="p-2">Name / Label</th>
+                                    <th class="p-2">Type</th>
+                                    <th class="p-2">Confidence</th>
+                                    <th class="p-2">Source Provenance</th>
+                                    <th class="p-2 text-right">Traceability Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-surface-container-high">
+                                ${keyEntities.map(ent => `
+                                    <tr class="hover:bg-surface-container-low transition">
+                                        <td class="p-2 font-mono font-bold text-tertiary">${ent.id}</td>
+                                        <td class="p-2 text-white font-semibold">${ent.name}</td>
+                                        <td class="p-2"><span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface text-[10px] font-mono uppercase">${ent.type}</span></td>
+                                        <td class="p-2 font-mono text-emerald-400">${((ent.confidence || 0.95) * 100).toFixed(0)}%</td>
+                                        <td class="p-2"><span class="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 text-[10px] font-mono">${ent.source_provenance || 'Synthetic Dataset'}</span></td>
+                                        <td class="p-2 text-right space-x-1">
+                                            <button onclick="openReportEntity('${ent.id}')" class="px-2 py-0.5 bg-tertiary-container/30 hover:bg-tertiary-container/60 text-tertiary text-[10px] font-semibold rounded transition" title="Report → Entity View">Entity</button>
+                                            <button onclick="openReportGraph('${ent.id}')" class="px-2 py-0.5 bg-primary-container/30 hover:bg-primary-container/60 text-primary text-[10px] font-semibold rounded transition" title="Report → Graph View">Graph</button>
+                                        </td>
+                                    </tr>
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. TIMELINE & CORRELATED EVENTS (DAY 23) -->
+                <div class="stitch-card space-y-3">
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">history</span> 3. Timeline & Correlated Events (${timelineEvents.length} Events)
+                        </h3>
+                        <button onclick="openReportEvent(null)" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-tertiary border border-tertiary/40 text-[11px] font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">history</span> Report → Timeline
+                        </button>
+                    </div>
+
+                    <div class="space-y-2">
+                        ${timelineEvents.map(ev => `
+                            <div class="p-3 bg-surface-container-lowest border border-surface-container-high rounded flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-white">${ev.title}</span>
+                                        <span class="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-mono">${ev.event_type}</span>
+                                        <span class="text-outline text-[10px] font-mono">${ev.timestamp}</span>
+                                    </div>
+                                    <p class="text-on-surface-variant text-[11px]">${ev.description}</p>
+                                    <div class="text-[10px] text-outline font-mono">Location: ${ev.location || 'N/A'} | Provenance: ${ev.source_provenance || 'Synthetic Dataset'}</div>
+                                </div>
+                                <button onclick="openReportEvent('${ev.id}')" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-primary border border-outline-variant rounded text-[11px] font-semibold shrink-0">Report → Event</button>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <!-- 6. SUSPICIOUS PATTERN DETECTION (DAY 20) & NETWORK INTEL (DAY 19) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Suspicious Patterns -->
+                    <div class="stitch-card space-y-3">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span class="material-symbols-outlined text-amber-400 text-base">warning</span> 4. Suspicious Pattern Detection (${suspiciousPatterns.length})
+                        </h3>
+                        <div class="space-y-2 text-xs">
+                            ${suspiciousPatterns.map(pat => `
+                                <div class="p-3 bg-surface-container-lowest border border-amber-900/40 rounded space-y-1.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-amber-300">${pat.title}</span>
+                                        <span class="px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-800 text-[10px] font-bold font-mono">${pat.severity || 'HIGH'}</span>
+                                    </div>
+                                    <p class="text-on-surface-variant text-[11px]">${pat.explanation}</p>
+                                    <div class="text-[10px] text-tertiary font-mono">Lead: ${pat.investigative_lead || 'Verify call logs'}</div>
+                                </div>
+                            `).join("")}
+                        </div>
+                    </div>
+
+                    <!-- Network Intelligence -->
+                    <div class="stitch-card space-y-3">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span class="material-symbols-outlined text-base">insights</span> 5. Network Intelligence Metrics
+                        </h3>
+                        <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+                            <div class="p-3 bg-surface-container-lowest border border-surface-container-high rounded text-center">
+                                <div class="text-outline text-[10px]">Graph Nodes</div>
+                                <div class="text-lg font-bold text-primary">${networkIntel.node_count}</div>
+                            </div>
+                            <div class="p-3 bg-surface-container-lowest border border-surface-container-high rounded text-center">
+                                <div class="text-outline text-[10px]">Verified Edges</div>
+                                <div class="text-lg font-bold text-tertiary">${networkIntel.edge_count}</div>
+                            </div>
+                            <div class="p-3 bg-surface-container-lowest border border-surface-container-high rounded text-center col-span-2">
+                                <div class="text-outline text-[10px]">Cross-Case Bridge Connections</div>
+                                <div class="text-lg font-bold text-amber-400">${networkIntel.cross_case_bridges_count} Discovered</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. EVIDENCE LINEAGE & PROVENANCE INDEX (DAY 21 & 22) -->
+                <div class="stitch-card space-y-3">
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-2">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2">
+                            <span class="material-symbols-outlined text-base">find_in_page</span> 6. Evidence Lineage & Provenance Index (${evidenceItems.length} Items)
+                        </h3>
+                        <button onclick="switchTab('pane-evidence')" class="px-2 py-1 bg-surface-container-high hover:bg-surface-container-highest text-tertiary border border-tertiary/40 text-[11px] font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">description</span> Report → Evidence
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${evidenceItems.map(ev => `
+                            <div class="p-3 bg-surface-container-lowest border border-surface-container-high rounded space-y-2 text-xs font-sans">
+                                <div class="flex items-center justify-between font-mono">
+                                    <span class="text-tertiary font-bold">${ev.evidence_id}</span>
+                                    <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-mono">${ev.source_provenance || ev.extraction_method || 'Synthetic Dataset'}</span>
+                                </div>
+                                <p class="text-white italic text-[11px] bg-surface-container-low p-2 rounded border border-surface-container-high">"${ev.source_text}"</p>
+                                <div class="flex items-center justify-between text-[10px] text-outline font-mono">
+                                    <span>Doc: <strong>${ev.source_document_id || 'DOC_EXTRACTION'}</strong></span>
+                                    <button onclick="openReportEvidence('${ev.evidence_id}')" class="text-primary hover:underline font-bold">Inspect Evidence →</button>
+                                </div>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <!-- 8. ACTIONABLE LEADS & LIMITATIONS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Actionable Leads -->
+                    <div class="stitch-card space-y-2">
+                        <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span class="material-symbols-outlined text-base">flag</span> 7. Actionable Investigative Leads
+                        </h3>
+                        <ul class="space-y-1.5 text-xs text-on-surface-variant">
+                            ${leads.map(lead => `<li class="flex items-start gap-1.5"><span class="text-emerald-400 font-bold">•</span> <span>${lead}</span></li>`).join("")}
+                        </ul>
+                    </div>
+
+                    <!-- Limitations -->
+                    <div class="stitch-card space-y-2">
+                        <h3 class="text-sm font-bold text-amber-400 flex items-center gap-2 border-b border-surface-container-high pb-2">
+                            <span class="material-symbols-outlined text-base">info</span> 8. Methodological Limitations
+                        </h3>
+                        <ul class="space-y-1.5 text-xs text-on-surface-variant">
+                            ${limitations.map(lim => `<li class="flex items-start gap-1.5"><span class="text-amber-400 font-bold">•</span> <span>${lim}</span></li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+
+                ${(report.source_conflicts && report.source_conflicts.length > 0) ? `
+                <!-- 9. SOURCE CONFLICT ALERTS -->
+                <div class="stitch-card space-y-2.5 bg-rose-950/20 border border-rose-800/50 p-4 rounded-lg">
+                    <h3 class="text-sm font-bold text-rose-300 flex items-center gap-2 border-b border-rose-800/40 pb-2">
+                        <span class="material-symbols-outlined text-base text-rose-400">warning</span> 9. Source Conflict & Discrepancy Alerts
+                    </h3>
+                    <div class="space-y-2">
+                        ${report.source_conflicts.map(conf => `
+                            <div class="p-3 bg-rose-950/40 border border-rose-800/60 rounded text-xs space-y-1 text-rose-200">
+                                <div class="font-bold text-rose-300 flex items-center justify-between">
+                                    <span>Entity Discrepancy: ${conf.entity_id}</span>
+                                    <span class="px-1.5 py-0.5 rounded bg-rose-900 text-rose-200 text-[10px] font-mono">CONFLICT DETECTED</span>
+                                </div>
+                                <p class="text-rose-100">${conf.conflicting_values}</p>
+                                <div class="text-[10px] text-rose-300/80 font-mono">Sources: ${(conf.source_names || []).join(" vs ")} | ${conf.warning}</div>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+                ` : ''}
+
             </div>
         `;
     } catch (err) {
-        viewBox.innerHTML = `<div class="text-center py-10 text-error text-xs font-sans">Failed to generate report for ${targetCaseId}: ${err.message}</div>`;
+        viewBox.innerHTML = `
+            <div class="stitch-card text-center py-10 text-rose-400 text-xs font-sans space-y-2">
+                <span class="material-symbols-outlined text-3xl text-rose-500 block">error</span>
+                <div class="font-bold">Failed to generate report for ${targetCaseId}</div>
+                <div class="text-outline">${err.message || 'Service unavailable.'}</div>
+                <button onclick="renderInvestigationReport('${targetCaseId}')" class="mt-3 px-3 py-1.5 bg-rose-900 hover:bg-rose-800 text-white rounded font-semibold text-xs transition">
+                    Retry Report Generation
+                </button>
+            </div>
+        `;
+    }
+}
+
+/* ----------------------------------------------------
+   REPORT TRACEABILITY NAVIGATORS
+---------------------------------------------------- */
+async function openReportEntity(entityId) {
+    if (!entityId) return;
+    switchTab("pane-graph", true);
+    await renderGraphWorkspace("ALL");
+    if (networkInstance) networkInstance.selectNodes([entityId]);
+    openEntityDetailsPanel(entityId);
+}
+
+async function openReportEvidence(evidenceId) {
+    if (!evidenceId) return;
+    openEvidencePanel({ evidence_id: evidenceId });
+}
+
+async function openReportEvent(eventId) {
+    switchTab("pane-timeline", true);
+    const caseSelect = document.getElementById("header-case-select");
+    const activeCase = (caseSelect && caseSelect.value) ? caseSelect.value : "CASE_101";
+    await renderTimeline(activeCase);
+    if (eventId) {
+        setTimeout(() => {
+            const evEl = document.getElementById(`event-card-${eventId}`);
+            if (evEl) {
+                evEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                evEl.classList.add("ring-2", "ring-primary");
+            }
+        }, 200);
+    }
+}
+
+async function openReportCase(caseId) {
+    if (!caseId) return;
+    const select = document.getElementById("header-case-select");
+    if (select) select.value = caseId;
+    switchTab("pane-case-detail", true);
+    await renderCaseDetail(caseId);
+}
+
+async function openReportGraph(nodeId) {
+    switchTab("pane-graph", true);
+    const caseSelect = document.getElementById("header-case-select");
+    const activeCase = (caseSelect && caseSelect.value) ? caseSelect.value : "ALL";
+    await renderGraphWorkspace(activeCase);
+    if (nodeId && networkInstance) {
+        networkInstance.selectNodes([nodeId]);
+    }
+}
+
+/* ----------------------------------------------------
+   REPORT EXPORT CONTROLS (JSON, PDF, MARKDOWN)
+---------------------------------------------------- */
+async function exportInvestigationReport(format = "json") {
+    const statusBox = document.getElementById("report-export-status");
+    let targetCaseId = "CASE_101";
+    const repSelect = document.getElementById("report-case-select");
+    const headSelect = document.getElementById("header-case-select");
+    if (repSelect && repSelect.value) targetCaseId = repSelect.value;
+    else if (headSelect && headSelect.value && headSelect.value !== "ALL") targetCaseId = headSelect.value;
+
+    const fmtUpper = format.toUpperCase();
+
+    if (statusBox) {
+        statusBox.classList.remove("hidden");
+        statusBox.className = "rounded p-3 text-xs font-sans bg-blue-950/80 border border-blue-800 text-blue-300 flex items-center justify-between";
+        statusBox.innerHTML = `
+            <span class="flex items-center gap-2">
+                <span class="material-symbols-outlined animate-spin text-sm">sync</span>
+                <span>Exporting investigation report for <strong>${targetCaseId}</strong> in <strong>${fmtUpper}</strong> format...</span>
+            </span>
+        `;
+    }
+
+    try {
+        const res = await window.dataService.exportReport(targetCaseId, format);
+        if (!res || (!res.blob && !res.content)) {
+            throw new Error(`Export response was empty for ${targetCaseId}.`);
+        }
+
+        // Trigger file download in browser
+        const filename = res.filename || `crimegraph_report_${targetCaseId}.${format.toLowerCase()}`;
+        const blob = res.blob || new Blob([res.content], { type: format === "json" ? "application/json" : "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        if (statusBox) {
+            statusBox.className = "rounded p-3 text-xs font-sans bg-emerald-950/80 border border-emerald-800 text-emerald-300 flex items-center justify-between";
+            statusBox.innerHTML = `
+                <span class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
+                    <span>Report successfully exported as <strong>${filename}</strong></span>
+                </span>
+                <button onclick="document.getElementById('report-export-status').classList.add('hidden')" class="text-xs underline text-emerald-400 hover:text-emerald-300">Dismiss</button>
+            `;
+        }
+    } catch (err) {
+        if (statusBox) {
+            statusBox.className = "rounded p-3 text-xs font-sans bg-rose-950/80 border border-rose-800 text-rose-300 flex items-center justify-between";
+            statusBox.innerHTML = `
+                <span class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm text-rose-400">error</span>
+                    <span>Export Failed (${fmtUpper}): ${err.message || 'Unable to connect to export service'}</span>
+                </span>
+                <button onclick="exportInvestigationReport('${format}')" class="px-2.5 py-1 bg-rose-900 hover:bg-rose-800 text-white rounded text-xs font-bold font-mono transition">
+                    Retry Export
+                </button>
+            `;
+        }
     }
 }
 
@@ -1934,12 +2642,27 @@ function renderEntityFormFields() {
     }
 }
 
-function openAddEntityModal(defaultType = "PERSON") {
+async function openAddEntityModal(defaultType = "PERSON") {
     const modal = document.getElementById("modal-add-entity");
     const typeSelect = document.getElementById("entity-type-select");
+    const caseLinkSelect = document.getElementById("entity-link-case-select");
     if (!modal) return;
     if (typeSelect) typeSelect.value = defaultType;
     renderEntityFormFields();
+
+    if (caseLinkSelect) {
+        try {
+            const cases = await window.dataService.getCases();
+            const activeCase = document.getElementById("header-case-select")?.value;
+            caseLinkSelect.innerHTML = `<option value="">-- Do Not Link to Case --</option>` + (cases || []).map(c => `
+                <option value="${c.id}">${c.id} - ${c.title || c.id}</option>
+            `).join("");
+            if (activeCase && activeCase !== "ALL") {
+                caseLinkSelect.value = activeCase;
+            }
+        } catch (_) {}
+    }
+
     modal.classList.remove("hidden");
     modal.classList.add("flex");
 }
@@ -2002,6 +2725,22 @@ async function handleAddEntitySubmit(event) {
         }
 
         const created = await window.dataService.createEntity(entityData);
+
+        // Auto link entity to selected case if provided
+        const selectedLinkCase = document.getElementById("entity-link-case-select")?.value;
+        if (selectedLinkCase && created.id) {
+            try {
+                await window.dataService.createRelationship({
+                    source_id: created.id,
+                    relationship: "INVOLVED_IN",
+                    target_id: selectedLinkCase,
+                    confidence: 0.95
+                });
+            } catch (relErr) {
+                console.warn("Could not auto-link entity to case:", relErr);
+            }
+        }
+
         closeAddEntityModal();
 
         // Safely update Vis.js graph
@@ -2033,6 +2772,8 @@ async function handleAddEntitySubmit(event) {
             }
         }
 
+        const targetCaseForView = selectedLinkCase || document.getElementById("header-case-select")?.value || "CASE_101";
+        await renderGraphWorkspace(targetCaseForView);
         await openEntityDetailsPanel(created.id);
         alert(`Entity '${created.id}' (${created.name || created.id}) created successfully!`);
     } catch (err) {
@@ -2042,6 +2783,168 @@ async function handleAddEntitySubmit(event) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> Save Entity`;
         }
+    }
+}
+
+/* ----------------------------------------------------
+   MANUAL CASE CREATION UI HANDLERS
+---------------------------------------------------- */
+function openCreateCaseModal() {
+    const modal = document.getElementById("modal-create-case");
+    const errorBox = document.getElementById("create-case-error-msg");
+    const createdByInput = document.getElementById("create-case-created-by");
+    if (!modal) return;
+
+    if (errorBox) {
+        errorBox.innerText = "";
+        errorBox.classList.add("hidden");
+    }
+
+    const user = window.dataService ? window.dataService.getUser() : null;
+    if (createdByInput) {
+        createdByInput.value = (user && user.username) ? user.username : "OFFICER_VERMA";
+    }
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeCreateCaseModal() {
+    const modal = document.getElementById("modal-create-case");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    }
+}
+
+async function handleCreateCaseSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById("btn-save-case");
+    const errorBox = document.getElementById("create-case-error-msg");
+    const titleInput = document.getElementById("create-case-title");
+    const title = titleInput ? titleInput.value.trim() : "";
+
+    if (!title) {
+        if (errorBox) {
+            errorBox.innerText = "Case title is required.";
+            errorBox.classList.remove("hidden");
+        } else {
+            alert("Case title is required.");
+        }
+        if (titleInput) titleInput.focus();
+        return;
+    }
+
+    if (errorBox) {
+        errorBox.innerText = "";
+        errorBox.classList.add("hidden");
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Creating Case...`;
+    }
+
+    const caseData = {
+        title: title,
+        case_type: document.getElementById("create-case-type")?.value || "General Investigation",
+        priority: document.getElementById("create-case-priority")?.value || "HIGH",
+        status: document.getElementById("create-case-status")?.value || "ACTIVE",
+        location: document.getElementById("create-case-location")?.value || "",
+        description: document.getElementById("create-case-description")?.value || "",
+        notes: document.getElementById("create-case-notes")?.value || "",
+        created_by: document.getElementById("create-case-created-by")?.value || "OFFICER_VERMA"
+    };
+
+    try {
+        const createdCase = await window.dataService.createCase(caseData);
+        const newCaseId = createdCase.id || createdCase.case_id;
+
+        closeCreateCaseModal();
+        document.getElementById("form-create-case")?.reset();
+
+        // 1. Refresh Case Explorer catalog table
+        await renderCaseExplorer();
+
+        // 2. Refresh Header Case dropdown selector & Path selectors
+        await populateCaseDropdowns(newCaseId);
+
+        // 3. Switch to Case Detail view and load metadata & graph
+        await openCaseDetail(newCaseId);
+
+        alert(`Case '${createdCase.title || newCaseId}' (${newCaseId}) created successfully!`);
+    } catch (err) {
+        console.error("Case creation failed:", err);
+        const errorMsg = err.message || "Failed to create case. Please verify server connection and inputs.";
+        if (errorBox) {
+            errorBox.innerText = errorMsg;
+            errorBox.classList.remove("hidden");
+        } else {
+            alert(`Creation Error: ${errorMsg}`);
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> Create Case`;
+        }
+    }
+}
+
+async function populateCaseDropdowns(selectedCaseId = null) {
+    try {
+        const cases = await window.dataService.getCases();
+        if (!cases || !Array.isArray(cases)) return;
+
+        // 1. Header case select
+        const headerSelect = document.getElementById("header-case-select");
+        if (headerSelect) {
+            const currentVal = selectedCaseId || headerSelect.value || "CASE_101";
+            headerSelect.innerHTML = cases.map(c => `
+                <option value="${c.id}">${c.id} (${c.title ? (c.title.length > 25 ? c.title.substring(0, 25) + '...' : c.title) : c.id})</option>
+            `).join("") + `<option value="ALL">ALL CASES (Full Graph)</option>`;
+            
+            if (cases.some(c => c.id === currentVal) || currentVal === "ALL") {
+                headerSelect.value = currentVal;
+            } else if (cases.length > 0) {
+                headerSelect.value = cases[0].id;
+            }
+        }
+
+        // 2. Entity link case select
+        const linkSelect = document.getElementById("entity-link-case-select");
+        if (linkSelect) {
+            const activeVal = selectedCaseId || (headerSelect ? headerSelect.value : "");
+            linkSelect.innerHTML = `<option value="">-- Do Not Link to Case --</option>` + cases.map(c => `
+                <option value="${c.id}">${c.id} - ${c.title || c.id}</option>
+            `).join("");
+            if (activeVal && activeVal !== "ALL" && cases.some(c => c.id === activeVal)) {
+                linkSelect.value = activeVal;
+            }
+        }
+
+        // 3. Path Explorer source/target selects
+        const pathSrcSelect = document.getElementById("path-source-select");
+        const pathTgtSelect = document.getElementById("path-target-select");
+        if (pathSrcSelect && pathTgtSelect) {
+            const currentSrc = pathSrcSelect.value;
+            const currentTgt = pathTgtSelect.value;
+            const caseOptions = cases.map(c => `<option value="${c.id}">${c.id}</option>`).join("");
+            pathSrcSelect.innerHTML = caseOptions;
+            pathTgtSelect.innerHTML = caseOptions;
+            if (currentSrc && cases.some(c => c.id === currentSrc)) pathSrcSelect.value = currentSrc;
+            if (currentTgt && cases.some(c => c.id === currentTgt)) pathTgtSelect.value = currentTgt;
+        }
+
+        // Update dashboard cases count
+        const caseElem = document.getElementById("dash-metric-cases");
+        if (caseElem) caseElem.innerText = cases.length;
+
+        // Update sidebar cases badge
+        const navBadge = document.querySelector('[data-tab="pane-cases"] .nav-badge');
+        if (navBadge) navBadge.innerText = cases.length;
+
+    } catch (err) {
+        console.warn("Failed to populate case dropdowns:", err);
     }
 }
 
@@ -2333,18 +3236,21 @@ async function renderSuspiciousPatterns() {
         }
 
         container.innerHTML = patterns.map((p) => {
-            const sevColor = p.severity === "HIGH" 
-                ? "bg-amber-950/60 text-amber-300 border-amber-800/60" 
-                : "bg-cyan-950/60 text-cyan-300 border-cyan-800/60";
+            const isSocialPattern = p.source_type === "SOCIAL_MEDIA_SYNTHETIC" || (p.pattern_type && p.pattern_type.includes("SOCIAL"));
+            const sevColor = isSocialPattern
+                ? "bg-fuchsia-950/70 text-fuchsia-300 border-fuchsia-800/80"
+                : (p.severity === "HIGH" 
+                    ? "bg-amber-950/60 text-amber-300 border-amber-800/60" 
+                    : "bg-cyan-950/60 text-cyan-300 border-cyan-800/60");
             
             const confidencePct = Math.round((p.confidence || 0.9) * 100);
 
             return `
                 <div class="stitch-card flex flex-col justify-between space-y-3 hover:border-amber-500/50 transition cursor-pointer font-sans" onclick="openPatternDetailsModal('${p.pattern_id}')">
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
                             <span class="px-2 py-0.5 text-[10px] font-bold rounded border ${sevColor} uppercase font-mono tracking-wider">
-                                ${p.severity || "HIGH"} SEVERITY
+                                ${isSocialPattern ? 'INVESTIGATIVE INDICATOR' : `${p.severity || "HIGH"} SEVERITY`}
                             </span>
                             <span class="text-xs font-mono font-bold text-tertiary">
                                 ${confidencePct}% Confidence
@@ -2411,32 +3317,70 @@ function openPatternDetailsModal(patternId) {
 
     const pathNodes = pattern.path || [];
     const evidenceList = pattern.evidence_ids || [];
+    const anomalyScorePct = Math.round((pattern.anomaly_score || pattern.confidence || 0.90) * 100);
+    const confidencePct = Math.round((pattern.confidence || 0.90) * 100);
+
+    const sourceEntity = (pattern.entities && pattern.entities.length > 0) ? pattern.entities[0] : "CASE_101";
+    const targetEntity = (pattern.entities && pattern.entities.length > 1) ? pattern.entities[1] : (pattern.cases && pattern.cases.length > 1 ? pattern.cases[1] : "CASE_204");
 
     bodyEl.innerHTML = `
-        <div class="grid grid-cols-2 gap-3 bg-surface-container-low p-3 rounded border border-surface-container-high font-sans">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-surface-container-low p-3 rounded-lg border border-surface-container-high font-sans">
             <div>
                 <span class="text-[10px] font-bold uppercase text-outline block">Pattern Category</span>
                 <span class="text-xs font-bold text-amber-300 font-mono">${pattern.pattern_type}</span>
             </div>
             <div>
+                <span class="text-[10px] font-bold uppercase text-outline block">Anomaly Score Index</span>
+                <span class="text-xs font-bold text-rose-400 font-mono flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">bolt</span> ${anomalyScorePct}% Anomaly
+                </span>
+            </div>
+            <div>
                 <span class="text-[10px] font-bold uppercase text-outline block">Severity & Confidence</span>
-                <span class="text-xs font-bold text-tertiary font-mono">${pattern.severity || "HIGH"} | ${Math.round((pattern.confidence || 0.9) * 100)}%</span>
+                <span class="text-xs font-bold text-tertiary font-mono">${pattern.severity || "HIGH"} | ${confidencePct}% Conf</span>
             </div>
         </div>
 
-        <div class="space-y-1 font-sans">
-            <span class="text-[10px] font-bold uppercase text-outline block">Investigative Indicator Explanation</span>
-            <div class="text-xs text-white leading-relaxed bg-surface-container-lowest p-3 rounded border border-surface-container-high">
-                ${pattern.explanation}
+        <!-- 4-Part Explainability Framework -->
+        <div class="space-y-3 font-sans">
+            <div>
+                <span class="text-[10px] font-bold uppercase text-indigo-400 block mb-1">📊 1. Observed Data (Primary Facts)</span>
+                <div class="text-xs text-white leading-relaxed bg-surface-container-lowest p-2.5 rounded border border-surface-container-high font-mono">
+                    ${pattern.observed_data || "Documented evidence co-occurrences and relationship edges cataloged in graph store."}
+                </div>
             </div>
+
+            <div>
+                <span class="text-[10px] font-bold uppercase text-cyan-400 block mb-1">🧠 2. Computed AI Pattern</span>
+                <div class="text-xs text-white leading-relaxed bg-surface-container-lowest p-2.5 rounded border border-surface-container-high">
+                    ${pattern.computed_pattern || pattern.explanation}
+                </div>
+            </div>
+
+            <div>
+                <span class="text-[10px] font-bold uppercase text-rose-400 block mb-1">⚡ 3. Anomaly Rating Analysis</span>
+                <div class="text-xs text-on-surface-variant leading-relaxed bg-surface-container-lowest p-2.5 rounded border border-surface-container-high">
+                    Anomaly Score: <strong class="text-rose-400 font-mono">${anomalyScorePct}%</strong>. High-deviance structural pattern flagged by automated graph intelligence engine.
+                </div>
+            </div>
+
+            ${pattern.investigative_lead ? `
+            <div>
+                <span class="text-[10px] font-bold uppercase text-amber-300 block mb-1">💡 4. Recommended Investigative Lead</span>
+                <div class="text-xs text-amber-200 leading-relaxed bg-amber-950/30 p-2.5 rounded border border-amber-800/40">
+                    <span class="material-symbols-outlined text-xs align-middle mr-1 text-amber-400">lightbulb</span>
+                    ${pattern.investigative_lead}
+                </div>
+            </div>
+            ` : ''}
         </div>
 
         ${pathNodes.length > 1 ? `
         <div class="space-y-1 font-sans">
-            <span class="text-[10px] font-bold uppercase text-outline block">Discovered Relationship Path</span>
+            <span class="text-[10px] font-bold uppercase text-outline block">Discovered Relationship Chain</span>
             <div class="flex flex-wrap items-center gap-1.5 font-mono text-xs bg-surface-container-lowest p-2.5 rounded border border-surface-container-high">
                 ${pathNodes.map((nodeId, idx, arr) => `
-                    <span class="px-2 py-0.5 rounded bg-surface-container-high text-tertiary border border-tertiary/30 font-bold">${nodeId}</span>
+                    <button onclick="closePatternModal(); openEntityDetailsPanel('${nodeId}')" class="px-2 py-0.5 rounded bg-surface-container-high text-tertiary border border-tertiary/30 font-bold hover:bg-surface-container-highest">${nodeId}</button>
                     ${idx < arr.length - 1 ? '<span class="material-symbols-outlined text-xs text-outline" aria-hidden="true">arrow_forward</span>' : ''}
                 `).join("")}
             </div>
@@ -2444,29 +3388,16 @@ function openPatternDetailsModal(patternId) {
         ` : ''}
 
         <div class="space-y-1 font-sans">
-            <span class="text-[10px] font-bold uppercase text-outline block">Affected Entities & Cases</span>
+            <span class="text-[10px] font-bold uppercase text-outline block">Traceability & Direct Drilldowns</span>
             <div class="flex flex-wrap gap-2">
-                ${(pattern.entities || []).map(e => `<span onclick="closePatternModal(); openEntityDetailsPanel('${e}')" class="px-2 py-1 rounded bg-surface-container-high text-tertiary font-mono text-xs font-bold hover:bg-surface-container-highest cursor-pointer border border-tertiary/30">${e}</span>`).join("")}
-                ${(pattern.cases || []).map(c => `<span onclick="closePatternModal(); loadCaseDetail('${c}')" class="px-2 py-1 rounded bg-surface-container-high text-primary font-mono text-xs font-bold hover:bg-surface-container-highest cursor-pointer border border-primary/30">${c}</span>`).join("")}
+                ${(pattern.entities || []).map(e => `<button onclick="closePatternModal(); openEntityDetailsPanel('${e}')" class="px-2.5 py-1 rounded bg-indigo-950 text-indigo-300 font-mono text-xs font-bold hover:bg-indigo-900 border border-indigo-700/60 flex items-center gap-1"><span class="material-symbols-outlined text-xs">person</span> Entity: ${e}</button>`).join("")}
+                ${(pattern.cases || []).map(c => `<button onclick="closePatternModal(); renderCaseDetail('${c}')" class="px-2.5 py-1 rounded bg-blue-950 text-blue-300 font-mono text-xs font-bold hover:bg-blue-900 border border-blue-700/60 flex items-center gap-1"><span class="material-symbols-outlined text-xs">folder</span> Case: ${c}</button>`).join("")}
+                ${evidenceList.map(evId => `<button onclick="closePatternModal(); openEvidencePanel({ evidence_id: '${evId}' })" class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 font-mono text-xs font-bold hover:bg-emerald-900 border border-emerald-700/60 flex items-center gap-1"><span class="material-symbols-outlined text-xs">description</span> Ev: ${evId}</button>`).join("")}
+                <button onclick="openPatternInLinkAnalysis('${sourceEntity}', '${targetEntity}')" class="px-2.5 py-1 rounded bg-cyan-950 text-cyan-300 font-mono text-xs font-bold hover:bg-cyan-900 border border-cyan-700/60 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">git_fork</span> Path Analysis
+                </button>
             </div>
         </div>
-
-        <div class="space-y-1 font-sans">
-            <span class="text-[10px] font-bold uppercase text-outline block">Supporting Evidence Provenance</span>
-            <div class="flex flex-wrap gap-2">
-                ${evidenceList.map(evId => `<button onclick="closePatternModal(); openEvidencePanel({ evidence_id: '${evId}' })" class="px-2.5 py-1 rounded bg-secondary-container/30 hover:bg-secondary-container/50 text-secondary border border-secondary/40 font-mono text-xs font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">description</span> ${evId}</button>`).join("")}
-            </div>
-        </div>
-
-        ${pattern.investigative_lead ? `
-        <div class="space-y-1 font-sans">
-            <span class="text-[10px] font-bold uppercase text-outline block">Investigative Lead / Recommended Examination</span>
-            <div class="text-xs text-amber-200 leading-relaxed bg-amber-950/30 p-3 rounded border border-amber-800/40">
-                <span class="material-symbols-outlined text-xs align-middle mr-1 text-amber-400">lightbulb</span>
-                ${pattern.investigative_lead}
-            </div>
-        </div>
-        ` : ''}
 
         ${(pattern.limitations && pattern.limitations.length > 0) ? `
         <div class="space-y-1 font-sans">
@@ -2477,9 +3408,9 @@ function openPatternDetailsModal(patternId) {
         </div>
         ` : ''}
 
-        <div class="p-2.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 font-sans mt-2">
-            <span class="material-symbols-outlined text-xs align-middle mr-1 text-amber-400">shield</span>
-            <strong>Safety Protocol:</strong> ${pattern.disclaimer || "Investigative lead only — does not constitute proof of guilt."}
+        <div class="p-2.5 bg-amber-950/30 border border-amber-800/40 rounded text-xs text-amber-300 font-sans mt-2 flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm text-amber-400">shield</span>
+            <span><strong>Safety Protocol:</strong> ${pattern.disclaimer || "Patterns and anomaly scores are investigative leads only. They do not establish criminal intent, legal culpability, or guilt."}</span>
         </div>
     `;
 
@@ -2492,6 +3423,20 @@ function openPatternDetailsModal(patternId) {
 
     modal.classList.remove("hidden");
     modal.classList.add("flex");
+}
+
+function openPatternInLinkAnalysis(sourceId, targetId) {
+    closePatternModal();
+    switchTab("pane-link-analysis", true);
+    setTimeout(() => {
+        const srcInput = document.getElementById("la-source-input");
+        const tgtInput = document.getElementById("la-target-input");
+        if (srcInput && sourceId) srcInput.value = sourceId;
+        if (tgtInput && targetId) tgtInput.value = targetId;
+        if (typeof renderLinkAnalysisWorkspace === "function") {
+            renderLinkAnalysisWorkspace();
+        }
+    }, 150);
 }
 
 function closePatternModal() {
@@ -3120,6 +4065,1312 @@ function highlightEventOnGraph(eventId) {
         highlightPathFromAI(entityIds);
     }
 }
+
+
+/* ----------------------------------------------------
+   12. DAY 26 — ADVANCED ENTITY RESOLUTION & IDENTITY LINKING WORKSPACE
+---------------------------------------------------- */
+let activeResolutionCandidates = [];
+let selectedResolutionCandidate = null;
+
+async function renderEntityResolutionWorkspace() {
+    const listContainer = document.getElementById("resolution-candidates-list");
+    if (!listContainer) return;
+
+    listContainer.innerHTML = `
+        <div class="text-center py-8 text-on-surface-variant text-xs space-y-2">
+            <span class="material-symbols-outlined animate-spin text-xl text-indigo-400">sync</span>
+            <div>Loading candidate duplicate entity resolutions...</div>
+        </div>
+    `;
+
+    try {
+        const res = await window.dataService.getPendingEntityResolutions();
+        activeResolutionCandidates = (res && res.candidates) ? res.candidates : [];
+
+        // Update badge count
+        const countEl = document.getElementById("resolution-candidate-count");
+        if (countEl) countEl.innerText = activeResolutionCandidates.length;
+
+        filterResolutionCandidates();
+    } catch (err) {
+        console.error("[EntityResolution] Failed to load pending resolutions:", err);
+        listContainer.innerHTML = `
+            <div class="bg-rose-950/40 border border-rose-800 rounded p-4 text-xs text-rose-300 space-y-2">
+                <div class="font-bold flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span>Failed to load entity resolutions (${err.status || 500})</span>
+                </div>
+                <p>${err.message || 'Unable to connect to resolution service.'}</p>
+                <button onclick="renderEntityResolutionWorkspace()" class="px-2.5 py-1 bg-rose-900 hover:bg-rose-800 text-white rounded font-mono font-bold text-[11px]">
+                    Retry Loading
+                </button>
+            </div>
+        `;
+    }
+}
+
+function filterResolutionCandidates() {
+    const listContainer = document.getElementById("resolution-candidates-list");
+    if (!listContainer) return;
+
+    const entFilter = document.getElementById("resolution-entity-filter")?.value || "ALL";
+    const tierFilter = document.getElementById("resolution-tier-filter")?.value || "ALL";
+    const statusFilter = document.getElementById("resolution-status-filter")?.value || "ALL";
+
+    let filtered = activeResolutionCandidates.filter(c => {
+        const matchesEnt = (entFilter === "ALL") || (c.entity_a.id === entFilter || c.entity_b.id === entFilter);
+        const matchesTier = (tierFilter === "ALL") || (c.confidence_tier === tierFilter);
+        const matchesStatus = (statusFilter === "ALL") || (statusFilter === "CONFLICT" ? (c.has_conflict || c.match_status === "CONFLICT") : c.match_status === statusFilter);
+        return matchesEnt && matchesTier && matchesStatus;
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `
+            <div class="bg-surface-container-low border border-surface-container-high rounded p-6 text-center text-xs text-on-surface-variant space-y-2">
+                <span class="material-symbols-outlined text-2xl">search_off</span>
+                <div>No identity resolution candidates match current filters.</div>
+                <button onclick="document.getElementById('resolution-entity-filter').value='ALL'; document.getElementById('resolution-tier-filter').value='ALL'; document.getElementById('resolution-status-filter').value='ALL'; filterResolutionCandidates();" class="text-indigo-400 hover:underline text-[11px]">
+                    Reset Filters
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    listContainer.innerHTML = filtered.map(c => {
+        const isSelected = selectedResolutionCandidate && selectedResolutionCandidate.id === c.id;
+        const nameA = c.entity_a.name || c.entity_a.id;
+        const nameB = c.entity_b.name || c.entity_b.id;
+        const simPct = Math.round((c.similarity || 0.8) * 100);
+
+        let statusClass = "bg-slate-800 text-slate-300 border-slate-700";
+        if (c.match_status === "MATCH") statusClass = "bg-emerald-950 text-emerald-300 border-emerald-800";
+        else if (c.match_status === "POSSIBLE MATCH") statusClass = "bg-amber-950 text-amber-300 border-amber-800";
+        else if (c.match_status === "CONFLICT" || c.has_conflict) statusClass = "bg-rose-950 text-rose-300 border-rose-800";
+
+        let tierClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+        if (c.confidence_tier === "MEDIUM") tierClass = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+        else if (c.confidence_tier === "LOW") tierClass = "bg-orange-500/20 text-orange-300 border-orange-500/40";
+
+        return `
+            <div onclick="selectResolutionCandidate('${c.id}')" class="p-3.5 rounded-lg border cursor-pointer transition flex flex-col gap-2 ${isSelected ? 'bg-indigo-950/60 border-indigo-500 shadow-md ring-1 ring-indigo-500/50' : 'bg-surface-container-low border-surface-container-high hover:border-indigo-500/50 hover:bg-surface-container'}">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded uppercase border ${statusClass}">${c.match_status}</span>
+                        <span class="px-1.5 py-0.5 text-[10px] font-bold rounded border ${tierClass}">${c.confidence_tier}</span>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-primary">${simPct}% match</span>
+                </div>
+
+                <div class="text-xs font-semibold text-primary flex items-center justify-between gap-2">
+                    <span class="text-indigo-300 truncate">${nameA} <span class="text-[10px] text-on-surface-variant font-mono">(${c.entity_a.id})</span></span>
+                    <span class="text-on-surface-variant font-mono text-[10px]">vs</span>
+                    <span class="text-cyan-300 truncate">${nameB} <span class="text-[10px] text-on-surface-variant font-mono">(${c.entity_b.id})</span></span>
+                </div>
+
+                <div class="text-[11px] text-on-surface-variant line-clamp-2 leading-tight">
+                    ${(c.reasons || []).join(" • ") || c.explanation || "Topological graph similarity match"}
+                </div>
+
+                ${c.has_conflict ? `
+                    <div class="flex items-center gap-1 text-[10px] text-rose-300 font-bold font-mono bg-rose-950/60 px-2 py-1 rounded border border-rose-900">
+                        <span class="material-symbols-outlined text-xs text-rose-400">warning</span>
+                        <span>Conflict: ${(c.conflicting_fields && c.conflicting_fields[0]) ? c.conflicting_fields[0].field : 'Alias Discrepancy'}</span>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join("");
+
+    // Auto select first candidate if none currently selected or selected candidate not in filtered list
+    if (!selectedResolutionCandidate || !filtered.some(c => c.id === selectedResolutionCandidate.id)) {
+        if (filtered.length > 0) {
+            selectResolutionCandidate(filtered[0].id);
+        }
+    }
+}
+
+async function selectResolutionCandidate(candidateId) {
+    const candidate = activeResolutionCandidates.find(c => c.id === candidateId);
+    if (!candidate) return;
+
+    selectedResolutionCandidate = candidate;
+    filterResolutionCandidates(); // refresh active highlight border
+
+    // Try fetching deep comparison object if online, otherwise use candidate
+    try {
+        const comp = await window.dataService.compareEntities(candidate.entity_a.id, candidate.entity_b.id);
+        renderMatchComparison(comp || candidate);
+    } catch (_) {
+        renderMatchComparison(candidate);
+    }
+}
+
+function renderMatchComparison(cand) {
+    const emptyState = document.getElementById("resolution-empty-state");
+    const workspace = document.getElementById("resolution-comparison-workspace");
+
+    if (!emptyState || !workspace) return;
+
+    emptyState.classList.add("hidden");
+    workspace.classList.remove("hidden");
+
+    const nameA = cand.entity_a.name || cand.entity_a.id;
+    const nameB = cand.entity_b.name || cand.entity_b.id;
+    const simPct = Math.round((cand.similarity || 0.8) * 100);
+
+    document.getElementById("res-name-a").innerText = `${nameA} (${cand.entity_a.id})`;
+    document.getElementById("res-name-b").innerText = `${nameB} (${cand.entity_b.id})`;
+    document.getElementById("resolution-similarity-score").innerText = `${simPct}%`;
+
+    const statusBadge = document.getElementById("resolution-match-status-badge");
+    if (statusBadge) {
+        statusBadge.innerText = cand.match_status || "POSSIBLE MATCH";
+        if (cand.match_status === "MATCH") statusBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-emerald-950 text-emerald-300 border border-emerald-800";
+        else if (cand.match_status === "POSSIBLE MATCH") statusBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-amber-950 text-amber-300 border border-amber-800";
+        else if (cand.match_status === "CONFLICT" || cand.has_conflict) statusBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-rose-950 text-rose-300 border border-rose-800";
+        else statusBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-slate-900 text-slate-300 border border-slate-700";
+    }
+
+    const tierBadge = document.getElementById("resolution-confidence-tier-badge");
+    if (tierBadge) {
+        tierBadge.innerText = cand.confidence_tier || "HIGH";
+        if (cand.confidence_tier === "HIGH") tierBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+        else if (cand.confidence_tier === "MEDIUM") tierBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40";
+        else tierBadge.className = "px-2.5 py-1 text-xs font-bold rounded uppercase bg-orange-500/20 text-orange-300 border border-orange-500/40";
+    }
+
+    const narrative = document.getElementById("resolution-explanation-narrative");
+    if (narrative) {
+        narrative.innerText = cand.explanation || `Identity resolution analysis identified similarity (${simPct}%, Tier: ${cand.confidence_tier}) based on ${(cand.reasons || []).join(", ")}.`;
+    }
+
+    // Render Prominent Conflict Banner if conflict exists
+    const conflictBanner = document.getElementById("resolution-conflict-banner");
+    const conflictClaims = document.getElementById("resolution-conflict-claims");
+    if (conflictBanner && conflictClaims) {
+        if (cand.has_conflict || (cand.conflicting_fields && cand.conflicting_fields.length > 0)) {
+            conflictBanner.classList.remove("hidden");
+            const fields = cand.conflicting_fields || [];
+            conflictClaims.innerHTML = fields.map(f => `
+                <div class="flex flex-col gap-1 border-b border-rose-950 pb-1.5 last:border-b-0">
+                    <div class="flex items-center justify-between font-bold text-rose-200">
+                        <span>Contradictory Field: ${f.field}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div class="bg-rose-950/90 p-2 rounded border border-rose-900">
+                            <span class="text-rose-400 font-bold">Claim A (${cand.entity_a.id}):</span> ${f.claim_a || 'N/A'}<br>
+                            <span class="text-[10px] text-rose-300/80">Source: ${f.source_a || 'FIR / Extraction'}</span>
+                        </div>
+                        <div class="bg-rose-950/90 p-2 rounded border border-rose-900">
+                            <span class="text-rose-400 font-bold">Claim B (${cand.entity_b.id}):</span> ${f.claim_b || 'N/A'}<br>
+                            <span class="text-[10px] text-rose-300/80">Source: ${f.source_b || 'Social Media Synthetic'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        } else {
+            conflictBanner.classList.add("hidden");
+        }
+    }
+
+    // Populate Table Headers
+    const thA = document.getElementById("table-header-a");
+    const thB = document.getElementById("table-header-b");
+    if (thA) thA.innerText = `${nameA} (${cand.entity_a.id})`;
+    if (thB) thB.innerText = `${nameB} (${cand.entity_b.id})`;
+
+    // Render Side-by-Side Comparison Rows
+    const tbody = document.getElementById("resolution-comparison-tbody");
+    if (tbody) {
+        const rows = [
+            {
+                attr: "Full Name & Title",
+                valA: nameA,
+                valB: nameB,
+                status: (nameA.toLowerCase() === nameB.toLowerCase()) ? "MATCH" : "POSSIBLE MATCH"
+            },
+            {
+                attr: "Aliases / Handles",
+                valA: (cand.entity_a.aliases || []).join(", ") || "Arjun, Verma_Logistics",
+                valB: (cand.entity_b.aliases || []).join(", ") || "@aarav_v_shadow",
+                status: cand.has_conflict ? "CONFLICT" : "POSSIBLE MATCH"
+            },
+            {
+                attr: "Associated Phones",
+                valA: (cand.entity_a.phone_ids || []).join(", ") || "PHONE_042 (+91-9876543210)",
+                valB: (cand.entity_b.phone_ids || []).join(", ") || "PHONE_042 (+91-9876543210)",
+                status: "MATCH"
+            },
+            {
+                attr: "Vehicles",
+                valA: (cand.entity_a.vehicle_ids || []).join(", ") || "VEHICLE_042 (MH-01-AB-1234)",
+                valB: (cand.entity_b.vehicle_ids || []).join(", ") || "VEHICLE_042 (MH-01-AB-1234)",
+                status: "MATCH"
+            },
+            {
+                attr: "Financial Accounts",
+                valA: (cand.entity_a.account_ids || []).join(", ") || "ACC_AXIS_9941",
+                valB: (cand.entity_b.account_ids || []).join(", ") || "Unlinked",
+                status: "UNRESOLVED"
+            },
+            {
+                attr: "Case Associations",
+                valA: (cand.entity_a.case_ids || []).join(", ") || "Operation Midnight Shadow (CASE_101)",
+                valB: (cand.entity_b.case_ids || []).join(", ") || "Operation Golden Falcon (CASE_204)",
+                status: "CROSS-CASE LINK"
+            }
+        ];
+
+        tbody.innerHTML = rows.map(r => {
+            let badge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300">${r.status}</span>`;
+            if (r.status === "MATCH") badge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[12px]">check_circle</span> MATCH</span>`;
+            else if (r.status === "POSSIBLE MATCH") badge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950 text-amber-300 border border-amber-800 w-fit">POSSIBLE MATCH</span>`;
+            else if (r.status === "CONFLICT") badge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[12px]">warning</span> CONFLICT</span>`;
+            else if (r.status === "CROSS-CASE LINK") badge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-950 text-indigo-300 border border-indigo-800 w-fit">CROSS-CASE LINK</span>`;
+
+            return `
+                <tr class="hover:bg-surface-container">
+                    <td class="py-2.5 px-3 font-semibold text-primary">${r.attr}</td>
+                    <td class="py-2.5 px-3 text-indigo-300">${r.valA}</td>
+                    <td class="py-2.5 px-3 text-cyan-300">${r.valB}</td>
+                    <td class="py-2.5 px-3">${badge}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    // Render Provenance Box
+    const provBox = document.getElementById("resolution-provenance-box");
+    if (provBox) {
+        const evList = cand.evidence_ids || ["EVID_101_01", "EVID_042_01", "EVID_SOC_017_01"];
+        const evButtons = evList.map(evId => `
+            <button onclick="openReportEvidence('${evId}')" class="px-2 py-0.5 bg-surface-container-high hover:bg-surface-container-highest text-emerald-300 rounded border border-emerald-800/60 font-mono text-[11px] inline-flex items-center gap-1 transition">
+                <span class="material-symbols-outlined text-[12px]">description</span> ${evId}
+            </button>
+        `).join(" ");
+
+        const sources = cand.source_provenance || ["Digital Forensics", "Synthetic Dataset", "Social Media Synthetic"];
+
+        provBox.innerHTML = `
+            <div class="bg-surface-container-lowest border border-surface-container-high rounded p-3 space-y-2">
+                <div><strong class="text-on-surface-variant">Source Provenance:</strong> <span class="text-white font-bold">${sources.join(", ")}</span></div>
+                <div><strong class="text-on-surface-variant">Source Documents:</strong> <span class="text-indigo-300">DOC_CASE_101_FIR_REPORT.pdf, SOCIAL_017_04</span></div>
+                <div><strong class="text-on-surface-variant">Extraction Engine:</strong> <span class="text-cyan-300">AI_NER / DIGITAL_FORENSICS</span></div>
+            </div>
+            <div class="bg-surface-container-lowest border border-surface-container-high rounded p-3 space-y-2">
+                <div><strong class="text-on-surface-variant">Supporting Evidence Base:</strong></div>
+                <div class="flex flex-wrap gap-1.5">${evButtons}</div>
+                <div class="text-[11px] text-on-surface-variant mt-1">Click evidence reference ID to inspect raw extracted text snippet and document page number.</div>
+            </div>
+        `;
+    }
+}
+
+async function highlightResolutionInGraph() {
+    if (!selectedResolutionCandidate) return;
+
+    const idA = selectedResolutionCandidate.entity_a.id;
+    const idB = selectedResolutionCandidate.entity_b.id;
+
+    switchTab("pane-graph", true);
+    await renderGraphWorkspace("ALL");
+
+    if (networkInstance) {
+        // Highlight Entity A, Entity B, and shared asset nodes if present
+        const shared = (selectedResolutionCandidate.entity_a.phone_ids || []).concat(selectedResolutionCandidate.entity_a.vehicle_ids || []);
+        const toSelect = [idA, idB, ...shared].filter(id => id);
+        networkInstance.selectNodes(toSelect);
+    }
+    openEntityDetailsPanel(idA);
+}
+
+async function sendResolutionToAIInvestigator() {
+    if (!selectedResolutionCandidate) return;
+
+    const idA = selectedResolutionCandidate.entity_a.id;
+    const idB = selectedResolutionCandidate.entity_b.id;
+    const nameA = selectedResolutionCandidate.entity_a.name || idA;
+    const nameB = selectedResolutionCandidate.entity_b.name || idB;
+
+    switchTab("pane-ai-investigator", true);
+
+    const aiInput = document.getElementById("ai-query-input");
+    if (aiInput) {
+        aiInput.value = `Perform identity resolution and compare candidate records for ${nameA} (${idA}) and ${nameB} (${idB}).`;
+        submitAIQuery();
+    }
+}
+
+
+/* ----------------------------------------------------
+   13. DAY 27 — COMMUNITY & CRIMINAL GROUP DETECTION WORKSPACE
+---------------------------------------------------- */
+let activeCommunitiesList = [];
+let selectedCommunityData = null;
+
+async function renderCommunitiesWorkspace() {
+    const listContainer = document.getElementById("communities-list-container");
+    if (!listContainer) return;
+
+    listContainer.innerHTML = `
+        <div class="text-center py-8 text-on-surface-variant text-xs space-y-2">
+            <span class="material-symbols-outlined animate-spin text-xl text-amber-400">sync</span>
+            <div>Detecting network graph communities & clusters...</div>
+        </div>
+    `;
+
+    try {
+        const res = await window.dataService.getCommunities();
+        activeCommunitiesList = (res && res.communities) ? res.communities : [];
+
+        // Update community count badge
+        const badge = document.getElementById("community-count-badge");
+        if (badge) badge.innerText = activeCommunitiesList.length;
+
+        filterCommunities();
+    } catch (err) {
+        console.error("[CommunityDetection] Failed to load communities:", err);
+        listContainer.innerHTML = `
+            <div class="bg-rose-950/40 border border-rose-800 rounded p-4 text-xs text-rose-300 space-y-2">
+                <div class="font-bold flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">error</span>
+                    <span>Failed to load communities (${err.status || 500})</span>
+                </div>
+                <p>${err.message || 'Unable to connect to community detection service.'}</p>
+                <button onclick="renderCommunitiesWorkspace()" class="px-2.5 py-1 bg-rose-900 hover:bg-rose-800 text-white rounded font-mono font-bold text-[11px]">
+                    Retry Loading
+                </button>
+            </div>
+        `;
+    }
+}
+
+function filterCommunities() {
+    const listContainer = document.getElementById("communities-list-container");
+    if (!listContainer) return;
+
+    const classFilter = document.getElementById("community-type-filter")?.value || "ALL";
+    const tierFilter = document.getElementById("community-tier-filter")?.value || "ALL";
+    const crosscaseFilter = document.getElementById("community-crosscase-filter")?.value || "ALL";
+
+    let filtered = activeCommunitiesList.filter(c => {
+        const matchesClass = (classFilter === "ALL") || (c.classification === classFilter);
+        const matchesTier = (tierFilter === "ALL") || (c.confidence_tier === tierFilter);
+        const matchesCross = (crosscaseFilter === "ALL") || (crosscaseFilter === "CROSS_CASE" ? c.is_cross_case : true);
+        return matchesClass && matchesTier && matchesCross;
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `
+            <div class="bg-surface-container-low border border-surface-container-high rounded p-6 text-center text-xs text-on-surface-variant space-y-2">
+                <span class="material-symbols-outlined text-2xl">search_off</span>
+                <div>No detected communities match current filters.</div>
+                <button onclick="document.getElementById('community-type-filter').value='ALL'; document.getElementById('community-tier-filter').value='ALL'; document.getElementById('community-crosscase-filter').value='ALL'; filterCommunities();" class="text-amber-400 hover:underline text-[11px]">
+                    Reset Filters
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    listContainer.innerHTML = filtered.map(c => {
+        const isSelected = selectedCommunityData && selectedCommunityData.id === c.id;
+
+        let classBadge = "bg-amber-950 text-amber-300 border-amber-800";
+        if (c.classification === "TRANSACTION_HUB") classBadge = "bg-emerald-950 text-emerald-300 border-emerald-800";
+        else if (c.classification === "COMMUNICATION_RING") classBadge = "bg-indigo-950 text-indigo-300 border-indigo-800";
+        else if (c.classification === "CO_LOCATION_CLUSTER") classBadge = "bg-cyan-950 text-cyan-300 border-cyan-800";
+
+        let tierBadge = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+        if (c.confidence_tier === "MEDIUM") tierBadge = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+        else if (c.confidence_tier === "LOW") tierBadge = "bg-orange-500/20 text-orange-300 border-orange-500/40";
+
+        return `
+            <div onclick="selectCommunity('${c.id}')" class="p-3.5 rounded-lg border cursor-pointer transition flex flex-col gap-2 ${isSelected ? 'bg-amber-950/40 border-amber-500 shadow-md ring-1 ring-amber-500/50' : 'bg-surface-container-low border-surface-container-high hover:border-amber-500/50 hover:bg-surface-container'}">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded uppercase border ${classBadge}">${c.classification.replace(/_/g, " ")}</span>
+                        <span class="px-1.5 py-0.5 text-[10px] font-bold rounded border ${tierBadge}">${c.confidence_tier}</span>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-amber-400">${Math.round(c.confidence * 100)}% conf</span>
+                </div>
+
+                <div class="text-xs font-bold text-white flex items-center justify-between gap-2">
+                    <span class="truncate">${c.name}</span>
+                    <span class="text-[10px] text-on-surface-variant font-mono">${c.member_count} Members</span>
+                </div>
+
+                <div class="text-[11px] text-on-surface-variant line-clamp-2 leading-tight">
+                    Central Nodes: ${(c.central_entities || []).join(", ")} | Density: ${c.density}
+                </div>
+
+                ${c.is_cross_case ? `
+                    <div class="flex items-center gap-1 text-[10px] text-indigo-300 font-bold font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-900 w-fit">
+                        <span class="material-symbols-outlined text-xs text-indigo-400">alt_route</span>
+                        <span>Cross-Case: ${(c.linked_cases || []).join(", ")}</span>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join("");
+
+    // Auto select first community if none selected
+    if (!selectedCommunityData || !filtered.some(c => c.id === selectedCommunityData.id)) {
+        if (filtered.length > 0) {
+            selectCommunity(filtered[0].id);
+        }
+    }
+}
+
+async function selectCommunity(communityId) {
+    try {
+        const details = await window.dataService.getCommunityDetails(communityId);
+        selectedCommunityData = details;
+    } catch (_) {
+        selectedCommunityData = activeCommunitiesList.find(c => c.id === communityId);
+    }
+
+    filterCommunities(); // refresh highlight border
+    renderCommunityDetails(selectedCommunityData);
+}
+
+function renderCommunityDetails(comm) {
+    const emptyState = document.getElementById("community-empty-state");
+    const detailPanel = document.getElementById("community-detail-panel");
+
+    if (!emptyState || !detailPanel || !comm) return;
+
+    emptyState.classList.add("hidden");
+    detailPanel.classList.remove("hidden");
+
+    document.getElementById("comm-detail-name").innerText = comm.name || `Community ${comm.id}`;
+    document.getElementById("comm-detail-subtitle").innerText = `${comm.member_count} Members • Network Density: ${comm.density} • Confidence: ${Math.round(comm.confidence * 100)}%`;
+
+    const classBadge = document.getElementById("comm-detail-classification-badge");
+    if (classBadge) {
+        classBadge.innerText = (comm.classification || "ORGANIZED_CELL").replace(/_/g, " ");
+    }
+
+    const tierBadge = document.getElementById("comm-detail-tier-badge");
+    if (tierBadge) {
+        tierBadge.innerText = comm.confidence_tier || "HIGH";
+    }
+
+    // Cross-Case Banner
+    const crossBanner = document.getElementById("comm-crosscase-banner");
+    const casesList = document.getElementById("comm-linked-cases-list");
+    if (crossBanner && casesList) {
+        if (comm.is_cross_case) {
+            crossBanner.classList.remove("hidden");
+            casesList.innerText = (comm.linked_cases || []).join(", ");
+        } else {
+            crossBanner.classList.add("hidden");
+        }
+    }
+
+    // Render Members Breakdown Table
+    const tbody = document.getElementById("comm-members-tbody");
+    if (tbody) {
+        const members = comm.member_details || [];
+        tbody.innerHTML = members.map(m => {
+            let roleBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-300">${m.role}</span>`;
+            if (m.role === "CORE") roleBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[12px]">star</span> CORE</span>`;
+            else if (m.role === "BRIDGE") roleBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-950 text-indigo-300 border border-indigo-800 flex items-center gap-1 w-fit"><span class="material-symbols-outlined text-[12px]">alt_route</span> BRIDGE</span>`;
+            else roleBadge = `<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-400 border border-slate-700">PERIPHERAL</span>`;
+
+            return `
+                <tr class="hover:bg-surface-container">
+                    <td class="py-2 px-3 font-semibold text-white">
+                        <button onclick="openEntityDetailsPanel('${m.id}')" class="hover:underline text-left text-amber-300 flex items-center gap-1">
+                            <span>${m.name}</span>
+                            <span class="text-[10px] text-on-surface-variant font-mono">(${m.id})</span>
+                        </button>
+                    </td>
+                    <td class="py-2 px-3 font-mono text-[11px] text-on-surface-variant">${m.type}</td>
+                    <td class="py-2 px-3">${roleBadge}</td>
+                    <td class="py-2 px-3 font-mono text-xs text-primary">${m.centrality_score}</td>
+                    <td class="py-2 px-3">
+                        <button onclick="openEntityDetailsPanel('${m.id}')" class="px-2 py-0.5 bg-surface-container-high hover:bg-surface-container-highest text-white rounded text-[10px] font-mono">Inspect</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    // Shared Assets Grid
+    const assetsGrid = document.getElementById("comm-shared-assets-grid");
+    if (assetsGrid) {
+        const shared = comm.shared_assets || {};
+        assetsGrid.innerHTML = `
+            <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1">
+                <div class="font-bold text-indigo-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">phone</span> Phones (${(shared.phones || []).length})</div>
+                <div class="font-mono text-on-surface-variant text-[11px]">${(shared.phones || []).join(", ") || 'None'}</div>
+            </div>
+            <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1">
+                <div class="font-bold text-cyan-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">directions_car</span> Vehicles (${(shared.vehicles || []).length})</div>
+                <div class="font-mono text-on-surface-variant text-[11px]">${(shared.vehicles || []).join(", ") || 'None'}</div>
+            </div>
+            <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1">
+                <div class="font-bold text-emerald-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">account_balance</span> Accounts (${(shared.accounts || []).length})</div>
+                <div class="font-mono text-on-surface-variant text-[11px]">${(shared.accounts || []).join(", ") || 'None'}</div>
+            </div>
+            <div class="bg-surface-container-lowest p-2.5 rounded border border-surface-container-high space-y-1">
+                <div class="font-bold text-amber-300 flex items-center gap-1"><span class="material-symbols-outlined text-xs">location_on</span> Locations (${(shared.locations || []).length})</div>
+                <div class="font-mono text-on-surface-variant text-[11px]">${(shared.locations || []).join(", ") || 'None'}</div>
+            </div>
+        `;
+    }
+
+    // Provenance Box
+    const provBox = document.getElementById("comm-provenance-box");
+    if (provBox) {
+        const evList = comm.supporting_evidence || ["EVID_101_01", "EVID_042_01", "EVID_SOC_017_01"];
+        const evButtons = evList.map(evId => `
+            <button onclick="openReportEvidence('${evId}')" class="px-2 py-0.5 bg-surface-container-high hover:bg-surface-container-highest text-emerald-300 rounded border border-emerald-800/60 font-mono text-[11px] inline-flex items-center gap-1 transition">
+                <span class="material-symbols-outlined text-[12px]">description</span> ${evId}
+            </button>
+        `).join(" ");
+
+        provBox.innerHTML = `
+            <div class="bg-surface-container-lowest border border-surface-container-high rounded p-3 space-y-1.5">
+                <div><strong class="text-on-surface-variant">Source Provenance Badges:</strong> <span class="text-white font-bold">${(comm.source_provenance || ["Synthetic Dataset"]).join(", ")}</span></div>
+                <div><strong class="text-on-surface-variant">Supporting Evidence Base:</strong></div>
+                <div class="flex flex-wrap gap-1.5 pt-0.5">${evButtons}</div>
+            </div>
+        `;
+    }
+
+    // Leads List
+    const leadsList = document.getElementById("comm-leads-list");
+    if (leadsList) {
+        const leads = comm.investigative_leads || ["Inspect bridge entities connecting case boundaries."];
+        leadsList.innerHTML = leads.map(l => `<li>${l}</li>`).join("");
+    }
+}
+
+async function highlightCommunityInGraph() {
+    if (!selectedCommunityData) return;
+
+    const memberIds = (selectedCommunityData.member_details || []).map(m => m.id);
+    switchTab("pane-graph", true);
+    await renderGraphWorkspace("ALL");
+
+    if (networkInstance && memberIds.length > 0) {
+        networkInstance.selectNodes(memberIds);
+    }
+}
+
+async function sendCommunityToAIInvestigator() {
+    if (!selectedCommunityData) return;
+
+    switchTab("pane-ai-investigator", true);
+
+    const aiInput = document.getElementById("ai-query-input");
+    if (aiInput) {
+        aiInput.value = `Perform community network analysis on ${selectedCommunityData.name} (${selectedCommunityData.id}).`;
+        submitAIQuery();
+    }
+}
+
+/* ----------------------------------------------------
+   DAY 28 — KEY PLAYER & INFLUENCER INTELLIGENCE WORKSPACE
+---------------------------------------------------- */
+async function renderKeyPlayersWorkspace() {
+    const caseId = document.getElementById("kp-filter-case")?.value || "ALL";
+    const entityType = document.getElementById("kp-filter-type")?.value || "ALL";
+    const role = document.getElementById("kp-filter-role")?.value || "ALL";
+    const isCrossCaseVal = document.getElementById("kp-filter-crosscase")?.value;
+
+    let isCrossCase = null;
+    if (isCrossCaseVal === "true") isCrossCase = true;
+    if (isCrossCaseVal === "false") isCrossCase = false;
+
+    const container = document.getElementById("kp-players-container");
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="p-8 text-center text-on-surface-variant font-mono text-xs space-y-2">
+            <span class="material-symbols-outlined text-2xl animate-spin text-rose-400">sync</span>
+            <div>Analyzing network topology & centrality metrics...</div>
+        </div>
+    `;
+
+    try {
+        const data = await window.dataService.getKeyPlayers({
+            case_id: caseId,
+            type: entityType,
+            role: role,
+            is_cross_case: isCrossCase
+        });
+
+        // Update Overview Metrics
+        const totalElem = document.getElementById("kp-metric-total");
+        const hubsElem = document.getElementById("kp-metric-hubs");
+        const bridgesElem = document.getElementById("kp-metric-bridges");
+        const crossElem = document.getElementById("kp-metric-crosscase");
+        const summaryElem = document.getElementById("kp-count-summary");
+
+        if (totalElem) totalElem.innerText = data.metrics?.total_key_players || 0;
+        if (hubsElem) hubsElem.innerText = data.metrics?.core_hubs_count || 0;
+        if (bridgesElem) bridgesElem.innerText = data.metrics?.bridge_entities_count || 0;
+        if (crossElem) crossElem.innerText = data.metrics?.cross_case_influencers_count || 0;
+        if (summaryElem) summaryElem.innerText = `Showing ${data.total_ranked || 0} ranked key players`;
+
+        const players = data.key_players || [];
+        if (players.length === 0) {
+            container.innerHTML = `
+                <div class="p-8 text-center text-on-surface-variant space-y-2 border border-dashed border-surface-container-high rounded-lg">
+                    <span class="material-symbols-outlined text-3xl text-rose-400/50">search_off</span>
+                    <div class="text-sm font-semibold text-white">No Key Players Match Selected Filters</div>
+                    <p class="text-xs text-outline max-w-md mx-auto">Try adjusting the filter criteria (Case, Entity Type, Role, or Cross-Case Status) to inspect higher-level network hubs.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = players.map(p => {
+            const roleBadges = {
+                CORE_HUB: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-950 text-rose-300 border border-rose-800">CORE HUB</span>',
+                CROSS_CASE_INFLUENCER: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-800">CROSS-CASE INFLUENCER</span>',
+                BRIDGE_ENTITY: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-950 text-amber-300 border border-amber-800">BRIDGE ENTITY</span>',
+                COMMUNITY_INFLUENCER: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-800">COMMUNITY INFLUENCER</span>',
+                INFORMATION_BROKER: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800">INFO BROKER</span>',
+                EMERGING_KEY_PLAYER: '<span class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700">EMERGING PLAYER</span>'
+            };
+
+            const typeIcons = {
+                PERSON: 'person',
+                PHONE: 'phone_in_talk',
+                VEHICLE: 'directions_car',
+                LOCATION: 'location_on',
+                ACCOUNT: 'account_balance',
+                ORGANIZATION: 'corporate_fare'
+            };
+
+            const icon = typeIcons[p.type] || 'hub';
+            const badgeHtml = roleBadges[p.role] || roleBadges.EMERGING_KEY_PLAYER;
+            const scorePct = Math.round((p.influence_score || 0) * 100);
+
+            const casesList = (p.connected_cases || []).map(c => 
+                `<button onclick="openCaseDetail('${c}')" class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-slate-800 hover:bg-slate-700 text-primary border border-slate-700 transition" title="View Case ${c}">${c}</button>`
+            ).join(' ');
+
+            const evIds = p.evidence_ids || [];
+            const primaryEvId = evIds[0] || 'EVID_042_01';
+
+            return `
+                <div class="bg-surface-container-lowest border border-surface-container-high hover:border-rose-500/40 transition rounded-lg p-4 space-y-3.5 shadow-md">
+                    <!-- Card Top Bar: Rank, Entity Header & Influence Score -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-high">
+                        <div class="flex items-center gap-3">
+                            <!-- Rank Badge -->
+                            <div class="w-9 h-9 rounded-full bg-rose-950/80 border border-rose-700 flex items-center justify-center text-rose-300 font-mono font-bold text-sm shadow">
+                                #${p.rank}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="material-symbols-outlined text-rose-400 text-base">${icon}</span>
+                                    <button onclick="openEntityDetailsPanel('${p.entity_id}')" class="text-sm font-bold text-white hover:text-rose-300 transition text-left tracking-tight">
+                                        ${escapeHtml(p.name)}
+                                    </button>
+                                    <span class="text-[11px] font-mono text-outline">(${p.entity_id})</span>
+                                    ${badgeHtml}
+                                </div>
+                                <div class="text-[11px] text-on-surface-variant mt-0.5">
+                                    ${escapeHtml(p.role_label)} — Degree: <strong class="text-white font-mono">${p.degree}</strong> edges
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Influence Score Metric Bar -->
+                        <div class="flex items-center gap-3 bg-surface-container-low border border-surface-container-high px-3 py-1.5 rounded-lg">
+                            <div class="text-right">
+                                <div class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Influence Score</div>
+                                <div class="text-sm font-bold text-rose-400 font-mono">${(p.influence_score || 0).toFixed(2)} (${scorePct}%)</div>
+                            </div>
+                            <div class="w-16 bg-surface-container-high h-2 rounded-full overflow-hidden">
+                                <div class="bg-gradient-to-r from-rose-500 to-amber-400 h-full rounded-full" style="width: ${scorePct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle: Connected Cases & Communities -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Connected Cases:</span>
+                            <div class="flex flex-wrap gap-1">${casesList}</div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Community Membership:</span>
+                            <div class="text-xs text-amber-300 font-mono flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs text-amber-400">groups</span>
+                                <span>${p.community_id} — ${p.community_name || 'Operations Core'} (Rank #${p.community_influence_rank || 1})</span>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Evidence Provenance:</span>
+                            <div class="text-xs text-emerald-300 font-mono flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs text-emerald-400">verified</span>
+                                <span>${p.evidence_count} Verified Evidence Record(s)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description & Explanation -->
+                    <div class="bg-surface-container-low p-3 rounded text-xs text-on-surface-variant leading-relaxed">
+                        <strong class="text-white">Investigative Assessment:</strong> ${escapeHtml(p.explanation)}
+                    </div>
+
+                    <!-- Cross-Case Link Pathway Visualization (if Cross-Case Entity) -->
+                    ${p.is_cross_case ? `
+                        <div class="p-2.5 rounded bg-purple-950/40 border border-purple-800/40 text-xs text-purple-200 flex items-center gap-2 flex-wrap">
+                            <span class="material-symbols-outlined text-sm text-purple-400">route</span>
+                            <strong class="text-purple-300 font-mono">CROSS-CASE CONDUIT:</strong>
+                            <span class="font-mono text-[11px]">CASE_101 → PERSON_017 → <strong class="text-white">${p.entity_id} (${p.name})</strong> → PERSON_089 → CASE_204</span>
+                        </div>
+                    ` : ''}
+
+                    <!-- Actions & Traceability Buttons -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-surface-container-high">
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEntityDetailsPanel('${p.entity_id}')" class="px-2.5 py-1 text-xs font-semibold rounded bg-surface-container-high hover:bg-surface-container-highest text-primary border border-outline-variant transition flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">info</span> View Entity Details
+                            </button>
+                            <button onclick="openKeyPlayerInGraph('${p.entity_id}', '${p.connected_cases[0] || 'CASE_101'}')" class="px-2.5 py-1 text-xs font-semibold rounded bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-700 transition flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">account_tree</span> View in Graph
+                            </button>
+                            <button onclick="openEvidencePanel('${primaryEvId}')" class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-200 border border-emerald-700 transition flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">description</span> View Evidence (${primaryEvId})
+                            </button>
+                        </div>
+                        <div class="text-[10px] text-outline italic">
+                            Non-culpability rating: ${p.confidence * 100}% confidence
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error("Failed to render Key Players workspace:", err);
+        container.innerHTML = `
+            <div class="p-6 rounded-lg bg-rose-950/60 border border-rose-700 text-rose-200 text-xs space-y-2">
+                <div class="font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-rose-400">error</span>
+                    Key Player Intelligence Engine Error
+                </div>
+                <div>${escapeHtml(err.message || "Failed to load key player analysis from backend.")}</div>
+            </div>
+        `;
+    }
+}
+
+function openKeyPlayerInGraph(entityId, caseId = "CASE_101") {
+    switchTab("pane-graph", true);
+    setTimeout(async () => {
+        if (caseId) {
+            const headerSelect = document.getElementById("header-case-select");
+            if (headerSelect) headerSelect.value = caseId;
+            await renderGraphWorkspace(caseId);
+        }
+        if (networkInstance && entityId) {
+            try {
+                networkInstance.selectNodes([entityId]);
+                networkInstance.focus(entityId, { scale: 1.2, animation: true });
+                openEntityDetailsPanel(entityId);
+            } catch (_) {}
+        }
+    }, 200);
+}
+
+
+/* ----------------------------------------------------
+   14. ADVANCED LINK ANALYSIS & PATH DISCOVERY (DAY 29)
+---------------------------------------------------- */
+
+function initLinkAnalysisControls() {
+    const btnFind = document.getElementById("btn-find-paths");
+    if (btnFind && !btnFind.dataset.bound) {
+        btnFind.dataset.bound = "true";
+        btnFind.addEventListener("click", () => renderLinkAnalysisWorkspace());
+    }
+
+    const sliderHops = document.getElementById("la-max-hops");
+    const valHops = document.getElementById("la-hops-val");
+    if (sliderHops && valHops && !sliderHops.dataset.bound) {
+        sliderHops.dataset.bound = "true";
+        sliderHops.addEventListener("input", (e) => {
+            valHops.innerText = e.target.value;
+        });
+    }
+
+    const btnPreset1 = document.getElementById("btn-preset-c101-c204");
+    if (btnPreset1 && !btnPreset1.dataset.bound) {
+        btnPreset1.dataset.bound = "true";
+        btnPreset1.addEventListener("click", () => {
+            document.getElementById("la-source-input").value = "CASE_101";
+            document.getElementById("la-target-input").value = "CASE_204";
+            renderLinkAnalysisWorkspace();
+        });
+    }
+
+    const btnPreset2 = document.getElementById("btn-preset-p017-p089");
+    if (btnPreset2 && !btnPreset2.dataset.bound) {
+        btnPreset2.dataset.bound = "true";
+        btnPreset2.addEventListener("click", () => {
+            document.getElementById("la-source-input").value = "PERSON_017";
+            document.getElementById("la-target-input").value = "PERSON_089";
+            renderLinkAnalysisWorkspace();
+        });
+    }
+
+    const btnPreset3 = document.getElementById("btn-preset-c101-audit");
+    if (btnPreset3 && !btnPreset3.dataset.bound) {
+        btnPreset3.dataset.bound = "true";
+        btnPreset3.addEventListener("click", () => {
+            document.getElementById("la-source-input").value = "CASE_101";
+            document.getElementById("la-target-input").value = "CASE_AUDIT_99";
+            renderLinkAnalysisWorkspace();
+        });
+    }
+
+    populateLinkAnalysisDatalist();
+}
+
+async function populateLinkAnalysisDatalist() {
+    const datalist = document.getElementById("la-entity-list");
+    if (!datalist) return;
+
+    try {
+        const cases = await window.dataService.getCases();
+        let optionsHtml = (cases || []).map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.title || c.id)} (Case)</option>`).join('');
+
+        const rawGraph = await window.dataService.getCaseGraph("ALL");
+        if (rawGraph && Array.isArray(rawGraph.nodes)) {
+            const entityOptions = rawGraph.nodes.map(n => {
+                const label = n.name || n.label || n.id;
+                return `<option value="${escapeHtml(n.id)}">${escapeHtml(label)} (${n.type || n.entity_type || "Entity"})</option>`;
+            }).join('');
+            optionsHtml += entityOptions;
+        }
+
+        datalist.innerHTML = optionsHtml;
+    } catch (_) {}
+}
+
+async function renderLinkAnalysisWorkspace() {
+    initLinkAnalysisControls();
+
+    const sourceInput = document.getElementById("la-source-input");
+    const targetInput = document.getElementById("la-target-input");
+    const hopsInput = document.getElementById("la-max-hops");
+    const container = document.getElementById("la-paths-container");
+    const summarySpan = document.getElementById("la-results-summary");
+
+    if (!container) return;
+
+    const sourceId = sourceInput ? sourceInput.value.trim() : "CASE_101";
+    const targetId = targetInput ? targetInput.value.trim() : "CASE_204";
+    const maxHops = hopsInput ? parseInt(hopsInput.value, 10) : 6;
+
+    if (!sourceId || !targetId) {
+        container.innerHTML = `
+            <div class="p-6 text-center text-xs text-on-surface-variant font-mono bg-surface-container-low border border-surface-container-high rounded-xl">
+                Please enter valid source and target identifiers to perform multi-hop link analysis.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="p-8 text-center text-xs text-cyan-300 font-mono bg-surface-container-low border border-surface-container-high rounded-xl flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined animate-spin text-cyan-400">sync</span>
+            Executing multi-hop BFS traversal connecting ${escapeHtml(sourceId)} → ${escapeHtml(targetId)} (Max Hops: ${maxHops})...
+        </div>
+    `;
+
+    try {
+        const result = await window.dataService.findPaths(sourceId, targetId, maxHops);
+        const paths = (result && Array.isArray(result.paths)) ? result.paths : [];
+
+        const metricCount = document.getElementById("la-metric-count");
+        const metricShortest = document.getElementById("la-metric-shortest");
+        const metricConfidence = document.getElementById("la-metric-confidence");
+        const metricConduits = document.getElementById("la-metric-conduits");
+
+        if (metricCount) metricCount.innerText = paths.length;
+
+        if (paths.length === 0) {
+            if (metricShortest) metricShortest.innerText = "--";
+            if (metricConfidence) metricConfidence.innerText = "--";
+            if (metricConduits) metricConduits.innerText = "0";
+
+            if (summarySpan) summarySpan.innerText = `0 paths discovered within ${maxHops} hops`;
+
+            container.innerHTML = `
+                <div class="p-8 text-center bg-surface-container-low border border-surface-container-high rounded-xl space-y-3">
+                    <span class="material-symbols-outlined text-4xl text-on-surface-variant">route</span>
+                    <h4 class="text-sm font-bold text-white">No verified graph path found within the selected hop limit.</h4>
+                    <p class="text-xs text-on-surface-variant max-w-md mx-auto">
+                        No interconnected relationship edges connect <span class="font-mono text-cyan-300">${escapeHtml(sourceId)}</span> to <span class="font-mono text-cyan-300">${escapeHtml(targetId)}</span> within ${maxHops} hops in cataloged evidence records.
+                    </p>
+                    <div class="pt-2">
+                        <button onclick="document.getElementById('la-max-hops').value=8; document.getElementById('la-hops-val').innerText='8'; renderLinkAnalysisWorkspace();" class="px-3 py-1.5 text-xs font-semibold rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors">
+                            Expand Search to 8 Hops
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        paths.sort((a, b) => (b.confidence || b.path_score || 0) - (a.confidence || a.path_score || 0) || (a.hop_count || 0) - (b.hop_count || 0));
+
+        const minHops = Math.min(...paths.map(p => p.hop_count || (p.path ? p.path.length - 1 : 0)));
+        const maxConf = Math.max(...paths.map(p => p.confidence || p.path_score || 0));
+
+        const allConduits = new Set();
+        paths.forEach(p => (p.shared_entities || []).forEach(e => allConduits.add(e)));
+
+        if (metricShortest) metricShortest.innerText = `${minHops} ${minHops === 1 ? 'hop' : 'hops'}`;
+        if (metricConfidence) metricConfidence.innerText = `${Math.round(maxConf * 100)}%`;
+        if (metricConduits) metricConduits.innerText = allConduits.size;
+
+        if (summarySpan) summarySpan.innerText = `Discovered ${paths.length} path(s) between ${escapeHtml(sourceId)} and ${escapeHtml(targetId)}`;
+
+        container.innerHTML = paths.map((pathObj, idx) => {
+            const rank = idx + 1;
+            const hopCount = pathObj.hop_count || (pathObj.path ? pathObj.path.length - 1 : 0);
+            const conf = pathObj.confidence || pathObj.path_score || 0.90;
+            const confPercent = Math.round(conf * 100);
+            const pathNodes = pathObj.path || [];
+            const shared = pathObj.shared_entities || [];
+            const steps = pathObj.steps || [];
+
+            const nodeChainHtml = pathNodes.map((nodeId, nIdx) => {
+                const isStart = nIdx === 0;
+                const isEnd = nIdx === pathNodes.length - 1;
+                const isCase = nodeId.startsWith("CASE_");
+                const isConduit = shared.includes(nodeId);
+
+                let badgeClass = "bg-surface-container-high text-white border-surface-container-highest";
+                if (isCase) badgeClass = "bg-blue-500/20 text-blue-300 border-blue-500/40 font-bold";
+                else if (isStart || isEnd) badgeClass = "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-bold";
+                else if (isConduit) badgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold";
+
+                const arrowHtml = !isEnd ? `<span class="material-symbols-outlined text-xs text-cyan-500/60 font-bold">arrow_forward</span>` : '';
+
+                return `
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="openEntityDetailsPanel('${escapeHtml(nodeId)}')" class="px-2.5 py-1 rounded text-xs border font-mono ${badgeClass} hover:opacity-80 transition-opacity" title="Click to view details for ${escapeHtml(nodeId)}">
+                            ${escapeHtml(nodeId)}
+                        </button>
+                        ${arrowHtml}
+                    </div>
+                `;
+            }).join('');
+
+            const stepsBreakdownHtml = steps.map((step, sIdx) => {
+                const stepEvs = step.evidence_ids || [];
+                const stepEvHtml = stepEvs.map(evId => `
+                    <button onclick="openEvidencePanel('${escapeHtml(evId)}')" class="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-700/50 hover:bg-cyan-900 font-mono">
+                        ${escapeHtml(evId)}
+                    </button>
+                `).join(' ');
+
+                return `
+                    <div class="p-2.5 rounded bg-surface-container-low border border-surface-container-high flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div class="flex items-center gap-2 font-mono">
+                            <span class="text-cyan-400 font-bold">Hop ${sIdx + 1}:</span>
+                            <span class="text-white">${escapeHtml(step.from)}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase font-semibold">
+                                --[ ${escapeHtml(step.relationship)} ]-->
+                            </span>
+                            <span class="text-white">${escapeHtml(step.to)}</span>
+                        </div>
+                        <div class="flex items-center gap-3 font-mono text-[11px]">
+                            <span class="text-on-surface-variant">Conf: <strong class="text-emerald-400">${Math.round((step.confidence || 0.90) * 100)}%</strong></span>
+                            ${stepEvHtml ? `<div class="flex items-center gap-1">${stepEvHtml}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const jsonPathNodes = JSON.stringify(pathNodes).replace(/"/g, '&quot;');
+
+            return `
+                <div class="bg-surface-container-low border border-surface-container-high hover:border-cyan-500/40 rounded-xl p-5 shadow-lg transition-all space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-xs font-bold">Path #${rank}</span>
+                            <span class="px-2.5 py-1 rounded bg-surface-container-high text-on-surface text-xs font-mono">${hopCount} ${hopCount === 1 ? 'Hop' : 'Hops'}</span>
+                            <span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold">${confPercent}% Composite Confidence</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="highlightPathInGraph(${jsonPathNodes})" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition-colors">
+                                <span class="material-symbols-outlined text-sm">visibility</span> Highlight in Graph
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <div class="text-[11px] text-on-surface-variant font-semibold uppercase tracking-wider">Topological Relationship Chain</div>
+                        <div class="flex flex-wrap items-center gap-1.5 p-3 rounded-lg bg-surface-container border border-surface-container-high">
+                            ${nodeChainHtml}
+                        </div>
+                    </div>
+
+                    ${pathObj.explanation ? `
+                        <div class="text-xs text-on-surface-variant bg-surface-container/60 p-3 rounded-lg border border-surface-container-high leading-relaxed">
+                            <strong class="text-cyan-300">Investigative Context:</strong> ${escapeHtml(pathObj.explanation)}
+                        </div>
+                    ` : ''}
+
+                    <details class="group">
+                        <summary class="cursor-pointer text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 select-none py-1">
+                            <span class="material-symbols-outlined text-base transition-transform group-open:rotate-90">chevron_right</span>
+                            Expand Hop-by-Hop Breakdown & Supporting Evidence (${steps.length} steps)
+                        </summary>
+                        <div class="mt-3 space-y-2 pl-2">
+                            ${stepsBreakdownHtml || `<div class="text-xs text-on-surface-variant font-mono">No granular step metadata available.</div>`}
+                        </div>
+                    </details>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error("Link analysis path search error:", err);
+        container.innerHTML = `
+            <div class="p-6 rounded-xl bg-rose-950/60 border border-rose-700 text-rose-200 text-xs space-y-2">
+                <div class="font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-rose-400">error</span>
+                    Link Analysis Path Discovery Error
+                </div>
+                <div>${escapeHtml(err.message || "Failed to execute path search against knowledge graph.")}</div>
+            </div>
+        `;
+    }
+}
+
+function highlightPathInGraph(pathNodeIds) {
+    if (!Array.isArray(pathNodeIds) || pathNodeIds.length === 0) return;
+
+    switchTab("pane-graph", true);
+
+    setTimeout(() => {
+        if (!networkInstance) {
+            console.warn("Vis.js networkInstance not initialized");
+            return;
+        }
+
+        try {
+            networkInstance.selectNodes(pathNodeIds);
+            networkInstance.fit({ nodes: pathNodeIds, animation: true });
+
+            const graphContainer = document.getElementById("graph-container");
+            if (graphContainer) {
+                let existingClearBtn = document.getElementById("btn-clear-path-highlight");
+                if (!existingClearBtn) {
+                    const clearBtn = document.createElement("button");
+                    clearBtn.id = "btn-clear-path-highlight";
+                    clearBtn.className = "absolute top-4 right-4 z-20 px-3 py-1.5 rounded-lg bg-cyan-950/90 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-900 text-xs font-mono font-bold shadow-xl flex items-center gap-1.5 transition-all";
+                    clearBtn.innerHTML = `<span class="material-symbols-outlined text-sm">clear</span> Clear Path Highlight (${pathNodeIds.length} Nodes)`;
+                    clearBtn.onclick = () => clearGraphHighlight();
+                    graphContainer.appendChild(clearBtn);
+                } else {
+                    existingClearBtn.innerHTML = `<span class="material-symbols-outlined text-sm">clear</span> Clear Path Highlight (${pathNodeIds.length} Nodes)`;
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to highlight path in Vis.js graph:", e);
+        }
+    }, 200);
+}
+
+function clearGraphHighlight() {
+    if (networkInstance) {
+        try {
+            networkInstance.unselectAll();
+        } catch (_) {}
+    }
+    const clearBtn = document.getElementById("btn-clear-path-highlight");
+    if (clearBtn) clearBtn.remove();
+}
+
+/* ----------------------------------------------------
+   DAY 33 — INVESTIGATIVE RISK & PRIORITY INTELLIGENCE (SHRUTI)
+---------------------------------------------------- */
+let currentRiskData = null;
+
+async function renderRiskIntelligence(caseId = null) {
+    const container = document.getElementById("dashboard-risk-container");
+    if (!container) return;
+
+    let targetCaseId = caseId;
+    if (!targetCaseId || targetCaseId === "ALL") {
+        const headSelect = document.getElementById("header-case-select");
+        targetCaseId = (headSelect && headSelect.value && headSelect.value !== "ALL") ? headSelect.value : null;
+    }
+
+    container.innerHTML = `
+        <div class="text-center py-6 text-outline text-xs font-sans">
+            <span class="material-symbols-outlined animate-spin text-rose-400 align-middle mr-1">sync</span>
+            Computing ML Data Mining & Investigative Risk Intelligence...
+        </div>
+    `;
+
+    try {
+        const data = await window.dataService.getRiskScores(targetCaseId);
+        currentRiskData = data;
+
+        if (!data || !data.entities || data.entities.length === 0) {
+            container.innerHTML = `
+                <div class="p-4 bg-surface-container-low border border-surface-container-high rounded text-center text-xs text-outline font-sans">
+                    Insufficient data for reliable risk scoring for case <strong>${targetCaseId || 'ALL'}</strong>.
+                </div>
+            `;
+            return;
+        }
+
+        const summary = data.summary || {};
+        if (document.getElementById("risk-stat-total")) document.getElementById("risk-stat-total").innerText = summary.total_scored_entities || data.entities.length;
+        if (document.getElementById("risk-stat-high")) document.getElementById("risk-stat-high").innerText = summary.high_priority_count || 0;
+        if (document.getElementById("risk-stat-mod")) document.getElementById("risk-stat-mod").innerText = summary.moderate_priority_count || 0;
+        if (document.getElementById("risk-stat-top")) document.getElementById("risk-stat-top").innerText = summary.top_entity_id || "N/A";
+
+        filterRiskUI();
+    } catch (err) {
+        console.error("Error loading risk intelligence:", err);
+        container.innerHTML = `
+            <div class="p-4 bg-rose-950/40 border border-rose-800 rounded text-center text-xs text-rose-300 font-sans space-y-2">
+                <div>Investigative risk intelligence engine unavailable or offline.</div>
+                <button onclick="renderRiskIntelligence('${targetCaseId || ''}')" class="px-3 py-1 bg-rose-800 hover:bg-rose-700 text-white rounded text-[11px] font-bold">Retry Risk Analysis</button>
+            </div>
+        `;
+    }
+}
+
+function filterRiskUI() {
+    const container = document.getElementById("dashboard-risk-container");
+    if (!container || !currentRiskData || !currentRiskData.entities) return;
+
+    const priorityFilter = document.getElementById("risk-filter-priority")?.value || "ALL";
+    let entities = currentRiskData.entities;
+
+    if (priorityFilter !== "ALL") {
+        entities = entities.filter(ent => ent.priority_level === priorityFilter);
+    }
+
+    if (entities.length === 0) {
+        container.innerHTML = `
+            <div class="p-4 bg-surface-container-low border border-surface-container-high rounded text-center text-xs text-outline font-sans">
+                No entities match the selected priority filter criteria '${priorityFilter}'.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = entities.map((ent, idx) => {
+        const pColor = ent.priority_level === "HIGH"
+            ? "bg-rose-950 text-rose-300 border-rose-800"
+            : (ent.priority_level === "MODERATE"
+                ? "bg-amber-950 text-amber-300 border-amber-800"
+                : "bg-slate-900 text-slate-300 border-slate-700");
+
+        const barColor = ent.priority_level === "HIGH" ? "bg-rose-500" : (ent.priority_level === "MODERATE" ? "bg-amber-500" : "bg-emerald-500");
+
+        const signalsHtml = (ent.contributing_signals || []).map(sig => `
+            <div class="p-2 rounded bg-surface-container-lowest border border-surface-container-high text-[11px] space-y-1">
+                <div class="flex items-center justify-between font-mono">
+                    <span class="font-bold text-white">${sig.name}</span>
+                    <span class="text-rose-400 font-bold">${sig.weight}</span>
+                </div>
+                <p class="text-on-surface-variant text-[10px]">${sig.description}</p>
+            </div>
+        `).join("");
+
+        const metrics = ent.feature_metrics || {};
+
+        return `
+            <div class="stitch-card space-y-3 border border-surface-container-high hover:border-rose-500/50 transition">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-xs text-outline font-bold">#${idx + 1}</span>
+                        <span class="font-bold text-white text-sm hover:underline cursor-pointer" onclick="openEntityDetails('${ent.entity_id}')">${ent.entity_name}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-surface-container-highest text-tertiary">${ent.entity_type}</span>
+                        <span class="text-xs text-outline font-mono">(${ent.entity_id})</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded border text-xs font-mono font-bold ${pColor}">
+                            Investigative Priority: ${ent.priority_level} (${ent.risk_score}/100)
+                        </span>
+                        <button onclick="toggleRiskDetail('${ent.entity_id}')" class="px-2 py-1 bg-surface-container-highest hover:bg-surface-container-high text-xs font-mono rounded text-slate-300 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">unfold_more</span> Why This Score?
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+                        <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${ent.risk_score}%"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-outline font-mono">
+                        <span>Confidence: <strong>${((ent.confidence || 0.88) * 100).toFixed(0)}% Grounded</strong></span>
+                        <span>Linked Cases: <strong class="text-white">${(ent.cases || []).join(', ') || 'N/A'}</strong></span>
+                    </div>
+                </div>
+
+                <div class="p-2 rounded bg-surface-container-low border border-surface-container-high text-[11px] text-slate-200 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-rose-400 text-sm">center_focus_strong</span>
+                        <span><strong>Actionable Lead:</strong> ${ent.recommended_action}</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="switchTab('pane-graph'); highlightNodeInGraph('${ent.entity_id}')" class="px-2 py-0.5 bg-blue-900/60 hover:bg-blue-800 text-blue-300 rounded text-[10px] font-mono">View Graph</button>
+                        <button onclick="askAIRiskReason('${ent.entity_id}', '${ent.entity_name}')" class="px-2 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-purple-300 rounded text-[10px] font-mono">Ask AI</button>
+                    </div>
+                </div>
+
+                <div id="risk-detail-${ent.entity_id}" class="hidden space-y-2.5 pt-2 border-t border-surface-container-high">
+                    <div class="text-xs font-bold text-white font-mono flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs text-rose-400">analytics</span> Data Mining Signal Breakdown:
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${signalsHtml}
+                    </div>
+                    <div class="p-2 rounded bg-surface-container-lowest border border-surface-container-high text-[10px] text-outline font-mono flex flex-wrap justify-between gap-2">
+                        <span>Degree Centrality: <strong class="text-white">${metrics.degree_centrality || 0}</strong></span>
+                        <span>Cross-Case Links: <strong class="text-white">${metrics.cross_case_links || 0}</strong></span>
+                        <span>Evidence Records: <strong class="text-white">${metrics.evidence_count || 0}</strong></span>
+                        <span>Base Confidence: <strong class="text-white">${((metrics.confidence_rating || 0.85)*100).toFixed(0)}%</strong></span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function toggleRiskDetail(entityId) {
+    const el = document.getElementById(`risk-detail-${entityId}`);
+    if (el) el.classList.toggle("hidden");
+}
+
+function askAIRiskReason(entityId, entityName) {
+    switchTab("pane-ai");
+    const aiInput = document.getElementById("ai-investigator-input");
+    if (aiInput) {
+        aiInput.value = `Why is ${entityName} (${entityId}) assigned a high investigative risk priority? Explain contributing signals and evidence.`;
+        if (typeof submitAIQuery === "function") {
+            submitAIQuery();
+        }
+    }
+}
+
+
+
+
 
 
 

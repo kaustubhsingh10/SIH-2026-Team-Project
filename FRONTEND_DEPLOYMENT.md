@@ -84,10 +84,10 @@ Access Points:
 
 ### Option B: Standalone Web Server / Static Hosting (Nginx / Vercel / Netlify / Live Server)
 
-Serve root directory static files:
+Serve canonical web directory static files:
 
 ```powershell
-python -m http.server 3000
+python -m http.server 3000 --directory web
 ```
 
 Access at `http://127.0.0.1:3000`. The frontend service layer (`CrimeGraphDataService`) will auto-detect the live FastAPI backend at `http://127.0.0.1:8000`.
