@@ -1603,6 +1603,8 @@ class HttpCrimeGraphAdapter {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
+    }
+
     async getInvestigationDashboard() {
             try {
                 return await this.fetchJson("/api/dashboard");
@@ -2018,25 +2020,7 @@ class HttpCrimeGraphAdapter {
             }
         }
 
-    async getEvidenceList() {
-            const raw = await this.fetchJson("/api/evidence");
-            return (raw || []).map(ev => ({
-                evidence_id: ev.evidence_id || ev.id,
-                source_document: ev.source_document_id || ev.source_document || "DOC_EXTRACTION",
-                page_number: ev.page_number || 1,
-                source_text: ev.source_text || "Recorded evidence finding.",
-                timestamp: ev.timestamp || "N/A",
-                extraction_method: ev.extraction_method || "AI_NER",
-                confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
-                relationship: ev.relationship || "Verified Relationship Edge"
-            };
-        } catch (err) {
-            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
-                return null;
-            }
-            throw err;
-        }
-    }
+
 
     async getEvidenceList() {
         const raw = await this.fetchJson("/api/evidence");

@@ -12,25 +12,73 @@ let rawGraphData = { nodes: [], edges: [] };
 let aiActiveCaseId = "CASE_101";
 let aiFocusedEntityId = null;
 let aiConversationHistory = [];
+let isGraphControlsInitialized = false;
+
+function initGlobalErrorHandlers() {
+    window.onerror = function (message, source, lineno, colno, error) {
+        console.error("[CrimeGraph App Error]", { message, source, lineno, colno, error });
+        showNonDestructiveGlobalError(message || "An unexpected error occurred in application logic.");
+        return false;
+    };
+
+    window.onunhandledrejection = function (event) {
+        console.error("[CrimeGraph Unhandled Promise Rejection]", event.reason);
+        const reasonMsg = event.reason ? (event.reason.message || String(event.reason)) : "Unhandled promise rejection in asynchronous operation.";
+        showNonDestructiveGlobalError(reasonMsg);
+    };
+}
+
+function showNonDestructiveGlobalError(msg) {
+    const banner = document.getElementById("global-error-banner");
+    if (banner) {
+        const textEl = document.getElementById("global-error-text");
+        if (textEl) textEl.innerText = msg;
+        banner.classList.remove("hidden");
+    }
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function safeInit(name, fn) {
+    try {
+        await fn();
+        return { ok: true };
+    } catch (error) {
+        console.error(`[CrimeGraph] ${name} initialization failed:`, error);
+        return { ok: false, error };
+    }
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
+    initGlobalErrorHandlers();
     initNavigation();
     handleInitialRoute();
-    if (window.dataService) {
-        await window.dataService.ensureInitialized();
-    }
     updateAuthUI();
-    await renderDashboard();
-    await renderCaseExplorer();
-    await renderCaseDetail("CASE_101");
-    await initGraphWorkspace("CASE_101");
     initAIInvestigator();
-    await renderTimeline("CASE_101");
-    await renderEvidenceExplorer();
-    await renderKeyPlayersWorkspace();
     initLinkAnalysisControls();
     initGlobalSearch();
-    await populateCaseDropdowns("CASE_101");
+
+    if (window.dataService) {
+        await safeInit("DataService Initialization", () => window.dataService.ensureInitialized());
+    }
+
+    // Initialize modules independently so a failure in one does NOT block others
+    await safeInit("Dashboard", () => renderDashboard());
+    await safeInit("Case Explorer", () => renderCaseExplorer());
+    await safeInit("Case Detail", () => renderCaseDetail("CASE_101"));
+    await safeInit("Graph Workspace", () => initGraphWorkspace("CASE_101"));
+    await safeInit("Timeline", () => renderTimeline("CASE_101"));
+    await safeInit("Evidence Explorer", () => renderEvidenceExplorer());
+    await safeInit("Key Players", () => renderKeyPlayersWorkspace());
+    await safeInit("Case Dropdowns", () => populateCaseDropdowns("CASE_101"));
 });
 
 /* ----------------------------------------------------
@@ -168,11 +216,18 @@ function initNavigation() {
                 aiConversationHistory = [];
                 updateAIContextBar();
             }
-            await renderGraphWorkspace(selectedCase);
-            await renderCaseDetail(selectedCase);
-            await renderTimeline(selectedCase);
-            if (typeof renderCorrelations === "function") await renderCorrelations(selectedCase);
-            if (typeof renderRiskIntelligence === "function") await renderRiskIntelligence(selectedCase);
+            const activePane = document.querySelector(".tab-pane.active")?.id || "pane-dashboard";
+            if (activePane === "pane-graph") {
+                await safeInit("Graph Workspace", () => renderGraphWorkspace(selectedCase));
+            } else if (activePane === "pane-case-detail") {
+                await safeInit("Case Detail", () => renderCaseDetail(selectedCase));
+            } else if (activePane === "pane-timeline") {
+                await safeInit("Timeline", () => renderTimeline(selectedCase));
+            } else if (activePane === "pane-reports") {
+                await safeInit("Reports", () => renderInvestigationReport(selectedCase));
+            } else if (activePane === "pane-dashboard") {
+                await safeInit("Dashboard", () => renderDashboard());
+            }
         });
     }
 }
@@ -847,93 +902,109 @@ async function renderCaseDetail(caseId = "CASE_101") {
 
 async function exploreCase(caseId) {
     const select = document.getElementById("header-case-select");
-    if (select) select.value = caseId;
+    if (select && caseId) select.value = caseId;
     switchTab("pane-graph", true);
-    await renderCaseDetail(caseId);
-    await renderGraphWorkspace(caseId);
-    await renderTimeline(caseId);
+    await safeInit(`Explore Case ${caseId}`, () => renderGraphWorkspace(caseId));
 }
 
 async function openCaseDetail(caseId) {
     const select = document.getElementById("header-case-select");
     if (select && caseId) select.value = caseId;
     switchTab("pane-case-detail", true);
-    await renderCaseDetail(caseId);
-    await renderGraphWorkspace(caseId);
-    await renderTimeline(caseId);
+    await safeInit(`Case Detail ${caseId}`, () => renderCaseDetail(caseId));
 }
 
 /* ----------------------------------------------------
    4. INTERACTIVE NETWORK GRAPH & CONTROLS (DAY 19 NETWORK INTELLIGENCE)
 ---------------------------------------------------- */
 async function initGraphWorkspace(initialCaseId = "CASE_101") {
+    if (!isGraphControlsInitialized) {
+        isGraphControlsInitialized = true;
+
+        // Zoom Controls
+        document.getElementById("graph-zoom-in")?.addEventListener("click", () => {
+            if (networkInstance) networkInstance.moveTo({ scale: networkInstance.getScale() * 1.25 });
+        });
+
+        document.getElementById("graph-zoom-out")?.addEventListener("click", () => {
+            if (networkInstance) networkInstance.moveTo({ scale: networkInstance.getScale() * 0.8 });
+        });
+
+        document.getElementById("graph-reset")?.addEventListener("click", () => {
+            resetGraphFocus();
+        });
+
+        document.getElementById("graph-clear-selection")?.addEventListener("click", () => {
+            if (networkInstance) {
+                networkInstance.unselectAll();
+                const drawer = document.getElementById("inspector-drawer");
+                if (drawer) {
+                    drawer.innerHTML = `
+                        <div class="text-center py-16 text-outline text-xs font-sans">
+                            <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block" aria-hidden="true">touch_app</span>
+                            Click any node to open <strong>Entity Details Panel</strong>.<br>Click any relationship edge to open <strong>Evidence Panel</strong>.
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        document.getElementById("graph-highlight-path")?.addEventListener("click", highlightMainDemoFlow);
+
+        // Path Explorer Trigger Button
+        document.getElementById("btn-trace-path")?.addEventListener("click", () => {
+            const src = document.getElementById("path-source-select")?.value;
+            const tgt = document.getElementById("path-target-select")?.value;
+            if (src && tgt) {
+                traceCustomPath(src, tgt);
+            }
+        });
+
+        // Graph Search Input
+        document.getElementById("graph-search-input")?.addEventListener("input", (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query || !networkInstance || !rawGraphData || !rawGraphData.nodes) return;
+
+            const matchingNode = rawGraphData.nodes.find(n => n.id.toLowerCase().includes(query) || (n.label && n.label.toLowerCase().includes(query)));
+            if (matchingNode) {
+                networkInstance.selectNodes([matchingNode.id]);
+                networkInstance.focus(matchingNode.id, { scale: 1.2, animation: true });
+                openEntityDetailsPanel(matchingNode.id);
+            }
+        });
+
+        // Entity & Intelligence Filter Checkboxes
+        document.querySelectorAll(".filter-type").forEach(chk => {
+            chk.addEventListener("change", applyGraphFilters);
+        });
+        document.getElementById("filter-cross-case-toggle")?.addEventListener("change", applyGraphFilters);
+        document.getElementById("filter-evidence-only-toggle")?.addEventListener("change", applyGraphFilters);
+    }
+
     await renderGraphWorkspace(initialCaseId);
-
-    // Zoom Controls
-    document.getElementById("graph-zoom-in")?.addEventListener("click", () => {
-        if (networkInstance) networkInstance.moveTo({ scale: networkInstance.getScale() * 1.25 });
-    });
-
-    document.getElementById("graph-zoom-out")?.addEventListener("click", () => {
-        if (networkInstance) networkInstance.moveTo({ scale: networkInstance.getScale() * 0.8 });
-    });
-
-    document.getElementById("graph-reset")?.addEventListener("click", () => {
-        resetGraphFocus();
-    });
-
-    document.getElementById("graph-clear-selection")?.addEventListener("click", () => {
-        if (networkInstance) {
-            networkInstance.unselectAll();
-            document.getElementById("inspector-drawer").innerHTML = `
-                <div class="text-center py-16 text-outline text-xs font-sans">
-                    <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block" aria-hidden="true">touch_app</span>
-                    Click any node to open <strong>Entity Details Panel</strong>.<br>Click any relationship edge to open <strong>Evidence Panel</strong>.
-                </div>
-            `;
-        }
-    });
-
-    document.getElementById("graph-highlight-path")?.addEventListener("click", highlightMainDemoFlow);
-
-    // Path Explorer Trigger Button
-    document.getElementById("btn-trace-path")?.addEventListener("click", () => {
-        const src = document.getElementById("path-source-select")?.value;
-        const tgt = document.getElementById("path-target-select")?.value;
-        if (src && tgt) {
-            traceCustomPath(src, tgt);
-        }
-    });
-
-    // Graph Search Input
-    document.getElementById("graph-search-input")?.addEventListener("input", (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        if (!query || !networkInstance) return;
-
-        const matchingNode = rawGraphData.nodes.find(n => n.id.toLowerCase().includes(query) || (n.label && n.label.toLowerCase().includes(query)));
-        if (matchingNode) {
-            networkInstance.selectNodes([matchingNode.id]);
-            networkInstance.focus(matchingNode.id, { scale: 1.2, animation: true });
-            openEntityDetailsPanel(matchingNode.id);
-        }
-    });
-
-    // Entity & Intelligence Filter Checkboxes
-    document.querySelectorAll(".filter-type").forEach(chk => {
-        chk.addEventListener("change", applyGraphFilters);
-    });
-    document.getElementById("filter-cross-case-toggle")?.addEventListener("change", applyGraphFilters);
-    document.getElementById("filter-evidence-only-toggle")?.addEventListener("change", applyGraphFilters);
 }
 
 async function renderGraphWorkspace(caseId = "CASE_101") {
     const container = document.getElementById("graph-canvas");
     if (!container) return;
 
+    if (networkInstance) {
+        try {
+            networkInstance.destroy();
+        } catch (e) {
+            console.warn("Error destroying previous Vis.js network instance:", e);
+        }
+        networkInstance = null;
+    }
+
     // Reset previous graph state immediately
     rawGraphData = { nodes: [], edges: [] };
-    if (currentVisNodes) currentVisNodes.clear();
-    if (currentVisEdges) currentVisEdges.clear();
+    if (currentVisNodes) {
+        try { currentVisNodes.clear(); } catch (_) {}
+    }
+    if (currentVisEdges) {
+        try { currentVisEdges.clear(); } catch (_) {}
+    }
 
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-center py-10 text-outline text-xs font-sans">

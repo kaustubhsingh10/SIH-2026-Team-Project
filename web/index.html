@@ -54,6 +54,15 @@
 </head>
 <body class="bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-white flex flex-col min-h-screen">
 
+    <!-- GLOBAL UNHANDLED ERROR BANNER (NON-DESTRUCTIVE) -->
+    <div id="global-error-banner" class="hidden bg-rose-950/90 border-b border-rose-800 text-rose-200 px-4 py-2 text-xs flex items-center justify-between font-sans z-50">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm text-rose-400">warning</span>
+            <span id="global-error-text">An unexpected application error occurred.</span>
+        </div>
+        <button onclick="document.getElementById('global-error-banner').classList.add('hidden')" class="text-[11px] underline text-rose-300 hover:text-white">Dismiss</button>
+    </div>
+
     <!-- TOP HEADER BAR -->
     <header class="header-bar" role="banner">
         <!-- Logo & Branding -->
