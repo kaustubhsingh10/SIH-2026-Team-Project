@@ -16,6 +16,9 @@ let aiConversationHistory = [];
 document.addEventListener("DOMContentLoaded", async () => {
     initNavigation();
     handleInitialRoute();
+    if (window.dataService) {
+        await window.dataService.ensureInitialized();
+    }
     updateAuthUI();
     await renderDashboard();
     await renderCaseExplorer();

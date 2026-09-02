@@ -15,6 +15,7 @@ window.CRIMEGRAPH_CONFIG = window.CRIMEGRAPH_CONFIG || {
     APP_NAME: "CrimeGraph AI",
     VERSION: "1.0.0",
     ENVIRONMENT: "development",
+    DATA_MODE: window.CRIMEGRAPH_DATA_MODE || "api",
 
     // Timeout & Retry Settings
     API_TIMEOUT_MS: 10000

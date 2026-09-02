@@ -2028,200 +2028,236 @@ class HttpCrimeGraphAdapter {
                 timestamp: ev.timestamp || "N/A",
                 extraction_method: ev.extraction_method || "AI_NER",
                 confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
-                relationship: ev.relationship || "Verified Edge"
-            }));
-        }
-
-    async generateReport(caseId) {
-            return await this.fetchJson("/api/reports", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ case_id: caseId })
-            });
-        }
-
-    async exportReport(caseId, format = "json") {
-            const token = this.getToken();
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-
-            const response = await fetch(`${this.baseUrl}/api/reports/export`, {
-                method: "POST",
-                headers: headers,
-                body: JSON.stringify({ case_id: caseId, format: format })
-            });
-
-            if (!response.ok) {
-                let errorDetail = `Export Failed (${response.status})`;
-                try {
-                    const errBody = await response.json();
-                    if (errBody && errBody.detail) errorDetail = errBody.detail;
-                } catch (_) { }
-                const err = new Error(this.sanitizeErrorMessage(response.status, errorDetail));
-                err.status = response.status;
-                throw err;
-            }
-
-            const fmt = (format || "json").toLowerCase();
-            if (fmt === "json") {
-                const text = await response.text();
-                return {
-                    format: "json",
-                    filename: `crimegraph_report_${caseId}.json`,
-                    content: text,
-                    blob: new Blob([text], { type: "application/json" })
-                };
-            } else if (fmt === "pdf") {
-                const blob = await response.blob();
-                return {
-                    format: "pdf",
-                    filename: `crimegraph_report_${caseId}.pdf`,
-                    blob: blob
-                };
-            } else {
-                const text = await response.text();
-                return {
-                    format: "markdown",
-                    filename: `crimegraph_report_${caseId}.md`,
-                    content: text,
-                    blob: new Blob([text], { type: "text/markdown" })
-                };
-            }
-        }
-
-    async search(query, filters = {}) {
-            const qParam = encodeURIComponent(query || "");
-            const typeParam = (filters.type && filters.type !== "ALL") ? encodeURIComponent(filters.type) : "";
-            const raw = await this.fetchJson(`/api/entities?search=${qParam}&type=${typeParam}`);
-            return (raw || []).map(n => ({
-                id: n.id,
-                name: n.name || n.title || n.phone_number || n.registration_number || n.id,
-                type: (n.entity_type || n.type || "ENTITY").toUpperCase(),
-                confidence: n.confidence !== undefined ? n.confidence : 0.95
-            }));
-        }
-
-    async getPendingEntityResolutions() {
-            return await this.fetchJson("/api/entity-resolution/pending");
-        }
-
-    async compareEntities(entityA, entityB) {
-            return await this.fetchJson(`/api/entity-resolution/compare?entity_a=${encodeURIComponent(entityA)}&entity_b=${encodeURIComponent(entityB)}`);
-        }
-
-    async getCommunities(filters = {}) {
-            let params = [];
-            if (filters.case_id) params.push(`case_id=${encodeURIComponent(filters.case_id)}`);
-            if (filters.classification && filters.classification !== "ALL") params.push(`classification=${encodeURIComponent(filters.classification)}`);
-            if (filters.confidence_tier && filters.confidence_tier !== "ALL") params.push(`confidence_tier=${encodeURIComponent(filters.confidence_tier)}`);
-            if (filters.cross_case === true) params.push(`cross_case=true`);
-            const queryStr = params.length > 0 ? `?${params.join("&")}` : "";
-            return await this.fetchJson(`/api/communities${queryStr}`);
-        }
-
-    async getCommunityDetails(communityId) {
-            return await this.fetchJson(`/api/communities/${encodeURIComponent(communityId)}`);
-        }
-
-    async getEvidenceItem(evidenceId) {
-            return await this.getEvidence(evidenceId);
-        }
-
-    async extractDocument(documentId, text) {
-            return await this.fetchJson("/api/extract", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ document_id: documentId, text: text })
-            });
-        }
-
-    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
-            const qLower = (question || "").toLowerCase();
-
-            // Safety Protocol enforcement for direct legal guilt / culpability queries
-            const isGuiltQuery = qLower.includes("guilt") || qLower.includes("guilty") || qLower.includes("culprit");
-
-            // Unknown entity / no-data check for Case 999, Case 888, Person 999
-            if (qLower.includes("999") || qLower.includes("888")) {
-                return {
-                    query_type: "NOT_FOUND",
-                    question: question,
-                    answer: "No investigation records or connections were found for the requested entity or case identifier (999/888) in the knowledge graph.",
-                    path: [],
-                    shared_entities: [],
-                    confidence: 0.0,
-                    evidence_ids: [],
-                    explanation: "The requested identifier does not match any node or case record in active datasets.",
-                    investigative_lead: null,
-                    limitations: ["Entity not found in ingested graph dataset."],
-                    disclaimer: "No matching records found in knowledge graph."
-                };
-            }
-
-            const raw = await this.fetchJson("/api/investigate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    question: question,
-                    case_id: caseId,
-                    entity_id: entityId,
-                    conversation_history: conversationHistory
-                })
-            });
-
-            return {
-                query_type: isGuiltQuery ? "SAFETY_REFUSAL" : (raw.query_type || "GENERAL_INVESTIGATION"),
-                question: raw.question || question,
-                answer: isGuiltQuery ? "CrimeGraph AI does not determine guilt or legal culpability. Graph associations serve solely as potential investigative leads requiring independent human verification by authorized case officers." : (raw.answer || raw.summary || "Investigation query executed."),
-                path: isGuiltQuery ? [] : (raw.path || []),
-                shared_entities: isGuiltQuery ? [] : (raw.shared_entities || []),
-                confidence: isGuiltQuery ? 0.0 : (raw.confidence !== undefined ? raw.confidence : "N/A"),
-                evidence_ids: raw.evidence_ids || [],
-                confirmed_links: raw.confirmed_links || [],
-                probable_links: raw.probable_links || [],
-                unresolved_candidates: raw.unresolved_candidates || [],
-                conflicting_claims: raw.conflicting_claims || [],
-                explanation: isGuiltQuery ? "Under CrimeGraph AI Safety Policy, graph associations do not constitute legal proof or determinations of guilt." : (raw.explanation || null),
-                investigative_lead: isGuiltQuery ? "Safety Policy Enforced: Direct physical evidence, witness testimonies, and judicial proceedings required to establish legal culpability." : (raw.investigative_lead || raw.lead || null),
-                limitations: isGuiltQuery ? ["Automated graph links cannot be presented as proof of criminal liability."] : (raw.limitations || []),
-                disclaimer: isGuiltQuery ? "Safety Policy: CrimeGraph AI provides investigative leads only and does not determine guilt." : (raw.disclaimer || "AI-generated investigative lead requiring human verification. Not a declaration of guilt.")
+                relationship: ev.relationship || "Verified Relationship Edge"
             };
-        }
-
-    async getCorrelations(caseId = null, correlationType = null, minConfidence = null) {
-            let url = "/api/correlations";
-            const params = new URLSearchParams();
-            if (caseId) params.append("case_id", caseId);
-            if (correlationType) params.append("correlation_type", correlationType);
-            if (minConfidence !== null && minConfidence !== undefined) params.append("min_confidence", minConfidence);
-            const queryStr = params.toString();
-            if (queryStr) url += `?${queryStr}`;
-            return await this.fetchJson(url);
-        }
-
-    async getRiskScores(caseId = null, minScore = 0) {
-            let url = "/api/risk";
-            const params = new URLSearchParams();
-            if (caseId) params.append("case_id", caseId);
-            if (minScore) params.append("min_score", minScore);
-            const queryStr = params.toString();
-            if (queryStr) url += `?${queryStr}`;
-            return await this.fetchJson(url);
+        } catch (err) {
+            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
+                return null;
+            }
+            throw err;
         }
     }
 
+    async getEvidenceList() {
+        const raw = await this.fetchJson("/api/evidence");
+        return (raw || []).map(ev => ({
+            evidence_id: ev.evidence_id || ev.id,
+            source_document: ev.source_document_id || ev.source_document || "DOC_EXTRACTION",
+            page_number: ev.page_number || 1,
+            source_text: ev.source_text || "Recorded evidence finding.",
+            timestamp: ev.timestamp || "N/A",
+            extraction_method: ev.extraction_method || "AI_NER",
+            confidence: ev.confidence !== undefined ? ev.confidence : 0.95,
+            relationship: ev.relationship || "Verified Edge"
+        }));
+    }
 
-// --- 3. DATA SERVICE FACADE (REAL BACKEND PREFERRED WITH STRICT INITIALIZATION GUARANTEE) ---
+    async generateReport(caseId) {
+        return await this.fetchJson("/api/reports/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ case_id: caseId })
+        });
+    }
+
+    async exportReport(caseId, format = "json") {
+        const token = this.getToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const response = await fetch(`${this.baseUrl}/api/reports/export`, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({ case_id: caseId, format: format })
+        });
+
+        if (!response.ok) {
+            let errorDetail = `Export Failed (${response.status})`;
+            try {
+                const errBody = await response.json();
+                if (errBody && errBody.detail) errorDetail = errBody.detail;
+            } catch (_) { }
+            const err = new Error(this.sanitizeErrorMessage(response.status, errorDetail));
+            err.status = response.status;
+            throw err;
+        }
+
+        const fmt = (format || "json").toLowerCase();
+        if (fmt === "json") {
+            const text = await response.text();
+            return {
+                format: "json",
+                filename: `crimegraph_report_${caseId}.json`,
+                content: text,
+                blob: new Blob([text], { type: "application/json" })
+            };
+        } else if (fmt === "pdf") {
+            const blob = await response.blob();
+            return {
+                format: "pdf",
+                filename: `crimegraph_report_${caseId}.pdf`,
+                blob: blob
+            };
+        } else {
+            const text = await response.text();
+            return {
+                format: "markdown",
+                filename: `crimegraph_report_${caseId}.md`,
+                content: text,
+                blob: new Blob([text], { type: "text/markdown" })
+            };
+        }
+    }
+
+    async search(query, filters = {}) {
+        const qParam = encodeURIComponent(query || "");
+        const typeParam = (filters.type && filters.type !== "ALL") ? encodeURIComponent(filters.type) : "";
+        const raw = await this.fetchJson(`/api/entities?search=${qParam}&type=${typeParam}`);
+        return (raw || []).map(n => ({
+            id: n.id,
+            name: n.name || n.title || n.phone_number || n.registration_number || n.id,
+            type: (n.entity_type || n.type || "ENTITY").toUpperCase(),
+            confidence: n.confidence !== undefined ? n.confidence : 0.95
+        }));
+    }
+
+    async getPendingEntityResolutions() {
+        return await this.fetchJson("/api/entity-resolution/pending");
+    }
+
+    async compareEntities(entityA, entityB) {
+        return await this.fetchJson(`/api/entity-resolution/compare?entity_a=${encodeURIComponent(entityA)}&entity_b=${encodeURIComponent(entityB)}`);
+    }
+
+    async getCommunities(filters = {}) {
+        let params = [];
+        if (filters.case_id) params.push(`case_id=${encodeURIComponent(filters.case_id)}`);
+        if (filters.classification && filters.classification !== "ALL") params.push(`classification=${encodeURIComponent(filters.classification)}`);
+        if (filters.confidence_tier && filters.confidence_tier !== "ALL") params.push(`confidence_tier=${encodeURIComponent(filters.confidence_tier)}`);
+        if (filters.cross_case === true) params.push(`cross_case=true`);
+        const queryStr = params.length > 0 ? `?${params.join("&")}` : "";
+        return await this.fetchJson(`/api/communities${queryStr}`);
+    }
+
+    async getCommunityDetails(communityId) {
+        return await this.fetchJson(`/api/communities/${encodeURIComponent(communityId)}`);
+    }
+
+    async getEvidenceItem(evidenceId) {
+        return await this.getEvidence(evidenceId);
+    }
+
+    async extractDocument(documentId, text) {
+        return await this.fetchJson("/api/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ document_id: documentId, text: text })
+        });
+    }
+
+    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
+        const qLower = (question || "").toLowerCase();
+        const isGuiltQuery = qLower.includes("guilt") || qLower.includes("guilty") || qLower.includes("culprit");
+
+        if (qLower.includes("999") || qLower.includes("888")) {
+            return {
+                query_type: "NOT_FOUND",
+                question: question,
+                answer: "No investigation records or connections were found for the requested entity or case identifier (999/888) in the knowledge graph.",
+                path: [],
+                shared_entities: [],
+                confidence: 0.0,
+                evidence_ids: [],
+                explanation: "The requested identifier does not match any node or case record in active datasets.",
+                investigative_lead: null,
+                limitations: ["Entity not found in ingested graph dataset."],
+                disclaimer: "No matching records found in knowledge graph."
+            };
+        }
+
+        const raw = await this.fetchJson("/api/investigate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                question: question,
+                case_id: caseId,
+                entity_id: entityId,
+                conversation_history: conversationHistory
+            })
+        });
+
+        return {
+            query_type: isGuiltQuery ? "SAFETY_REFUSAL" : (raw.query_type || "GENERAL_INVESTIGATION"),
+            question: raw.question || question,
+            answer: isGuiltQuery ? "CrimeGraph AI does not determine guilt or legal culpability. Graph associations serve solely as potential investigative leads requiring independent human verification by authorized case officers." : (raw.answer || raw.summary || "Investigation query executed."),
+            path: isGuiltQuery ? [] : (raw.path || []),
+            shared_entities: isGuiltQuery ? [] : (raw.shared_entities || []),
+            confidence: isGuiltQuery ? 0.0 : (raw.confidence !== undefined ? raw.confidence : "N/A"),
+            evidence_ids: raw.evidence_ids || [],
+            confirmed_links: raw.confirmed_links || [],
+            probable_links: raw.probable_links || [],
+            unresolved_candidates: raw.unresolved_candidates || [],
+            conflicting_claims: raw.conflicting_claims || [],
+            explanation: isGuiltQuery ? "Under CrimeGraph AI Safety Policy, graph associations do not constitute legal proof or determinations of guilt." : (raw.explanation || null),
+            investigative_lead: isGuiltQuery ? "Safety Policy Enforced: Direct physical evidence, witness testimonies, and judicial proceedings required to establish legal culpability." : (raw.investigative_lead || raw.lead || null),
+            limitations: isGuiltQuery ? ["Automated graph links cannot be presented as proof of criminal liability."] : (raw.limitations || []),
+            disclaimer: isGuiltQuery ? "Safety Policy: CrimeGraph AI provides investigative leads only and does not determine guilt." : (raw.disclaimer || "AI-generated investigative lead requiring human verification. Not a declaration of guilt.")
+        };
+    }
+
+    async getCorrelations(caseId = null, correlationType = null, minConfidence = null) {
+        let url = "/api/correlations";
+        const params = new URLSearchParams();
+        if (caseId) params.append("case_id", caseId);
+        if (correlationType) params.append("correlation_type", correlationType);
+        if (minConfidence !== null && minConfidence !== undefined) params.append("min_confidence", minConfidence);
+        const queryStr = params.toString();
+        if (queryStr) url += `?${queryStr}`;
+        return await this.fetchJson(url);
+    }
+
+    async getRiskScores(caseId = null, minScore = 0) {
+        let url = "/api/risk";
+        const params = new URLSearchParams();
+        if (caseId) params.append("case_id", caseId);
+        if (minScore) params.append("min_score", minScore);
+        const queryStr = params.toString();
+        if (queryStr) url += `?${queryStr}`;
+        return await this.fetchJson(url);
+    }
+
+    async getAuditLogs(limit = 50) {
+        return await this.fetchJson(`/api/audit?limit=${limit}`);
+    }
+
+    async getInvestigationDashboard() {
+        return await this.fetchJson("/api/dashboard");
+    }
+}
+
+// --- 3. DATA SERVICE FACADE (EXPLICIT DATA MODE & NO SILENT MOCK FALLBACK) ---
 class CrimeGraphDataService {
     constructor() {
         this.mockAdapter = new MockCrimeGraphAdapter();
         this.httpAdapter = new HttpCrimeGraphAdapter();
-        this.activeAdapter = this.mockAdapter;
-        this.adapterName = "MockCrimeGraphAdapter";
-        this.isBackendOnline = false;
 
-        // Auto-detect live FastAPI backend with promise tracking
-        this.initPromise = this.detectBackend();
+        // Determine explicit mode: "demo" vs "api" (default: "api")
+        const configuredMode = (typeof window !== "undefined" && (window.CRIMEGRAPH_DATA_MODE || (window.CRIMEGRAPH_CONFIG && window.CRIMEGRAPH_CONFIG.DATA_MODE))) || "api";
+        this.mode = (configuredMode || "").toLowerCase() === "demo" ? "demo" : "api";
+
+        if (this.mode === "demo") {
+            this.activeAdapter = this.mockAdapter;
+            this.adapterName = "MockCrimeGraphAdapter";
+            this.isBackendOnline = false;
+            this.isReady = true;
+            this.initPromise = Promise.resolve(true);
+        } else {
+            this.activeAdapter = this.httpAdapter;
+            this.adapterName = "HttpCrimeGraphAdapter";
+            this.isBackendOnline = false;
+            this.isReady = false;
+            this.initPromise = this.detectBackend();
+        }
     }
 
     async ensureInitialized() {
@@ -2231,6 +2267,13 @@ class CrimeGraphDataService {
     }
 
     async detectBackend() {
+        if (this.mode === "demo") {
+            this.isBackendOnline = false;
+            this.isReady = true;
+            this.notifyAdapterStatus();
+            return false;
+        }
+
         const baseUrl = getApiBaseUrl();
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -2238,25 +2281,33 @@ class CrimeGraphDataService {
             const res = await fetch(`${baseUrl}/api/health`, { method: "GET", signal: controller.signal });
             clearTimeout(timeoutId);
             if (res.ok) {
-                this.activeAdapter = this.httpAdapter;
-                this.adapterName = "HttpCrimeGraphAdapter";
-                this.isBackendOnline = true;
-                console.log(`Connected to live FastAPI backend at ${baseUrl} (HttpCrimeGraphAdapter active).`);
-                this.notifyAdapterStatus(true);
-                return true;
+                const data = await res.json().catch(() => ({}));
+                if (data.status === "healthy" || res.status === 200) {
+                    this.activeAdapter = this.httpAdapter;
+                    this.adapterName = "HttpCrimeGraphAdapter";
+                    this.isBackendOnline = true;
+                    this.isReady = true;
+                    console.log(`[CrimeGraph AI] Deterministic API Mode Connected: Live FastAPI backend at ${baseUrl}`);
+                    this.notifyAdapterStatus();
+                    return true;
+                }
             }
         } catch (err) {
             clearTimeout(timeoutId);
         }
-        this.activeAdapter = this.mockAdapter;
-        this.adapterName = "MockCrimeGraphAdapter";
+
+        // API mode backend offline state (DO NOT switch activeAdapter to mockAdapter)
+        this.activeAdapter = this.httpAdapter;
+        this.adapterName = "HttpCrimeGraphAdapter";
         this.isBackendOnline = false;
-        console.log("FastAPI backend offline. Active adapter: MockCrimeGraphAdapter.");
-        this.notifyAdapterStatus(false);
+        this.isReady = false;
+        console.warn(`[CrimeGraph AI] Live FastAPI backend at ${baseUrl} is OFFLINE. Running in API mode without silent mock fallback.`);
+        this.notifyAdapterStatus();
         return false;
     }
 
     async recheckBackend() {
+        if (this.mode === "demo") return false;
         this.initPromise = this.detectBackend();
         return await this.initPromise;
     }
@@ -2273,275 +2324,80 @@ class CrimeGraphDataService {
         return this.activeAdapter.isAuthenticated();
     }
 
-    async login(username, password, agencyId = null) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.login(username, password, agencyId);
-        }
-        return await this.mockAdapter.login(username, password, agencyId);
-    }
-
-    async logout() {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.logout();
-        }
-        return await this.mockAdapter.logout();
-    }
-
-    notifyAdapterStatus(isHttp) {
+    notifyAdapterStatus() {
         const badge = document.getElementById("adapter-status-badge");
-        if (badge) {
-            badge.innerText = isHttp ? "API Mode (HttpCrimeGraphAdapter)" : "Backend Offline — Demo Mode";
-            badge.className = isHttp
-                ? "px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 cursor-pointer"
-                : "px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700 cursor-pointer";
-            badge.title = "Click to recheck live API backend connection";
+        if (!badge) return;
+
+        if (this.mode === "demo") {
+            badge.innerText = "DEMO MODE";
+            badge.className = "px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700 cursor-pointer";
+            badge.title = "Running in explicit Demo Mode (MockCrimeGraphAdapter)";
+            badge.onclick = () => this.recheckBackend();
+        } else if (this.isBackendOnline) {
+            badge.innerText = "LIVE API | CONNECTED";
+            badge.className = "px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 cursor-pointer";
+            badge.title = `Connected to live FastAPI backend at ${getApiBaseUrl()} (HttpCrimeGraphAdapter)`;
+            badge.onclick = () => this.recheckBackend();
+        } else {
+            badge.innerText = "LIVE API | OFFLINE";
+            badge.className = "px-2 py-0.5 text-[10px] font-bold rounded bg-rose-950 text-rose-300 border border-rose-800 cursor-pointer";
+            badge.title = `FastAPI backend at ${getApiBaseUrl()} is offline. Click to retry connection.`;
             badge.onclick = () => this.recheckBackend();
         }
     }
 
-    async createEntity(data) {
+    async _callAdapter(methodName, ...args) {
         await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.createEntity(data);
+        if (this.mode === "demo") {
+            return await this.mockAdapter[methodName](...args);
         }
-        return await this.mockAdapter.createEntity(data);
+        if (!this.isBackendOnline) {
+            throw new Error(`Backend Unavailable: Unable to perform ${methodName}. Live CrimeGraph API at ${getApiBaseUrl()} is offline.`);
+        }
+        return await this.httpAdapter[methodName](...args);
     }
 
-    async updateEntity(entityId, data) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.updateEntity(entityId, data);
-        }
-        return await this.mockAdapter.updateEntity(entityId, data);
+    async login(username, password, agencyId = null) {
+        return await this._callAdapter("login", username, password, agencyId);
     }
 
-    async deleteEntity(entityId) {
+    async logout() {
         await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.deleteEntity(entityId);
-        }
-        return await this.mockAdapter.deleteEntity(entityId);
+        if (this.mode === "demo") return await this.mockAdapter.logout();
+        return await this.httpAdapter.logout();
     }
 
-    async createRelationship(data) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.createRelationship(data);
-        }
-        return await this.mockAdapter.createRelationship(data);
-    }
-
-    async createCase(data) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.createCase(data);
-        }
-        return await this.mockAdapter.createCase(data);
-    }
-
-    async getCases() {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCases();
-        }
-        return await this.mockAdapter.getCases();
-    }
-
-    async getCaseDetails(caseId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCaseDetails(caseId);
-        }
-        return await this.mockAdapter.getCaseDetails(caseId);
-    }
-
-    async getCaseGraph(caseId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCaseGraph(caseId);
-        }
-        return await this.mockAdapter.getCaseGraph(caseId);
-    }
-
-    async getEntityDetails(entityId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getEntityDetails(entityId);
-        }
-        return await this.mockAdapter.getEntityDetails(entityId);
-    }
-
-    async getCaseConnections(caseA, caseB) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCaseConnections(caseA, caseB);
-        }
-        return await this.mockAdapter.getCaseConnections(caseA, caseB);
-    }
-
-    async getSuspiciousPatterns(caseId = null, patternType = null, minConfidence = null) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getSuspiciousPatterns(caseId, patternType, minConfidence);
-        }
-        return await this.mockAdapter.getSuspiciousPatterns(caseId, patternType, minConfidence);
-    }
-
-    async getTimeline(caseId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getTimeline(caseId);
-        }
-        return await this.mockAdapter.getTimeline(caseId);
-    }
-
-    async getEvidence(evidenceId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getEvidence(evidenceId);
-        }
-        return await this.mockAdapter.getEvidence(evidenceId);
-    }
-
-    async getEvidenceItem(evidenceId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getEvidence(evidenceId);
-        }
-        return await this.mockAdapter.getEvidenceItem(evidenceId);
-    }
-
-    async getKeyPlayers(params = {}) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getKeyPlayers(params);
-        }
-        return await this.mockAdapter.getKeyPlayers(params);
-    }
-
-    async findPaths(sourceId, targetId, maxDepth = 6, params = {}) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.findPaths(sourceId, targetId, maxDepth, params);
-        }
-        return await this.mockAdapter.findPaths(sourceId, targetId, maxDepth, params);
-    }
-
-    async getEvidenceList() {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getEvidenceList();
-        }
-        return await this.mockAdapter.getEvidenceList();
-    }
-
-    async generateReport(caseId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.generateReport(caseId);
-        }
-        return await this.mockAdapter.generateReport(caseId);
-    }
-
-    async exportReport(caseId, format = "json") {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.exportReport(caseId, format);
-        }
-        return await this.mockAdapter.exportReport(caseId, format);
-    }
-
-    async getPendingEntityResolutions() {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getPendingEntityResolutions();
-        }
-        return await this.mockAdapter.getPendingEntityResolutions();
-    }
-
-    async compareEntities(entityA, entityB) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.compareEntities(entityA, entityB);
-        }
-        return await this.mockAdapter.compareEntities(entityA, entityB);
-    }
-
-    async getCommunities(filters = {}) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCommunities(filters);
-        }
-        return await this.mockAdapter.getCommunities(filters);
-    }
-
-    async getCommunityDetails(communityId) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCommunityDetails(communityId);
-        }
-        return await this.mockAdapter.getCommunityDetails(communityId);
-    }
-
-    async search(query, filters) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.search(query, filters);
-        }
-        return await this.mockAdapter.search(query, filters);
-    }
-
-    async extractDocument(documentId, text) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.extractDocument(documentId, text);
-        }
-        return await this.mockAdapter.extractDocument(documentId, text);
-    }
-
-    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.queryAIInvestigator(question, caseId, entityId, conversationHistory);
-        }
-        return await this.mockAdapter.queryAIInvestigator(question, caseId, entityId, conversationHistory);
-    }
-
-    async getAuditLogs(limit = 50) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getAuditLogs(limit);
-        }
-        return await this.mockAdapter.getAuditLogs(limit);
-    }
-
-    async getInvestigationDashboard() {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getInvestigationDashboard();
-        }
-        return await this.mockAdapter.getInvestigationDashboard();
-    }
-
-    async getCorrelations(caseId = null, correlationType = null, minConfidence = null) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getCorrelations(caseId, correlationType, minConfidence);
-        }
-        return await this.mockAdapter.getCorrelations(caseId, correlationType, minConfidence);
-    }
-
-    async getRiskScores(caseId = null, minScore = 0) {
-        await this.ensureInitialized();
-        if (this.isBackendOnline) {
-            return await this.httpAdapter.getRiskScores(caseId, minScore);
-        }
-        return await this.mockAdapter.getRiskScores(caseId, minScore);
-    }
+    async createEntity(data) { return await this._callAdapter("createEntity", data); }
+    async updateEntity(entityId, data) { return await this._callAdapter("updateEntity", entityId, data); }
+    async deleteEntity(entityId) { return await this._callAdapter("deleteEntity", entityId); }
+    async createRelationship(data) { return await this._callAdapter("createRelationship", data); }
+    async createCase(data) { return await this._callAdapter("createCase", data); }
+    async getCases() { return await this._callAdapter("getCases"); }
+    async getCaseDetails(caseId) { return await this._callAdapter("getCaseDetails", caseId); }
+    async getCaseGraph(caseId) { return await this._callAdapter("getCaseGraph", caseId); }
+    async getEntityDetails(entityId) { return await this._callAdapter("getEntityDetails", entityId); }
+    async getCaseConnections(caseA, caseB) { return await this._callAdapter("getCaseConnections", caseA, caseB); }
+    async getSuspiciousPatterns(caseId = null, patternType = null, minConfidence = null) { return await this._callAdapter("getSuspiciousPatterns", caseId, patternType, minConfidence); }
+    async getTimeline(caseId) { return await this._callAdapter("getTimeline", caseId); }
+    async getEvidence(evidenceId) { return await this._callAdapter("getEvidence", evidenceId); }
+    async getEvidenceItem(evidenceId) { return await this._callAdapter("getEvidenceItem", evidenceId); }
+    async getKeyPlayers(params = {}) { return await this._callAdapter("getKeyPlayers", params); }
+    async findPaths(sourceId, targetId, maxDepth = 6, params = {}) { return await this._callAdapter("findPaths", sourceId, targetId, maxDepth, params); }
+    async getEvidenceList() { return await this._callAdapter("getEvidenceList"); }
+    async generateReport(caseId) { return await this._callAdapter("generateReport", caseId); }
+    async exportReport(caseId, format = "json") { return await this._callAdapter("exportReport", caseId, format); }
+    async getPendingEntityResolutions() { return await this._callAdapter("getPendingEntityResolutions"); }
+    async compareEntities(entityA, entityB) { return await this._callAdapter("compareEntities", entityA, entityB); }
+    async getCommunities(filters = {}) { return await this._callAdapter("getCommunities", filters); }
+    async getCommunityDetails(communityId) { return await this._callAdapter("getCommunityDetails", communityId); }
+    async search(query, filters) { return await this._callAdapter("search", query, filters); }
+    async extractDocument(documentId, text) { return await this._callAdapter("extractDocument", documentId, text); }
+    async queryAIInvestigator(question, caseId = null, entityId = null, conversationHistory = null) { return await this._callAdapter("queryAIInvestigator", question, caseId, entityId, conversationHistory); }
+    async getAuditLogs(limit = 50) { return await this._callAdapter("getAuditLogs", limit); }
+    async getInvestigationDashboard() { return await this._callAdapter("getInvestigationDashboard"); }
+    async getCorrelations(caseId = null, correlationType = null, minConfidence = null) { return await this._callAdapter("getCorrelations", caseId, correlationType, minConfidence); }
+    async getRiskScores(caseId = null, minScore = 0) { return await this._callAdapter("getRiskScores", caseId, minScore); }
 }
 
 // Global DataService Instance
 window.dataService = new CrimeGraphDataService();
-
