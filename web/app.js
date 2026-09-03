@@ -739,7 +739,10 @@ async function renderCaseExplorer() {
 /* ----------------------------------------------------
    3. CASE DETAIL (PHASE 4 & 6)
 ---------------------------------------------------- */
+let currentCaseDetailRequestId = 0;
+
 async function renderCaseDetail(caseId = "CASE_101") {
+    const requestId = ++currentCaseDetailRequestId;
     const container = document.getElementById("case-detail-container");
     if (!container) return;
 
@@ -765,6 +768,7 @@ async function renderCaseDetail(caseId = "CASE_101") {
 
     try {
         const c = await window.dataService.getCaseDetails(caseId);
+        if (requestId !== currentCaseDetailRequestId) return;
 
         if (!c) {
             container.innerHTML = `
@@ -984,7 +988,10 @@ async function initGraphWorkspace(initialCaseId = "CASE_101") {
     await renderGraphWorkspace(initialCaseId);
 }
 
+let currentGraphRequestId = 0;
+
 async function renderGraphWorkspace(caseId = "CASE_101") {
+    const requestId = ++currentGraphRequestId;
     const container = document.getElementById("graph-canvas");
     if (!container) return;
 
@@ -1006,6 +1013,17 @@ async function renderGraphWorkspace(caseId = "CASE_101") {
         try { currentVisEdges.clear(); } catch (_) {}
     }
 
+    // Reset inspector drawer so previous case details don't remain stale
+    const drawer = document.getElementById("inspector-drawer");
+    if (drawer) {
+        drawer.innerHTML = `
+            <div class="text-center py-16 text-outline text-xs font-sans">
+                <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block" aria-hidden="true">touch_app</span>
+                Click any node to open <strong>Entity Details Panel</strong>.<br>Click any relationship edge to open <strong>Evidence Panel</strong>.
+            </div>
+        `;
+    }
+
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-center py-10 text-outline text-xs font-sans">
             <span class="material-symbols-outlined animate-spin text-primary text-2xl mb-2" aria-hidden="true">sync</span>
@@ -1014,7 +1032,9 @@ async function renderGraphWorkspace(caseId = "CASE_101") {
     `;
 
     try {
-        rawGraphData = await window.dataService.getCaseGraph(caseId);
+        const data = await window.dataService.getCaseGraph(caseId);
+        if (requestId !== currentGraphRequestId) return;
+        rawGraphData = data;
 
         if (!rawGraphData || !rawGraphData.nodes || rawGraphData.nodes.length === 0) {
             container.innerHTML = `
@@ -1944,7 +1964,7 @@ async function runAIQuery(questionText) {
         const pathNodes = res.path || [];
         const isSafetyRefusal = res.query_type === "SAFETY_REFUSAL";
         const isNotFound = res.query_type === "NOT_FOUND";
-        const showPath = !isSafetyRefusal && !isNotFound && Array.isArray(pathNodes) && pathNodes.length > 0 && res.query_type !== "GENERAL_INVESTIGATION";
+        const showPath = !isSafetyRefusal && !isNotFound && Array.isArray(pathNodes) && pathNodes.length > 0;
 
         const evidenceCitations = (res.evidence_ids && res.evidence_ids.length > 0)
             ? res.evidence_ids.join(", ")
@@ -3826,9 +3846,10 @@ function sendNLPQueryToAI() {
    DAY 23: TIMELINE & EVENT CORRELATION FRONTEND WORKSPACE
    =========================================================================== */
 
-let allTimelineEvents = [];
+let currentTimelineRequestId = 0;
 
 async function renderTimeline(caseId = null) {
+    const requestId = ++currentTimelineRequestId;
     const container = document.getElementById("timeline-events-container");
     if (!container) return;
 
@@ -3841,6 +3862,7 @@ async function renderTimeline(caseId = null) {
     try {
         const targetCase = caseId || document.getElementById("timeline-case-filter")?.value || "ALL";
         const response = await window.dataService.getTimeline(targetCase);
+        if (requestId !== currentTimelineRequestId) return;
         allTimelineEvents = response.events || response || [];
 
         filterTimelineEvents();
@@ -3871,8 +3893,9 @@ function filterTimelineEvents() {
     const searchQuery = (document.getElementById("timeline-search-input")?.value || "").toLowerCase().trim();
 
     let filtered = allTimelineEvents.filter(ev => {
-        if (caseFilter !== "ALL" && ev.case_id !== caseFilter) return false;
-        if (typeFilter !== "ALL" && ev.event_type !== typeFilter) return false;
+        if (caseFilter !== "ALL" && ev.case_id && ev.case_id !== caseFilter) return false;
+        const evType = ev.event_type || ev.type;
+        if (typeFilter !== "ALL" && evType !== typeFilter) return false;
         if (sourceFilter !== "ALL" && ev.source_type !== sourceFilter && ev.extraction_method !== sourceFilter) return false;
         if (correlationFilter === "CORRELATED" && (!ev.correlations || ev.correlations.length === 0)) return false;
         if (correlationFilter === "DIRECTLY_SUPPORTED" && ev.correlation_status !== "DIRECTLY_SUPPORTED") return false;
