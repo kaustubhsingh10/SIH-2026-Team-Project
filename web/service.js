@@ -270,16 +270,6 @@ class MockCrimeGraphAdapter {
         return { nodes, edges };
     }
 
-    async getAllEntities() {
-        return (this.dataset.nodes || []).map(n => ({
-            id: n.id,
-            name: n.name || n.id,
-            entity_type: n.type || "ENTITY",
-            type: n.type || "ENTITY",
-            origin: n.origin || "DATASET"
-        }));
-    }
-
     async getEntityDetails(entityId) {
         const ent = this.dataset.nodes.find(n => n.id === entityId);
         if (!ent) return null;
@@ -1378,22 +1368,6 @@ class HttpCrimeGraphAdapter {
         };
     }
 
-    async getAllEntities() {
-        try {
-            const raw = await this.fetchJson("/api/entities");
-            return (raw || []).map(n => ({
-                id: n.id,
-                name: n.name || n.title || n.phone_number || n.registration_number || n.id,
-                entity_type: n.entity_type || "ENTITY",
-                type: n.entity_type || "ENTITY",
-                origin: n.origin || "DATASET"
-            }));
-        } catch (err) {
-            const mock = new MockCrimeGraphAdapter();
-            return await mock.getAllEntities();
-        }
-    }
-
     async createEntity(entityData) {
         return await this.fetchJson("/api/entities", {
             method: "POST",
@@ -1430,227 +1404,12 @@ class HttpCrimeGraphAdapter {
         });
     }
 
-    async getInvestigationDashboard() {
-        try {
-            return await this.fetchJson("/api/dashboard");
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getInvestigationDashboard();
-        }
-    }
-
-    async getKeyPlayers(params = {}) {
-        try {
-            return await this.fetchJson("/api/key-players");
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getKeyPlayers(params);
-        }
-    }
-
-    async findPaths(sourceId, targetId, maxDepth = 6, params = {}) {
-        if (!sourceId || !targetId) {
-            return { source_id: sourceId, target_id: targetId, path_count: 0, paths: [] };
-        }
-        const query = new URLSearchParams({
-            source_id: sourceId,
-            target_id: targetId,
-            max_depth: maxDepth
-        });
-        if (params.directed !== undefined && params.directed !== null) {
-            query.append("directed", params.directed);
-        }
-
-        try {
-            const data = await this.fetchJson(`/api/paths?${query.toString()}`);
-            if (data && Array.isArray(data.paths)) {
-                return data;
-            }
-        } catch (e) {
-            console.warn("API /api/paths query failed, attempting cross-case connections fallback", e);
-        }
-
-        if (sourceId.toUpperCase().startsWith("CASE_") && targetId.toUpperCase().startsWith("CASE_")) {
-            try {
-                const connData = await this.fetchJson(`/api/cases/connections?case_a=${encodeURIComponent(sourceId)}&case_b=${encodeURIComponent(targetId)}`);
-                if (connData && Array.isArray(connData.connections) && connData.connections.length > 0) {
-                    return {
-                        source_id: sourceId,
-                        target_id: targetId,
-                        path_count: connData.connections.length,
-                        paths: connData.connections.map(c => ({
-                            source_id: sourceId,
-                            target_id: targetId,
-                            path: c.path,
-                            shared_entities: c.shared_entities,
-                            confidence: c.confidence,
-                            evidence_ids: c.evidence_ids || [],
-                            steps: (c.path || []).slice(0, -1).map((node, idx) => ({
-                                from: node,
-                                to: c.path[idx + 1],
-                                relationship: "CONNECTED_TO",
-                                confidence: c.confidence,
-                                evidence_ids: c.evidence_ids || []
-                            })),
-                            hop_count: Math.max(1, (c.path || []).length - 1),
-                            path_score: c.confidence
-                        }))
-                    };
-                }
-            } catch (err) {
-                console.warn("Fallback /api/cases/connections failed", err);
-            }
-        }
-
-        return { source_id: sourceId, target_id: targetId, path_count: 0, paths: [] };
-    }
-
-    async getCases() {
-        const raw = await this.fetchJson("/api/cases");
-        return (raw || []).map(c => ({
-            id: c.id,
-            title: c.title || c.id,
-            description: c.description || "",
-            date: c.incident_date || c.date || "N/A",
-            status: c.status || "ACTIVE",
-            location: c.location_id || c.location || "N/A",
-            entities_count: c.entities_count !== undefined ? c.entities_count : 8,
-            entity_count: c.entities_count !== undefined ? c.entities_count : 8,
-            evidence_count: c.evidence_count !== undefined ? c.evidence_count : 5
-        }));
-    }
-
-    async getCaseDetails(caseId) {
-        if (!caseId) return null;
-        try {
-            const c = await this.fetchJson(`/api/cases/${encodeURIComponent(caseId)}`);
-            return {
-                id: c.id,
-                case_number: c.case_number || c.id,
-                title: c.title || c.id,
-                description: c.description || "",
-                date: c.incident_date || c.date || "N/A",
-                status: c.status || "ACTIVE",
-                location: c.location_id || c.location || "N/A",
-                source_ids: c.source_ids || []
-            };
-        } catch (err) {
-            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
-                return null;
-            }
-            throw err;
-        }
-    }
-
-    async getCaseGraph(caseId) {
-        const endpoint = caseId === "ALL" ? "/api/graph" : `/api/cases/${encodeURIComponent(caseId)}/graph`;
-        const raw = await this.fetchJson(endpoint);
-
-        const nodes = (raw.nodes || []).map(n => {
-            const detailsObj = (typeof n.details === "object" && n.details) ? n.details : n;
-            const phoneNo = detailsObj.phone_number || n.phone_number;
-            const regNo = detailsObj.registration_number || n.registration_number;
-            const titleOrName = (phoneNo ? `${phoneNo}` : (regNo ? `${regNo}` : (n.name || n.title || n.label || n.id)));
-            return {
-                id: n.id,
-                label: titleOrName,
-                name: titleOrName,
-                type: (n.type || n.entity_type || "ENTITY").toUpperCase(),
-                confidence: n.confidence !== undefined ? n.confidence : 1.0,
-                details: this.formatEntityDetails(n.details || n),
-                source: n.source || (n.is_manual ? "Manual" : "Dataset"),
-                is_manual: n.is_manual || n.source === "Manual"
-            };
-        });
-
-        const edges = (raw.edges || []).map(e => ({
-            id: e.id,
-            source: e.source || e.source_id,
-            target: e.target || e.target_id,
-            relationship: e.relationship,
-            confidence: e.confidence !== undefined ? e.confidence : 1.0,
-            evidence_id: (e.evidence_ids && Array.isArray(e.evidence_ids) && e.evidence_ids.length > 0) ? e.evidence_ids[0] : (e.evidence_id || null),
-            source_type: e.source_type || (e.is_manual ? "Manual" : "Dataset"),
-            is_manual: e.is_manual || e.source_type === "Manual"
-        }));
-
-        return { nodes, edges };
-    }
-
-    async getEntityDetails(entityId) {
-        try {
-            const raw = await this.fetchJson(`/api/entities/${encodeURIComponent(entityId)}`);
-            if (!raw) return null;
-
-            const detailsObj = (typeof raw.details === "object" && raw.details) ? raw.details : raw;
-            const phoneNo = detailsObj.phone_number || raw.phone_number;
-            const regNo = detailsObj.registration_number || raw.registration_number;
-            let displayName = raw.name || raw.title || raw.id;
-            if (phoneNo && (displayName === raw.id || raw.type === "PHONE")) {
-                displayName = phoneNo;
-            } else if (regNo && (displayName === raw.id || raw.type === "VEHICLE")) {
-                displayName = regNo;
-            }
-
-            return {
-                id: raw.id,
-                type: (raw.type || raw.entity_type || "ENTITY").toUpperCase(),
-                name: displayName,
-                details: this.formatEntityDetails(raw.details || raw),
-                confidence: raw.confidence !== undefined ? raw.confidence : 0.95,
-                source: raw.source || (raw.is_manual ? "Manual" : "Dataset"),
-                is_manual: raw.is_manual || raw.source === "Manual",
-                raw_data: raw.details || raw,
-                relationships: (raw.relationships || []).map(r => ({
-                    id: r.id,
-                    source: r.source_id || r.source,
-                    target: r.target_id || r.target,
-                    relationship: r.relationship,
-                    confidence: r.confidence !== undefined ? r.confidence : 0.9,
-                    evidence_id: (r.evidence_ids && Array.isArray(r.evidence_ids) && r.evidence_ids.length > 0) ? r.evidence_ids[0] : null
-                })),
-                cases: raw.cases || [],
-                evidence: raw.evidence || []
-            };
-        } catch (err) {
-            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
-                return null;
-            }
-            throw err;
-        }
-    }
-
     async getCaseConnections(caseA = "CASE_101", caseB = "CASE_204") {
-        try {
-            return await this.fetchJson(`/api/cases/connections?case_a=${encodeURIComponent(caseA)}&case_b=${encodeURIComponent(caseB)}`);
-        } catch (err) {
-            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
-                return { connections: [] };
-            }
-            throw err;
-        }
+        return await this.fetchJson(`/api/cases/connections?case_a=${caseA}&case_b=${caseB}`);
     }
 
     async getTimeline(caseId) {
-        try {
-            const targetCase = caseId || "CASE_101";
-            const raw = await this.fetchJson(`/api/cases/${encodeURIComponent(targetCase)}/timeline`);
-            const rawEvents = raw.events || (Array.isArray(raw) ? raw : []);
-            const events = rawEvents.map(e => ({
-                ...e,
-                case_id: e.case_id || targetCase,
-                event_type: e.event_type || e.type || "EVENT",
-                type: e.type || e.event_type || "EVENT",
-                title: e.title || `${e.event_type || e.type || 'Event'} (${e.id})`,
-                location_name: e.location_name || e.location_id || "N/A"
-            }));
-            return { events };
-        } catch (err) {
-            if (err.status === 404 || (err.message && err.message.toLowerCase().includes("not found"))) {
-                return { events: [] };
-            }
-            throw err;
-        }
+        return await this.fetchJson(`/api/cases/${caseId}/timeline`);
     }
 
     async getEvidence(evidenceId) {
@@ -1692,11 +1451,16 @@ class HttpCrimeGraphAdapter {
     }
 
     async generateReport(caseId) {
-        return await this.fetchJson("/api/reports", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ case_id: caseId })
-        });
+        try {
+            return await this.fetchJson("/api/reports", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: caseId })
+            });
+        } catch (err) {
+            const mock = new MockCrimeGraphAdapter();
+            return await mock.generateReport(caseId);
+        }
     }
 
     async generateComprehensiveReport(options = {}) {
@@ -1707,56 +1471,8 @@ class HttpCrimeGraphAdapter {
         });
     }
 
-    async exportReport(caseId, format = "json") {
-        try {
-            const token = this.getToken();
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers["Authorization"] = `Bearer ${token}`;
-
-            const response = await fetch(`${this.baseUrl}/api/reports/export`, {
-                method: "POST",
-                headers: headers,
-                body: JSON.stringify({ case_id: caseId, format: format })
-            });
-
-            if (response.ok) {
-                const fmt = (format || "json").toLowerCase();
-                if (fmt === "json") {
-                    const text = await response.text();
-                    return {
-                        format: "json",
-                        filename: `crimegraph_report_${caseId}.json`,
-                        content: text,
-                        blob: new Blob([text], { type: "application/json" })
-                    };
-                } else if (fmt === "pdf") {
-                    const blob = await response.blob();
-                    return {
-                        format: "pdf",
-                        filename: `crimegraph_report_${caseId}.pdf`,
-                        blob: blob
-                    };
-                } else {
-                    const text = await response.text();
-                    return {
-                        format: "markdown",
-                        filename: `crimegraph_report_${caseId}.md`,
-                        content: text,
-                        blob: new Blob([text], { type: "text/markdown" })
-                    };
-                }
-            }
-        } catch (_) { }
-
-        // Fallback: Generate via generateReport
-        const rep = await this.generateReport(caseId);
-        const text = rep.content || JSON.stringify(rep, null, 2);
-        return {
-            format: format || "markdown",
-            filename: `crimegraph_report_${caseId}.${format === "json" ? "json" : "md"}`,
-            content: text,
-            blob: new Blob([text], { type: format === "json" ? "application/json" : "text/markdown" })
-        };
+    async exportReport(reportId, format = "JSON") {
+        return await this.fetchJson(`/api/reports/${reportId}/export?format=${format}`);
     }
 
     async search(query, filters = {}) {
@@ -1829,58 +1545,6 @@ class HttpCrimeGraphAdapter {
         } catch (err) {
             const mock = new MockCrimeGraphAdapter();
             return await mock.getPatterns(params);
-        }
-    }
-
-    async compareEntities(entityA, entityB) {
-        try {
-            return await this.fetchJson(`/api/entity-resolution/compare?entity_a=${encodeURIComponent(entityA)}&entity_b=${encodeURIComponent(entityB)}`);
-        } catch (err) {
-            const pending = await this.getPendingEntityResolutions().catch(() => ({ candidates: [] }));
-            const candidate = (pending.candidates || []).find(c => 
-                (c.entity_a === entityA && c.entity_b === entityB) ||
-                (c.entity_a === entityB && c.entity_b === entityA)
-            );
-            if (candidate) return candidate;
-
-            const [entA, entB] = await Promise.all([
-                this.getEntityDetails(entityA).catch(() => null),
-                this.getEntityDetails(entityB).catch(() => null)
-            ]);
-
-            return {
-                entity_a: entityA,
-                name_a: entA ? entA.name : entityA,
-                entity_b: entityB,
-                name_b: entB ? entB.name : entityB,
-                similarity: 0.85,
-                reasons: ["Topological graph co-location", "Shared evidence document context"],
-                status: "PENDING_REVIEW"
-            };
-        }
-    }
-
-    async getCommunities(filters = {}) {
-        try {
-            let params = [];
-            if (filters.case_id) params.push(`case_id=${encodeURIComponent(filters.case_id)}`);
-            if (filters.classification && filters.classification !== "ALL") params.push(`classification=${encodeURIComponent(filters.classification)}`);
-            if (filters.confidence_tier && filters.confidence_tier !== "ALL") params.push(`confidence_tier=${encodeURIComponent(filters.confidence_tier)}`);
-            if (filters.cross_case === true) params.push(`cross_case=true`);
-            const queryStr = params.length > 0 ? `?${params.join("&")}` : "";
-            return await this.fetchJson(`/api/communities${queryStr}`);
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getCommunities(filters);
-        }
-    }
-
-    async getCommunityDetails(communityId) {
-        try {
-            return await this.fetchJson(`/api/communities/${encodeURIComponent(communityId)}`);
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getCommunityDetails(communityId);
         }
     }
 
@@ -2169,11 +1833,7 @@ class HttpCrimeGraphAdapter {
 
     async getCorrelations(params = {}) {
         let url = "/api/timeline/correlations";
-        if (typeof params === "string") {
-            url += `?case_id=${params}`;
-        } else if (params && params.case_id) {
-            url += `?case_id=${params.case_id}`;
-        }
+        if (params.case_id) url += `?case_id=${params.case_id}`;
         return await this.fetchJson(url);
     }
 
@@ -2224,37 +1884,8 @@ class HttpCrimeGraphAdapter {
     async getCaseCommunities(caseId, minClusterSize = 2) {
         return await this.fetchJson(`/api/cases/${caseId}/communities?min_cluster_size=${minClusterSize}`);
     }
+}
 
-    async getRiskScores(caseId = null, minScore = 0) {
-        try {
-            let url = "/api/risk";
-            const params = new URLSearchParams();
-            if (caseId) params.append("case_id", caseId);
-            if (minScore) params.append("min_score", minScore);
-            const queryStr = params.toString();
-            if (queryStr) url += `?${queryStr}`;
-            return await this.fetchJson(url);
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getRiskScores(caseId, minScore);
-        }
-    }
-
-    async getAuditLogs(limit = 50) {
-        try {
-            return await this.fetchJson(`/api/audit?limit=${limit}`);
-        } catch (err) {
-            return [];
-        }
-    }
-
-    async getInvestigationDashboard() {
-        try {
-            return await this.fetchJson("/api/dashboard");
-        } catch (err) {
-            const mockAdapter = new MockCrimeGraphAdapter();
-            return await mockAdapter.getInvestigationDashboard();
-        }
 
 // --- 3. DATA SERVICE FACADE (WITH AUTO FAILOVER) ---
 class CrimeGraphDataService {
@@ -2369,15 +2000,6 @@ class CrimeGraphDataService {
         } catch (err) {
             console.warn("HTTP call failed, falling back to mock adapter:", err);
             return await this.mockAdapter.getEntityDetails(entityId);
-        }
-    }
-
-    async getAllEntities() {
-        try {
-            return await this.activeAdapter.getAllEntities();
-        } catch (err) {
-            console.warn("HTTP call failed, falling back to mock adapter:", err);
-            return await this.mockAdapter.getAllEntities();
         }
     }
 
