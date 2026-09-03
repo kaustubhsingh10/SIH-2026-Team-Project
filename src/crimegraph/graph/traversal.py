@@ -25,15 +25,37 @@ def find_paths_between_entities(
     if target_id not in graph.entities:
         raise KeyError(f"Target entity '{target_id}' not found in graph")
 
-    results: List[Dict[str, Any]] = []
+    # Edge Case: Source is identical to target
+    if source_id == target_id:
+        return [{
+            "source_id": source_id,
+            "target_id": target_id,
+            "path": [source_id],
+            "shared_entities": [],
+            "confidence": 1.0,
+            "evidence_ids": [],
+            "steps": [],
+            "hop_count": 0
+        }]
 
-    # BFS / DFS Queue: (current_node_id, [visited_node_ids], [traversed_rel_ids])
+    if max_depth < 1:
+        return []
+
+    results: List[Dict[str, Any]] = []
+    seen_path_signatures: Set[Tuple[str, ...]] = set()
+
+    # BFS Queue: (current_node_id, [visited_node_ids], [traversed_rel_ids])
     queue: List[tuple] = [(source_id, [source_id], [])]
 
     while queue:
         current_node, visited_nodes, traversed_rels = queue.pop(0)
 
         if current_node == target_id and len(visited_nodes) > 1:
+            path_tuple = tuple(visited_nodes)
+            if path_tuple in seen_path_signatures:
+                continue
+            seen_path_signatures.add(path_tuple)
+
             # Reconstruct path metadata
             path_evidence_ids: Set[str] = set()
             edge_confidences: List[float] = []
@@ -64,7 +86,7 @@ def find_paths_between_entities(
             intermediate_nodes = visited_nodes[1:-1]
             shared_entities = [
                 nid for nid in intermediate_nodes
-                if graph.entities[nid].entity_type in [
+                if nid in graph.entities and graph.entities[nid].entity_type in [
                     EntityType.PHONE.value,
                     EntityType.VEHICLE.value,
                     EntityType.LOCATION.value,
@@ -99,8 +121,8 @@ def find_paths_between_entities(
                     traversed_rels + [rel.id]
                 ))
 
-    # Sort results by shortest path first, then highest confidence
-    results.sort(key=lambda x: (x["hop_count"], -x["confidence"]))
+    # Sort results deterministically: shortest hop count first, then highest confidence, then path string
+    results.sort(key=lambda x: (x["hop_count"], -x["confidence"], "->".join(x["path"])))
     return results
 
 
@@ -126,6 +148,9 @@ def find_cross_case_connections(
       ]
     }
     """
+    if case_a == case_b:
+        return []
+
     raw_paths = find_paths_between_entities(graph, case_a, case_b, max_depth=max_depth, directed=False)
     
     connections = []
@@ -133,7 +158,7 @@ def find_cross_case_connections(
         # Determine the key bridge entity (e.g. Phone, Vehicle, or Account)
         bridge_entities = [
             nid for nid in p["shared_entities"]
-            if graph.entities[nid].entity_type in [
+            if nid in graph.entities and graph.entities[nid].entity_type in [
                 EntityType.PHONE.value,
                 EntityType.VEHICLE.value,
                 EntityType.ACCOUNT.value,

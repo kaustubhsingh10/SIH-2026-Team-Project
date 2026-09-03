@@ -16,6 +16,19 @@ from crimegraph.models.entities import (
     Entity,
 )
 
+from crimegraph.models.sources import (
+    SourceType,
+    SourceMetadata,
+    ProvenanceRecord,
+    SourceConflict,
+    ConflictStatus,
+    SourceCreateRequest,
+    IngestionRecord,
+    IngestionBatchRequest,
+    IngestionBatchResponse,
+    ConflictResolveRequest,
+)
+
 __all__ = [
     "Evidence",
     "Relationship",
@@ -31,4 +44,14 @@ __all__ = [
     "Case",
     "Event",
     "Entity",
+    "SourceType",
+    "SourceMetadata",
+    "ProvenanceRecord",
+    "SourceConflict",
+    "ConflictStatus",
+    "SourceCreateRequest",
+    "IngestionRecord",
+    "IngestionBatchRequest",
+    "IngestionBatchResponse",
+    "ConflictResolveRequest",
 ]

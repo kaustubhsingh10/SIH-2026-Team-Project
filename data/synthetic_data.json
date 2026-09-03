@@ -12,8 +12,6 @@
         "DOC_CASE_101_FIR_REPORT.pdf",
         "EVID_101_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "CASE",
       "case_number": "FIR-2026-DEL-101",
       "title": "Operation Midnight Shadow \u2014 Logistics Yard Cargo Hijack",
@@ -28,8 +26,6 @@
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
         "EVID_204_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "CASE",
       "case_number": "FIR-2026-MUM-204",
       "title": "Operation Golden Falcon \u2014 Zaveri Bazaar Fencing Syndicate",
@@ -44,8 +40,6 @@
         "DOC_CASE_102_CYBER_CRIME_UNIT.pdf",
         "EVID_102_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "CASE",
       "case_number": "FIR-2026-DEL-102",
       "title": "Cyber Syndicate Hawala Routing",
@@ -60,8 +54,6 @@
         "DOC_CASE_305_BLR_POLICE_REPORT.pdf",
         "EVID_305_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "CASE",
       "case_number": "FIR-2026-BLR-305",
       "title": "Warehouse Depot Break-in",
@@ -77,8 +69,6 @@
         "EVID_101_01",
         "EVID_042_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PERSON",
       "name": "Aarav Verma",
       "aliases": [
@@ -107,8 +97,6 @@
         "EVID_204_01",
         "EVID_042_02"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PERSON",
       "name": "Vikram Malhotra",
       "aliases": [
@@ -137,8 +125,6 @@
         "DOC_CASE_101_FIR_REPORT.pdf",
         "EVID_101_04"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PERSON",
       "name": "Rohan Gupta",
       "aliases": [
@@ -164,8 +150,6 @@
         "DOC_CASE_102_CYBER_CRIME_UNIT.pdf",
         "EVID_102_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PERSON",
       "name": "Meera Sen",
       "aliases": [
@@ -189,8 +173,6 @@
         "DOC_CASE_305_BLR_POLICE_REPORT.pdf",
         "EVID_305_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PERSON",
       "name": "Kabir Singhania",
       "aliases": [
@@ -213,8 +195,6 @@
         "EVID_042_01",
         "EVID_042_02"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PHONE",
       "phone_number": "+91-9876543210",
       "owner_ids": [
@@ -228,8 +208,6 @@
       "source_ids": [
         "DOC_CASE_101_CDR_DUMP.xlsx"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PHONE",
       "phone_number": "+91-9811001100",
       "owner_ids": [
@@ -242,8 +220,6 @@
       "source_ids": [
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PHONE",
       "phone_number": "+91-9822002200",
       "owner_ids": [
@@ -256,8 +232,6 @@
       "source_ids": [
         "DOC_CASE_101_CDR_DUMP.xlsx"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PHONE",
       "phone_number": "+91-9833003300",
       "owner_ids": [
@@ -270,8 +244,6 @@
       "source_ids": [
         "DOC_CASE_102_CYBER_CRIME_UNIT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "PHONE",
       "phone_number": "+91-9844004400",
       "owner_ids": [
@@ -285,8 +257,6 @@
         "DOC_CASE_101_WITNESS_STATEMENTS.pdf",
         "EVID_101_02"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "VEHICLE",
       "registration_number": "DL-01-AB-1234",
       "type": "Bolero Pickup Truck",
@@ -299,8 +269,6 @@
         "DOC_RTO_VEHICLE_REGISTRATION_MH.pdf",
         "EVID_204_03"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "VEHICLE",
       "registration_number": "MH-02-CD-5678",
       "type": "Scorpio SUV",
@@ -312,8 +280,6 @@
       "source_ids": [
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "VEHICLE",
       "registration_number": "MH-01-EF-9012",
       "type": "Fortuner SUV",
@@ -325,8 +291,6 @@
       "source_ids": [
         "DOC_CASE_101_FIR_REPORT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "VEHICLE",
       "registration_number": "DL-04-GH-3456",
       "type": "Eicher Delivery Van",
@@ -339,8 +303,6 @@
         "DOC_CASE_101_FIR_REPORT.pdf",
         "EVID_101_03"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "ICD Tughlakabad Logistics Yard",
       "latitude": 28.5024,
@@ -352,8 +314,6 @@
       "source_ids": [
         "DOC_CASE_102_CYBER_CRIME_UNIT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Nehru Place Financial Complex",
       "latitude": 28.5494,
@@ -366,8 +326,6 @@
         "DOC_SURVEILLANCE_LOGS_DELHI.pdf",
         "EVID_101_06"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Rohini Sector 18 Safehouse",
       "latitude": 28.7382,
@@ -379,8 +337,6 @@
       "source_ids": [
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Nhava Sheva Freight Terminal",
       "latitude": 18.9502,
@@ -393,8 +349,6 @@
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf",
         "EVID_204_04"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Zaveri Bazaar Precious Metal Hub",
       "latitude": 18.9511,
@@ -406,8 +360,6 @@
       "source_ids": [
         "DOC_CASE_305_BLR_POLICE_REPORT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Electronic City Warehouse Depot",
       "latitude": 12.8452,
@@ -419,8 +371,6 @@
       "source_ids": [
         "DOC_CASE_204_MUMBAI_CRIME_BRANCH.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "LOCATION",
       "name": "Worli Sea Face Luxury Apartments",
       "latitude": 19.0065,
@@ -432,8 +382,6 @@
       "source_ids": [
         "DOC_CASE_101_FIR_REPORT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ORGANIZATION",
       "name": "Apex Cargo Express Ltd",
       "aliases": [
@@ -448,8 +396,6 @@
         "DOC_ROC_COMPANY_FILINGS_MUMBAI.pdf",
         "EVID_204_05"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ORGANIZATION",
       "name": "Malhotra Bullion & Logistics",
       "aliases": [
@@ -464,8 +410,6 @@
         "DOC_HDFC_BANK_KYC_RECORD.pdf",
         "EVID_ACC_01"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ACCOUNT",
       "account_type": "BANK_ACCOUNT",
       "identifier": "HDFC-0019283746",
@@ -477,8 +421,6 @@
         "DOC_ICICI_BANK_KYC_RECORD.pdf",
         "EVID_ACC_02"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ACCOUNT",
       "account_type": "BANK_ACCOUNT",
       "identifier": "ICICI-9988776655",
@@ -489,8 +431,6 @@
       "source_ids": [
         "DOC_CASE_101_FORENSIC_PHONE_EXTRACTION.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ACCOUNT",
       "account_type": "UPI",
       "identifier": "shadowpay@okhdfc",
@@ -501,8 +441,6 @@
       "source_ids": [
         "DOC_CASE_102_CYBER_CRIME_UNIT.pdf"
       ],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "ACCOUNT",
       "account_type": "CRYPTO_WALLET",
       "identifier": "0x71C83A20B34De590Ac31eD59E15B520847b2B29F",
@@ -511,8 +449,6 @@
     {
       "id": "EVENT_001",
       "source_ids": [],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "EVENT",
       "event_type": "VEHICLE_SIGHTING",
       "timestamp": "2026-06-14T21:45:00Z",
@@ -523,8 +459,6 @@
     {
       "id": "EVENT_002",
       "source_ids": [],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "EVENT",
       "event_type": "CALL_LOG",
       "timestamp": "2026-06-15T02:10:00Z",
@@ -535,8 +469,6 @@
     {
       "id": "EVENT_003",
       "source_ids": [],
-      "source": "Dataset",
-      "is_manual": false,
       "entity_type": "EVENT",
       "event_type": "TRANSACTION",
       "timestamp": "2026-07-29T11:00:00Z",

@@ -1,173 +1,155 @@
-"""Authentication & Authorization API routes for CrimeGraph AI.
+"""Authentication API routes for CrimeGraph AI.
 
-Provides authentication endpoints (login, me, logout) and server-side authorization enforcement.
+Provides login, token issuance, profile retrieval, and user management endpoints.
 """
 
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Header, Request, status
+from typing import Any, Dict, List
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+from crimegraph.auth.models import LoginRequest, Token, User, UserCreate, UserResponse, UserRole
+from crimegraph.auth.security import create_access_token, verify_password
+from crimegraph.auth.dependencies import get_current_user, get_user_store, require_admin
+from crimegraph.auth.store import UserStore
+from crimegraph.audit.dependencies import get_audit_logger
+from crimegraph.audit.logger import AuditLogger
+from crimegraph.audit.models import AuditActorType, AuditResourceType, AuditStatus
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# In-memory active tokens store
-ACTIVE_TOKENS: Dict[str, Dict[str, Any]] = {}
 
+@router.post("/login", response_model=Token)
+def login(
+    payload: LoginRequest,
+    user_store: UserStore = Depends(get_user_store),
+    audit_logger: AuditLogger = Depends(get_audit_logger)
+) -> Token:
+    """Authenticates user credentials and returns a signed JWT access token."""
+    username = payload.username.lower().strip()
+    user = user_store.get_user(username)
 
-class LoginRequest(BaseModel):
-    username: str = Field(..., description="Investigator ID / Username")
-    password: str = Field(..., description="Authorization Key / Password")
-    agency_id: Optional[str] = Field(None, description="Optional Agency ID")
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: Dict[str, Any]
-
-
-def verify_bearer_token(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Dependency helper to verify Bearer authentication token."""
-    if not authorization:
+    if not user or not verify_password(payload.password, user.hashed_password):
+        audit_logger.log(
+            action="AUTH_LOGIN_FAILED",
+            actor_id=username or "ANONYMOUS",
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.AUTH,
+            status=AuditStatus.FAILURE,
+            details={"reason": "Invalid credentials provided"}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token missing. Please log in.",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"}
         )
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format. Expected 'Bearer <token>'.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    token = parts[1]
-    if token not in ACTIVE_TOKENS:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session expired or invalid token. Please log in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return ACTIVE_TOKENS[token]
 
-
-def verify_case_access(user: Dict[str, Any], case_id: Optional[str]) -> None:
-    """Enforces server-side case-level access authorization boundaries."""
-    if not case_id or case_id == "ALL":
-        return
-    allowed = user.get("allowed_cases", [])
-    if allowed and "ALL" not in allowed and case_id not in allowed:
-        from crimegraph.api.routes.audit import log_audit_event
-        log_audit_event(
-            actor=user.get("username"),
-            action="CASE_ACCESS_DENIED",
-            resource_type="CASE",
-            resource_id=case_id,
-            case_id=case_id,
-            status="DENIED",
-            details={"allowed_cases": allowed}
+    if not user.is_active:
+        audit_logger.log(
+            action="AUTH_LOGIN_DENIED",
+            actor_id=user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.AUTH,
+            status=AuditStatus.DENIED,
+            details={"reason": "Account is deactivated"}
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: User '{user.get('username')}' is not authorized to access case '{case_id}'."
+            detail="Account is deactivated"
         )
 
-
-def verify_write_permission(user: Dict[str, Any]) -> None:
-    """Enforces server-side write authorization rules."""
-    if user.get("role") == "READ_ONLY":
-        from crimegraph.api.routes.audit import log_audit_event
-        log_audit_event(
-            actor=user.get("username"),
-            action="WRITE_PERMISSION_DENIED",
-            resource_type="MUTATION",
-            resource_id="ENTITY_MUTATION",
-            case_id=None,
-            status="DENIED",
-            details={"role": user.get("role")}
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Forbidden: User '{user.get('username')}' lacks write authorization to perform entity or relationship mutations."
-        )
-
-
-@router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest) -> LoginResponse:
-    """Authenticate an investigator and return a Bearer access token."""
-    uname = payload.username.strip()
-    pwd = payload.password.strip()
-
-    if not uname or not pwd:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username and password cannot be empty."
-        )
-
-    # Determine user role & case access authorization rules
-    role = "INVESTIGATOR"
-    allowed_cases = ["CASE_101", "CASE_204", "CASE_102", "CASE_305", "ALL"]
-
-    uname_upper = uname.upper()
-    if "RESTRICTED" in uname_upper:
-        role = "RESTRICTED_INVESTIGATOR"
-        allowed_cases = ["CASE_101", "CASE_102"]
-    elif "READONLY" in uname_upper or "ANALYST" in uname_upper:
-        role = "READ_ONLY"
-        allowed_cases = ["CASE_101", "CASE_102", "CASE_204", "CASE_305", "ALL"]
-
-    import uuid
-    token = f"cg_token_{uuid.uuid4().hex[:16]}"
-    user_info = {
-        "username": uname,
-        "agency_id": (payload.agency_id or "AGY-SIH-2026").strip(),
-        "role": role,
-        "allowed_cases": allowed_cases,
-        "authenticated_at": "2026-08-29T09:50:00Z"
-    }
-    ACTIVE_TOKENS[token] = user_info
-
-    from crimegraph.api.routes.audit import log_audit_event
-    log_audit_event(
-        actor=uname,
-        action="USER_LOGIN",
-        resource_type="SESSION",
-        resource_id=uname,
-        case_id=None,
-        status="SUCCESS",
-        details={"agency_id": user_info["agency_id"], "role": role}
+    user_role = user.role if isinstance(user.role, UserRole) else UserRole(user.role)
+    token_str, expire_seconds = create_access_token(
+        username=user.username,
+        role=user_role
     )
 
-    return LoginResponse(
-        access_token=token,
+    audit_logger.log(
+        action="AUTH_LOGIN_SUCCESS",
+        actor_id=user.username,
+        actor_type=AuditActorType.USER,
+        resource_type=AuditResourceType.AUTH,
+        status=AuditStatus.SUCCESS,
+        details={"role": user_role.value if hasattr(user_role, "value") else str(user_role)}
+    )
+
+    return Token(
+        access_token=token_str,
         token_type="bearer",
-        user=user_info
+        expires_in=expire_seconds,
+        user=UserResponse(
+            username=user.username,
+            full_name=user.full_name,
+            role=user_role,
+            is_active=user.is_active
+        )
     )
 
 
-@router.get("/me")
-def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Retrieve details for the currently authenticated user."""
-    user = verify_bearer_token(authorization)
-    return {"status": "authenticated", "user": user}
-
-
-@router.post("/logout")
-def logout(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Revoke active session token."""
-    user = None
-    if authorization:
-        parts = authorization.split()
-        if len(parts) == 2 and parts[0].lower() == "bearer":
-            user = ACTIVE_TOKENS.pop(parts[1], None)
-
-    from crimegraph.api.routes.audit import log_audit_event
-    log_audit_event(
-        actor=user.get("username") if user else "OFFICER",
-        action="USER_LOGOUT",
-        resource_type="SESSION",
-        resource_id=user.get("username") if user else "SESSION",
-        case_id=None,
-        status="SUCCESS"
+@router.get("/me", response_model=UserResponse)
+def get_current_user_profile(current_user: User = Depends(get_current_user)) -> UserResponse:
+    """Returns the authenticated user's profile and role permissions."""
+    user_role = current_user.role if isinstance(current_user.role, UserRole) else UserRole(current_user.role)
+    return UserResponse(
+        username=current_user.username,
+        full_name=current_user.full_name,
+        role=user_role,
+        is_active=current_user.is_active
     )
 
-    return {"status": "logged_out", "message": "Session terminated successfully."}
+
+@router.get("/users", response_model=List[UserResponse])
+def list_users(
+    admin_user: User = Depends(require_admin),
+    user_store: UserStore = Depends(get_user_store)
+) -> List[UserResponse]:
+    """Lists all registered CrimeGraph user accounts (Admin role required)."""
+    users = user_store.list_users()
+    return [
+        UserResponse(
+            username=u.username,
+            full_name=u.full_name,
+            role=u.role if isinstance(u.role, UserRole) else UserRole(u.role),
+            is_active=u.is_active
+        ) for u in users
+    ]
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user(
+    payload: UserCreate,
+    admin_user: User = Depends(require_admin),
+    user_store: UserStore = Depends(get_user_store),
+    audit_logger: AuditLogger = Depends(get_audit_logger)
+) -> UserResponse:
+    """Creates a new user account (Admin role required)."""
+    try:
+        new_user = user_store.create_user(payload)
+        user_role = new_user.role if isinstance(new_user.role, UserRole) else UserRole(new_user.role)
+        audit_logger.log(
+            action="USER_CREATE",
+            actor_id=admin_user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.AUTH,
+            resource_id=new_user.username,
+            status=AuditStatus.SUCCESS,
+            details={"created_user": new_user.username, "role": user_role.value if hasattr(user_role, "value") else str(user_role)}
+        )
+        return UserResponse(
+            username=new_user.username,
+            full_name=new_user.full_name,
+            role=user_role,
+            is_active=new_user.is_active
+        )
+    except ValueError as e:
+        audit_logger.log(
+            action="USER_CREATE_FAILED",
+            actor_id=admin_user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.AUTH,
+            resource_id=payload.username,
+            status=AuditStatus.FAILURE,
+            details={"error": str(e)}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )

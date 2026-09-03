@@ -1,0 +1,79 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "type": "CRIMEGRAPH_MANUAL_DATA",
+    "entity_count": 3,
+    "relationship_count": 1
+  },
+  "entities": [
+    {
+      "id": "CASE_306",
+      "source_ids": [
+        "DOC_CASE_306_INITIAL_ENTRY.pdf"
+      ],
+      "origin": "MANUAL",
+      "entity_type": "CASE",
+      "case_number": "FIR-2026-MANUAL-306",
+      "title": "Operation Blue Star - Narcotics Intercept",
+      "description": "Manual investigation case: Operation Blue Star - Narcotics Intercept",
+      "status": "OPEN",
+      "incident_date": null,
+      "location_id": null,
+      "case_type": null,
+      "priority": "HIGH",
+      "notes": null,
+      "created_by": "analyst",
+      "created_at": null
+    },
+    {
+      "id": "CASE_999",
+      "source_ids": [
+        "DOC_CASE_999_INITIAL_ENTRY.pdf"
+      ],
+      "origin": "MANUAL",
+      "entity_type": "CASE",
+      "case_number": "FIR-2026-MANUAL-999",
+      "title": "Operation Nightwatch",
+      "description": "Manual investigation case: Operation Nightwatch",
+      "status": "ACTIVE",
+      "incident_date": null,
+      "location_id": null,
+      "case_type": null,
+      "priority": "HIGH",
+      "notes": null,
+      "created_by": "analyst",
+      "created_at": null
+    },
+    {
+      "id": "CASE_MANUAL_001",
+      "source_ids": [
+        "DOC_CASE_MANUAL_001_INITIAL_ENTRY.pdf"
+      ],
+      "origin": "MANUAL",
+      "entity_type": "CASE",
+      "case_number": "FIR-2026-MANUAL-MANUAL_001",
+      "title": "Operation Red Shield \u2014 Maritime Contraband Intercept",
+      "description": "Container shipment manifest evasion at Logistics Yard.",
+      "status": "ACTIVE",
+      "incident_date": null,
+      "location_id": null,
+      "case_type": null,
+      "priority": "HIGH",
+      "notes": null,
+      "created_by": "analyst",
+      "created_at": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "REL_MANUAL_2E06E3",
+      "source_id": "CASE_999",
+      "relationship": "INVOLVED_IN",
+      "target_id": "PERSON_017",
+      "confidence": 0.95,
+      "evidence_ids": [],
+      "properties": {},
+      "origin": "MANUAL"
+    }
+  ]
+}

@@ -1,144 +1,99 @@
-"""Document Extraction API routes for CrimeGraph AI.
+﻿"""Document Extraction API routes for CrimeGraph AI (Day 22 NLP Extraction Pipeline).
 
-Strictly adheres to API_CONTRACT.md Section 2.
+Strictly adheres to API_CONTRACT.md, DATA_SCHEMA.md, and RBAC / Audit policies.
 """
 
-import re
-import uuid
-from typing import Any, Dict, List
-from pydantic import BaseModel, Field
-from fastapi import APIRouter
+from typing import Any, Dict
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-router = APIRouter(prefix="/api/extract", tags=["Document Extraction"])
+from crimegraph.audit.dependencies import get_audit_logger
+from crimegraph.audit.logger import AuditLogger
+from crimegraph.audit.models import AuditActorType, AuditResourceType, AuditStatus
+from crimegraph.auth.dependencies import get_current_user, require_analyst
+from crimegraph.auth.models import User
+from crimegraph.extraction.engine import NLPExtractionEngine
+from crimegraph.extraction.models import ExtractionRequest, ExtractionResponse
+from crimegraph.graph.store import KnowledgeGraphStore
 
-
-class ExtractRequest(BaseModel):
-    document_id: str = Field(..., description="Document identifier")
-    text: str = Field(..., description="Investigation text to extract entities from")
-
-
-class EntityExtract(BaseModel):
-    id: str
-    type: str
-    name: str
-    confidence: float
-    evidence_ids: List[str]
+router = APIRouter(prefix="", tags=["Document Extraction"], dependencies=[Depends(get_current_user)])
 
 
-class RelationshipExtract(BaseModel):
-    id: str
-    source_id: str
-    relationship: str
-    target_id: str
-    confidence: float
-    evidence_ids: List[str]
+@router.post("/api/extract", response_model=Dict[str, Any])
+def extract_document(
+    payload: ExtractionRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    audit_logger: AuditLogger = Depends(get_audit_logger)
+) -> Dict[str, Any]:
+    """Extracts entities, relationships, events, and evidence from raw investigation text (Day 22).
 
+    Integrates with KnowledgeGraphStore, records multi-source provenance, and logs audit events.
+    """
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Investigation text cannot be empty."
+        )
 
-@router.post("", response_model=Dict[str, Any])
-def extract_document(payload: ExtractRequest) -> Dict[str, Any]:
-    """Extract entities, relationships, events, and evidence from raw investigation text."""
-    doc_id = payload.document_id
-    text = payload.text
+    graph: KnowledgeGraphStore = request.app.state.graph
+    doc_id = payload.get_document_id()
 
-    entities = []
-    relationships = []
-    events = []
-    evidence_list = []
+    # Case validation if case_id provided
+    if payload.case_id:
+        c_id = payload.case_id.strip()
+        if c_id not in graph.entities:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Case '{c_id}' does not exist in knowledge graph."
+            )
 
-    # 1. Base Evidence Item for the extracted text
-    evidence_id = f"EVID_EXT_{uuid.uuid4().hex[:6].upper()}"
-    evidence_list.append({
-        "evidence_id": evidence_id,
-        "source_document_id": doc_id,
-        "source_text": text[:300],
-        "page_number": 1,
-        "extraction_method": "AI_NER",
-        "confidence": 0.95
-    })
+    # Audit log: extraction started
+    audit_logger.log(
+        action="EXTRACTION_STARTED",
+        actor_id=current_user.username,
+        actor_type=AuditActorType.USER,
+        resource_type=AuditResourceType.INVESTIGATION,
+        resource_id=doc_id,
+        case_id=payload.case_id,
+        status=AuditStatus.SUCCESS,
+        details={"document_id": doc_id, "text_length": len(payload.text)}
+    )
 
-    # 2. Extract Phone numbers
-    phone_matches = re.findall(r"(\+?91[-\s]?[6-9]\d{9}|\b[6-9]\d{9}\b)", text)
-    extracted_phone_ids = []
-    for i, phone in enumerate(set(phone_matches)):
-        clean_phone = phone.strip()
-        phone_id = f"PHONE_EXT_{i+1}"
-        entities.append({
-            "id": phone_id,
-            "type": "PHONE",
-            "name": clean_phone,
-            "confidence": 0.96,
-            "evidence_ids": [evidence_id]
-        })
-        extracted_phone_ids.append(phone_id)
+    try:
+        engine = NLPExtractionEngine(store=graph)
+        result: ExtractionResponse = engine.extract(payload)
 
-    # 3. Extract Vehicles (License plates like MH-01-AB-1234, DL-01-AB-1234)
-    vehicle_matches = re.findall(r"\b([A-Z]{2}[-\s]?\d{2}[-\s]?[A-Z]{1,2}[-\s]?\d{4})\b", text)
-    extracted_veh_ids = []
-    for i, veh in enumerate(set(vehicle_matches)):
-        veh_id = f"VEHICLE_EXT_{i+1}"
-        entities.append({
-            "id": veh_id,
-            "type": "VEHICLE",
-            "name": veh.strip(),
-            "confidence": 0.94,
-            "evidence_ids": [evidence_id]
-        })
-        extracted_veh_ids.append(veh_id)
+        # Audit log: extraction completed
+        audit_logger.log(
+            action="EXTRACTION_COMPLETED",
+            actor_id=current_user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.INVESTIGATION,
+            resource_id=doc_id,
+            case_id=payload.case_id,
+            status=AuditStatus.SUCCESS,
+            details={
+                "entities_count": len(result.entities),
+                "relationships_count": len(result.relationships),
+                "conflicts_count": len(result.conflicts)
+            }
+        )
 
-    # 4. Extract Persons (Names with PERSON_ID or title-case names)
-    person_matches = re.findall(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)(?:\s*\((PERSON_\d+)\))?", text)
-    extracted_person_ids = []
-    for i, match in enumerate(person_matches):
-        p_name = match[0].strip()
-        p_id = match[1] if match[1] else f"PERSON_EXT_{i+1}"
-        entities.append({
-            "id": p_id,
-            "type": "PERSON",
-            "name": p_name,
-            "confidence": 0.95,
-            "evidence_ids": [evidence_id]
-        })
-        extracted_person_ids.append(p_id)
+        return result.model_dump()
 
-    # Fallback if no named entities matched
-    if not entities:
-        entities.append({
-            "id": "PERSON_EXT_1",
-            "type": "PERSON",
-            "name": "Subject 1",
-            "confidence": 0.85,
-            "evidence_ids": [evidence_id]
-        })
-        extracted_person_ids.append("PERSON_EXT_1")
-
-    # 5. Extract Relationships (Person -> Vehicle, Person -> Phone)
-    rel_idx = 1
-    for pid in extracted_person_ids:
-        for vid in extracted_veh_ids:
-            relationships.append({
-                "id": f"REL_EXT_{rel_idx}",
-                "source_id": pid,
-                "relationship": "USED",
-                "target_id": vid,
-                "confidence": 0.92,
-                "evidence_ids": [evidence_id]
-            })
-            rel_idx += 1
-        for ph_id in extracted_phone_ids:
-            relationships.append({
-                "id": f"REL_EXT_{rel_idx}",
-                "source_id": pid,
-                "relationship": "USES",
-                "target_id": ph_id,
-                "confidence": 0.93,
-                "evidence_ids": [evidence_id]
-            })
-            rel_idx += 1
-
-    return {
-        "document_id": doc_id,
-        "entities": entities,
-        "relationships": relationships,
-        "events": events,
-        "evidence": evidence_list
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        audit_logger.log(
+            action="EXTRACTION_FAILED",
+            actor_id=current_user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.INVESTIGATION,
+            resource_id=doc_id,
+            status=AuditStatus.FAILURE,
+            details={"error": str(e)}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to complete NLP document extraction."
+        )

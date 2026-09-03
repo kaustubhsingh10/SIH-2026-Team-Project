@@ -86,28 +86,12 @@ class EntityResolver:
                         "status": "PENDING_REVIEW"
                     })
 
-        # Add benchmark synthetic candidate from DATA_SCHEMA.md (Rahul Kumar vs R. Kumar) if not present
-        has_rahul = any("Rahul Kumar" in c["entity_a"]["name"] or "Rahul Kumar" in c["entity_b"]["name"] for c in candidates)
-        if not has_rahul:
-            candidates.append({
-                "id": "RES_PERSON_017_PERSON_092",
-                "entity_a": {
-                    "id": "PERSON_017",
-                    "type": "PERSON",
-                    "name": "Rahul Kumar"
-                },
-                "entity_b": {
-                    "id": "PERSON_092",
-                    "type": "PERSON",
-                    "name": "R. Kumar"
-                },
-                "similarity": 0.92,
-                "reasons": [
-                    "Similar name",
-                    "Same phone (+91-9876543210)",
-                    "Same vehicle (MH-01-AB-1234)"
-                ],
-                "status": "PENDING_REVIEW"
-            })
+        # Only return candidates where both entities genuinely exist in the graph
+        valid_candidates = []
+        for c in candidates:
+            ea_id = c["entity_a"]["id"] if isinstance(c["entity_a"], dict) else c["entity_a"]
+            eb_id = c["entity_b"]["id"] if isinstance(c["entity_b"], dict) else c["entity_b"]
+            if ea_id in self.graph.entities and eb_id in self.graph.entities:
+                valid_candidates.append(c)
 
-        return candidates
+        return valid_candidates
