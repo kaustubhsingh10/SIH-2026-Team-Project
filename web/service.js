@@ -270,6 +270,16 @@ class MockCrimeGraphAdapter {
         return { nodes, edges };
     }
 
+    async getAllEntities() {
+        return (this.dataset.nodes || []).map(n => ({
+            id: n.id,
+            name: n.name || n.id,
+            entity_type: n.type || "ENTITY",
+            type: n.type || "ENTITY",
+            origin: n.origin || "DATASET"
+        }));
+    }
+
     async getEntityDetails(entityId) {
         const ent = this.dataset.nodes.find(n => n.id === entityId);
         if (!ent) return null;
@@ -1368,6 +1378,22 @@ class HttpCrimeGraphAdapter {
         };
     }
 
+    async getAllEntities() {
+        try {
+            const raw = await this.fetchJson("/api/entities");
+            return (raw || []).map(n => ({
+                id: n.id,
+                name: n.name || n.title || n.phone_number || n.registration_number || n.id,
+                entity_type: n.entity_type || "ENTITY",
+                type: n.entity_type || "ENTITY",
+                origin: n.origin || "DATASET"
+            }));
+        } catch (err) {
+            const mock = new MockCrimeGraphAdapter();
+            return await mock.getAllEntities();
+        }
+    }
+
     async createEntity(entityData) {
         return await this.fetchJson("/api/entities", {
             method: "POST",
@@ -2343,6 +2369,15 @@ class CrimeGraphDataService {
         } catch (err) {
             console.warn("HTTP call failed, falling back to mock adapter:", err);
             return await this.mockAdapter.getEntityDetails(entityId);
+        }
+    }
+
+    async getAllEntities() {
+        try {
+            return await this.activeAdapter.getAllEntities();
+        } catch (err) {
+            console.warn("HTTP call failed, falling back to mock adapter:", err);
+            return await this.mockAdapter.getAllEntities();
         }
     }
 

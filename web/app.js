@@ -1351,27 +1351,57 @@ async function handleCreateEntity(event) {
 
     try {
         const created = await window.dataService.createEntity(payload);
+
+        // Auto-link created non-case entity to active case if viewing a specific case
+        if (activeCaseId && activeCaseId !== "ALL" && type !== "CASE" && created && created.id) {
+            try {
+                await window.dataService.createRelationship({
+                    source_id: created.id,
+                    target_id: activeCaseId,
+                    relationship: "INVOLVED_IN",
+                    confidence: 0.95,
+                    origin: "MANUAL",
+                    properties: { notes: `Manually associated entity ${created.id} with active case ${activeCaseId}` }
+                });
+            } catch (relErr) {
+                console.warn("Could not automatically link entity to active case:", relErr);
+            }
+        }
+
         closeAddEntityModal();
         showToast(`Created entity ${created.id || created.name} successfully!`, "success");
 
         // Immediately refresh graph workspace
-        await renderGraphWorkspace(activeCaseId === "CASE_101" ? "ALL" : activeCaseId);
-        networkInstance?.selectNodes([created.id]);
-        await openEntityDetailsPanel(created.id);
+        await renderGraphWorkspace(activeCaseId);
+        if (networkInstance && created.id) {
+            networkInstance.selectNodes([created.id]);
+        }
+        if (created.id) {
+            await openEntityDetailsPanel(created.id);
+        }
     } catch (err) {
         showToast(`Error creating entity: ${err.message}`, "error");
     }
 }
 
-function openAddRelationshipModal(preselectedSourceId = null) {
+async function openAddRelationshipModal(preselectedSourceId = null) {
     const modal = document.getElementById("modal-add-rel");
     const sourceSelect = document.getElementById("rel-source-select");
     const targetSelect = document.getElementById("rel-target-select");
     if (!modal || !sourceSelect || !targetSelect) return;
 
-    // Populate entity selectors
-    const nodes = rawGraphData.nodes || [];
-    const optionsHtml = nodes.map(n => `<option value="${n.id}">[${n.type}] ${n.label || n.name} (${n.id})</option>`).join("");
+    // Populate entity selectors from all available entities
+    let allEntities = [];
+    try {
+        allEntities = await window.dataService.getAllEntities();
+    } catch (_) {
+        allEntities = rawGraphData.nodes || [];
+    }
+    if (!allEntities || allEntities.length === 0) {
+        allEntities = rawGraphData.nodes || [];
+    }
+
+    const optionsHtml = allEntities.map(n => `<option value="${n.id}">[${n.entity_type || n.type || 'ENTITY'}] ${n.name || n.title || n.label || n.id} (${n.id})</option>`).join("");
 
     sourceSelect.innerHTML = optionsHtml;
     targetSelect.innerHTML = optionsHtml;
@@ -1379,8 +1409,8 @@ function openAddRelationshipModal(preselectedSourceId = null) {
     if (preselectedSourceId) {
         sourceSelect.value = preselectedSourceId;
     }
-    if (nodes.length > 1 && (!preselectedSourceId || preselectedSourceId === nodes[0].id)) {
-        targetSelect.value = nodes[1].id;
+    if (allEntities.length > 1 && (!preselectedSourceId || preselectedSourceId === allEntities[0].id)) {
+        targetSelect.value = allEntities[1].id;
     }
 
     modal.classList.remove("hidden");
@@ -1787,19 +1817,21 @@ async function renderEvidenceExplorer() {
     `).join("");
 }
 
-async function generateReport(caseId = "CASE_101") {
+async function generateReport(caseId = null) {
+    const targetCaseId = (caseId && typeof caseId === "string") ? caseId : (activeCaseId && activeCaseId !== "ALL" ? activeCaseId : "CASE_101");
     const viewBox = document.getElementById("report-view-box");
     if (!viewBox) return;
 
-    viewBox.innerHTML = `<div class="text-center py-10 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Generating Evidence-Linked Investigation Report for ${caseId}...</div>`;
+    viewBox.innerHTML = `<div class="text-center py-10 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Generating Evidence-Linked Investigation Report for ${targetCaseId}...</div>`;
 
-    const report = await window.dataService.generateReport(caseId);
-    if (!report || !report.content) {
-        viewBox.innerHTML = `<div class="text-center py-10 text-error text-xs">Unable to generate report for ${caseId}.</div>`;
+    const report = await window.dataService.generateReport(targetCaseId);
+    if (!report || (!report.content && !report.summary)) {
+        viewBox.innerHTML = `<div class="text-center py-10 text-error text-xs">Unable to generate report for ${targetCaseId}.</div>`;
         return;
     }
 
-    const formattedHtml = report.content
+    const rawContent = report.content || report.summary || "Investigation report generated successfully.";
+    const formattedHtml = rawContent
         .replace(/# (.*)/g, '<h1 class="text-base font-bold text-primary border-b border-surface-container-high pb-2 mb-2">$1</h1>')
         .replace(/## (.*)/g, '<h2 class="text-xs font-bold text-tertiary mt-3 mb-1 uppercase tracking-wider">$1</h2>')
         .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
@@ -1809,7 +1841,7 @@ async function generateReport(caseId = "CASE_101") {
     viewBox.innerHTML = `
         <div class="space-y-3">
             <div class="flex items-center justify-between text-[11px] font-mono text-outline border-b border-surface-container-high pb-2">
-                <span>Report ID: <strong class="text-tertiary">${report.report_id || 'REPORT_001'}</strong></span>
+                <span>Report ID: <strong class="text-tertiary">${report.report_id || 'REPORT_' + targetCaseId}</strong> | Target Case: <strong class="text-primary">${targetCaseId}</strong></span>
                 <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase font-bold">${report.status || 'generated'}</span>
             </div>
             <div class="text-xs font-sans text-on-surface leading-relaxed whitespace-pre-wrap">${formattedHtml}</div>
