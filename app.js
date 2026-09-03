@@ -29,6 +29,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 /* ----------------------------------------------------
    1. NAVIGATION & ROUTING
 ---------------------------------------------------- */
+async function populateHeaderCaseSelect() {
+    const select = document.getElementById("header-case-select");
+    if (!select) return;
+    try {
+        const cases = await window.dataService.getCases();
+        if (cases && cases.length > 0) {
+            const optionsHtml = cases.map(c => `<option value="${c.id}">${c.id} (${c.title || c.id})</option>`).join("");
+            select.innerHTML = optionsHtml + `<option value="ALL">ALL CASES (Full Graph)</option>`;
+            if (activeCaseId) {
+                select.value = activeCaseId;
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to populate header case select:", err);
+    }
+}
+
 async function initNavigation() {
     const navButtons = document.querySelectorAll(".nav-item");
     navButtons.forEach(btn => {
@@ -42,7 +59,14 @@ async function initNavigation() {
     if (headerCaseSelect) {
         headerCaseSelect.addEventListener("change", async (e) => {
             activeCaseId = e.target.value;
-            await renderGraphWorkspace(activeCaseId);
+            const currentPane = document.querySelector(".tab-pane.active")?.id;
+            if (currentPane === "pane-timeline") {
+                await renderTimeline(activeCaseId);
+            } else if (currentPane === "pane-reports") {
+                generateReport(activeCaseId);
+            } else {
+                await renderGraphWorkspace(activeCaseId);
+            }
         });
     }
 }
@@ -393,7 +417,7 @@ function applyGraphFilters() {
     if (!currentVisNodes) return;
 
     const checkedTypes = Array.from(document.querySelectorAll(".filter-type:checked")).map(c => c.value);
-    
+
     (rawGraphData.nodes || []).forEach(n => {
         const isVisible = checkedTypes.includes(n.type);
         if (isVisible) {
@@ -1215,18 +1239,29 @@ function askAIAboutEntity(entityId) {
 /* ----------------------------------------------------
    9. TIMELINE, EVIDENCE EXPLORER & GLOBAL SEARCH
 ---------------------------------------------------- */
-async function renderTimeline(caseId = "CASE_101") {
+async function renderTimeline(caseId) {
+    if (!caseId) {
+        caseId = activeCaseId || "CASE_101";
+    }
+
     const container = document.getElementById("timeline-container");
     if (!container) return;
 
-    container.innerHTML = `<div class="text-center py-6 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Loading timeline event sequence...</div>`;
+    const displayCase = caseId === "ALL" ? "ALL CASES" : caseId;
+    container.innerHTML = `<div class="text-center py-6 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Loading timeline event sequence for ${displayCase}...</div>`;
 
     try {
-        const data = await window.dataService.getTimeline(caseId);
-        const events = data ? (data.events || []) : [];
+        let events = [];
+        if (caseId === "ALL") {
+            const res = await window.dataService.getEvents();
+            events = res ? (res.events || []) : [];
+        } else {
+            const data = await window.dataService.getTimeline(caseId);
+            events = data ? (data.events || []) : [];
+        }
 
         if (events.length === 0) {
-            container.innerHTML = `<div class="text-center py-6 text-outline text-xs">No chronological events found for ${caseId}.</div>`;
+            container.innerHTML = `<div class="text-center py-6 text-outline text-xs">No chronological events found for ${displayCase}.</div>`;
             return;
         }
 
