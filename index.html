@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrimeGraph AI â€” Investigative Intelligence Platform (SIH 2026)</title>
+
+    <!-- Tailwind CSS with custom Stitch theme extensions -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Google Fonts & Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Vis.js Network for Graph Visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <!-- Custom Stitch Design System Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        background: "#111318",
+                        surface: "#111318",
+                        "surface-container-lowest": "#0c0e12",
+                        "surface-container-low": "#1a1c20",
+                        "surface-container": "#1e2024",
+                        "surface-container-high": "#282a2e",
+                        "surface-container-highest": "#333539",
+                        "surface-variant": "#333539",
+                        primary: "#b3c5ff",
+                        "primary-container": "#0066ff",
+                        "on-primary-container": "#f8f7ff",
+                        secondary: "#d0bcff",
+                        tertiary: "#4edea3",
+                        "tertiary-container": "#008259",
+                        error: "#ffb4ab",
+                        "on-surface": "#e2e2e8",
+                        "on-surface-variant": "#c2c6d8",
+                        outline: "#8c90a1",
+                        "outline-variant": "#424656"
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-white flex flex-col min-h-screen">
+
+    <!-- TOP HEADER BAR -->
+    <header class="header-bar">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-md bg-primary-container flex items-center justify-center text-white shadow-md shadow-blue-600/30">
+                <span class="material-symbols-outlined text-xl">hub</span>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-base font-bold tracking-tight text-white">CrimeGraph <span class="text-primary font-extrabold">AI</span></span>
+                    <span class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-surface-container-highest text-primary border border-outline-variant">SIH 2026</span>
+                </div>
+                <div class="text-[11px] text-on-surface-variant">Investigative Intelligence Knowledge Graph</div>
+            </div>
+        </div>
+
+        <!-- Global Search Bar -->
+        <div class="relative w-80 hidden md:block">
+            <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm">search</span>
+            <input type="text" id="global-search-input" placeholder="Search entities, phones, vehicles, cases..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded-md pl-9 pr-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
+        </div>
+
+        <!-- Case Selector, Adapter Status & Safety Banner -->
+        <div class="flex items-center gap-4">
+            <!-- Safety Banner -->
+            <div class="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/40 border border-amber-800/40 text-amber-300 text-[11px]">
+                <span class="material-symbols-outlined text-xs text-amber-400">shield</span>
+                <span><strong>Safety Protocol:</strong> Evidence leads only. Does not declare guilt.</span>
+            </div>
+
+            <!-- Adapter Mode Badge -->
+            <span id="adapter-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-900 text-slate-300 border border-slate-700">
+                DataService Active
+            </span>
+
+            <!-- Quick Action Buttons: Add Case, Add Entity & Add Relationship -->
+            <div class="flex items-center gap-2">
+                <button id="btn-header-add-case" class="px-2.5 py-1 bg-tertiary-container hover:bg-emerald-600 text-white rounded text-xs font-semibold flex items-center gap-1 shadow transition" title="Add New Investigation Case">
+                    <span class="material-symbols-outlined text-sm">post_add</span> + Add Case
+                </button>
+                <button id="btn-header-add-entity" class="px-2.5 py-1 bg-primary-container hover:bg-blue-600 text-white rounded text-xs font-semibold flex items-center gap-1 shadow transition" title="Add New Entity">
+                    <span class="material-symbols-outlined text-sm">person_add</span> + Add Entity
+                </button>
+                <button id="btn-header-add-rel" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded text-xs font-semibold flex items-center gap-1 transition" title="Connect Entities">
+                    <span class="material-symbols-outlined text-sm">add_link</span> + Add Link
+                </button>
+            </div>
+
+            <!-- Case Selector Dropdown -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-on-surface-variant hidden sm:inline">Active Case:</span>
+                <select id="header-case-select" class="bg-surface-container-lowest border border-surface-container-high rounded-md px-2.5 py-1 text-xs text-primary font-mono focus:outline-none focus:border-primary font-semibold">
+                    <option value="CASE_101">CASE_101 (Cargo Hijack)</option>
+                    <option value="CASE_204">CASE_204 (Zaveri Bazaar)</option>
+                    <option value="CASE_102">CASE_102 (Cyber Fraud)</option>
+                    <option value="CASE_305">CASE_305 (Hawala Intercept)</option>
+                    <option value="ALL">ALL CASES (Full Graph)</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY LAYOUT -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="app-sidebar p-3 space-y-6">
+            <nav class="space-y-1">
+                <div class="px-2 py-1.5 text-[10px] font-bold text-outline tracking-wider uppercase">Navigation</div>
+                
+                <button class="nav-item active" data-tab="pane-dashboard">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Dashboard</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-cases">
+                    <span class="material-symbols-outlined">briefcase</span>
+                    <span>Cases</span>
+                    <span class="nav-badge">4</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-graph">
+                    <span class="material-symbols-outlined">account_tree</span>
+                    <span>Network Graph</span>
+                    <span class="nav-badge bg-primary-container text-white">Core</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-ai-investigator">
+                    <span class="material-symbols-outlined text-tertiary">auto_awesome</span>
+                    <span>AI Investigator</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-timeline">
+                    <span class="material-symbols-outlined">history</span>
+                    <span>Timeline</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-evidence">
+                    <span class="material-symbols-outlined">description</span>
+                    <span>Evidence</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-reports">
+                    <span class="material-symbols-outlined">summarize</span>
+                    <span>Reports</span>
+                </button>
+
+                <div class="px-2 pt-3 pb-1 text-[10px] font-bold text-outline tracking-wider uppercase">Intelligence Engines</div>
+
+                <button class="nav-item" data-tab="pane-patterns">
+                    <span class="material-symbols-outlined text-amber-400">pattern</span>
+                    <span>Patterns & Anomalies</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-key-players">
+                    <span class="material-symbols-outlined text-primary">person_search</span>
+                    <span>Key Players & Influence</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-communities">
+                    <span class="material-symbols-outlined text-purple-400">hub</span>
+                    <span>Group Communities</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-paths">
+                    <span class="material-symbols-outlined text-emerald-400">alt_route</span>
+                    <span>Link & Path Analysis</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-cross-case">
+                    <span class="material-symbols-outlined text-cyan-400">compare_arrows</span>
+                    <span>Cross-Case Intelligence</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-correlations">
+                    <span class="material-symbols-outlined text-secondary">insights</span>
+                    <span>Cross-Source Intelligence</span>
+                </button>
+
+                <button class="nav-item" data-tab="pane-risk">
+                    <span class="material-symbols-outlined text-error">priority_high</span>
+                    <span>Risk & Priority Scoring</span>
+                    <span class="nav-badge bg-error-container/80 text-error font-bold">Day 33</span>
+                </button>
+            </nav>
+
+            <!-- Quick Metrics Footer -->
+            <div class="p-3 bg-surface-container-low border border-surface-container-high rounded-md text-[11px] space-y-1.5 text-on-surface-variant font-mono">
+                <div class="flex justify-between"><span>Service Layer:</span><span class="text-tertiary font-bold">Active</span></div>
+                <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold" id="sidebar-stat-nodes">34</span></div>
+                <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold" id="sidebar-stat-edges">24</span></div>
+                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold" id="sidebar-stat-evidence">19</span></div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT PANES -->
+        <main class="flex-1 bg-background p-5 overflow-y-auto">
+            
+            <!-- PANE 1: DASHBOARD -->
+            <section id="pane-dashboard" class="tab-pane active space-y-5">
+                <!-- Metrics Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="stitch-card flex items-center gap-3">
+                        <div class="w-10 h-10 rounded bg-primary-container/20 border border-primary-container/40 flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined">folder_open</span>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Active Cases</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-stat-cases">4</div>
+                        </div>
+                    </div>
+
+                    <div class="stitch-card flex items-center gap-3">
+                        <div class="w-10 h-10 rounded bg-tertiary-container/20 border border-tertiary-container/40 flex items-center justify-center text-tertiary">
+                            <span class="material-symbols-outlined">groups</span>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Extracted Entities</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-stat-entities">34</div>
+                        </div>
+                    </div>
+
+                    <div class="stitch-card flex items-center gap-3">
+                        <div class="w-10 h-10 rounded bg-secondary-container/20 border border-secondary-container/40 flex items-center justify-center text-secondary">
+                            <span class="material-symbols-outlined">route</span>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Cross-Case Links</div>
+                            <div class="text-xl font-bold text-primary font-mono" id="dash-stat-links">2</div>
+                        </div>
+                    </div>
+
+                    <div class="stitch-card flex items-center gap-3">
+                        <div class="w-10 h-10 rounded bg-amber-950/40 border border-amber-800/40 flex items-center justify-center text-amber-400">
+                            <span class="material-symbols-outlined">warning</span>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Resolution Review</div>
+                            <div class="text-xl font-bold text-amber-400 font-mono" id="dash-stat-resolution">1 Pending</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Featured Cross-Case Connection Banner -->
+                <div class="stitch-card bg-surface-container-low border-primary/30 p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">Automated Cross-Case Discovery</span>
+                        </div>
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">
+                            Composite Confidence: 0.93 (High)
+                        </span>
+                    </div>
+
+                    <div class="text-xs text-on-surface-variant">
+                        Discovered hidden 4-hop connection chain linking <strong>CASE_101</strong> (Cargo Hijack) to <strong>CASE_204</strong> (Zaveri Bazaar Fencing) via shared burner line <strong>PHONE_042</strong> (+91-9876543210).
+                    </div>
+
+                    <div class="flex items-center gap-2 overflow-x-auto py-2">
+                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_101</span>
+                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_017 (Aarav Verma)</span>
+                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="px-2.5 py-1 rounded bg-tertiary-container/30 text-tertiary border border-tertiary/50 text-xs font-mono font-bold">PHONE_042 (Burner Line)</span>
+                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-primary border border-primary/30 text-xs font-mono font-bold">PERSON_089 (Vikram Malhotra)</span>
+                        <span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+                        <span class="px-2.5 py-1 rounded bg-surface-container-high text-error border border-error/30 text-xs font-mono font-bold">CASE_204</span>
+                    </div>
+                </div>
+
+                <!-- Active Cases Grid -->
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-base">briefcase</span> Active Investigation Cases
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="dashboard-cases-container">
+                        <!-- Rendered via JS using CrimeGraphDataService -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANE 2: CASE EXPLORER -->
+            <section id="pane-cases" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">briefcase</span> Case Explorer
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="case-search" placeholder="Search cases by title or ID..." class="bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1 text-xs text-on-surface font-sans">
+                    </div>
+                </div>
+
+                <div class="stitch-card overflow-x-auto p-0">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-surface-container-high text-on-surface-variant font-mono uppercase text-[10px] border-b border-surface-variant">
+                                <th class="p-3">Case ID</th>
+                                <th class="p-3">Title</th>
+                                <th class="p-3">Incident Date</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3">Primary Location</th>
+                                <th class="p-3">Entities</th>
+                                <th class="p-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cases-table-body" class="divide-y divide-surface-container-high">
+                            <!-- Injected via JS using CrimeGraphDataService -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- PANE 3: CASE DETAIL (CASE_101) -->
+            <section id="pane-case-detail" class="tab-pane hidden space-y-5">
+                <div class="stitch-card space-y-4" id="case-detail-container">
+                    <!-- Injected via JS -->
+                </div>
+            </section>
+
+            <!-- PANE 4: NETWORK GRAPH / INVESTIGATION WORKSPACE (MAIN PRIORITY) -->
+            <section id="pane-graph" class="tab-pane hidden space-y-3 h-[calc(100vh-100px)] flex flex-col">
+                <!-- Controls & Filter Toolbar -->
+                <div class="bg-surface-container-low border border-surface-container-high rounded-md p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+                    <!-- Graph Controls -->
+                    <div class="flex items-center gap-2">
+                        <button id="graph-zoom-in" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom In">
+                            <span class="material-symbols-outlined text-sm">zoom_in</span>
+                        </button>
+                        <button id="graph-zoom-out" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Zoom Out">
+                            <span class="material-symbols-outlined text-sm">zoom_out</span>
+                        </button>
+                        <button id="graph-reset" class="p-1.5 bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant text-on-surface" title="Fit View">
+                            <span class="material-symbols-outlined text-sm">center_focus_strong</span>
+                        </button>
+                        <div class="h-4 w-px bg-surface-container-high"></div>
+                        <button id="graph-highlight-path" class="px-2.5 py-1 bg-tertiary-container/30 text-tertiary border border-tertiary/40 rounded text-xs font-semibold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Path (Case 101 â†’ Case 204)
+                        </button>
+                        <button id="graph-clear-selection" class="px-2 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded text-xs">
+                            Clear Selection
+                        </button>
+                        <div class="h-4 w-px bg-surface-container-high"></div>
+                        <button id="graph-btn-add-entity" class="px-2.5 py-1 bg-primary-container hover:bg-blue-600 text-white rounded text-xs font-semibold flex items-center gap-1 shadow transition">
+                            <span class="material-symbols-outlined text-sm">person_add</span> + Add Entity
+                        </button>
+                        <button id="graph-btn-add-rel" class="px-2.5 py-1 bg-surface-container-high hover:bg-surface-variant text-primary border border-outline-variant rounded text-xs font-semibold flex items-center gap-1 transition">
+                            <span class="material-symbols-outlined text-sm">add_link</span> + Add Link
+                        </button>
+                    </div>
+
+                    <!-- Search Node Input in Toolbar -->
+                    <div class="relative w-48">
+                        <span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-xs">search</span>
+                        <input type="text" id="graph-search-input" placeholder="Search node in graph..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded pl-7 pr-2 py-1 text-xs text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+
+                    <!-- Entity Filter Options -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-on-surface-variant text-[11px]">Filter Types:</span>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PERSON"> Person</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="PHONE"> Phone</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="VEHICLE"> Vehicle</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="LOCATION"> Location</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="CASE"> Case</label>
+                        <label class="flex items-center gap-1 text-[11px]"><input type="checkbox" checked class="filter-type" value="ACCOUNT"> Account</label>
+                    </div>
+                </div>
+
+                <!-- Canvas & Side Panels Workspace -->
+                <div class="flex-1 flex gap-3 min-h-0 relative">
+                    <!-- Vis.js Canvas -->
+                    <div class="flex-1 bg-surface-container-lowest border border-surface-container rounded-md relative overflow-hidden">
+                        <div id="graph-canvas"></div>
+                        
+                        <!-- Legend Overlay -->
+                        <div class="absolute bottom-3 left-3 bg-surface-container/90 border border-surface-container-high rounded p-2 text-[10px] space-y-1 backdrop-blur-sm pointer-events-none">
+                            <div class="font-bold text-on-surface uppercase tracking-wider mb-1">Entity Legend</div>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Person</div>
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Phone</div>
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Vehicle</div>
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span> Location</div>
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Case</div>
+                                <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span> Account</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REUSABLE ENTITY DETAILS / EVIDENCE PANEL DRAWER -->
+                    <div id="inspector-drawer" class="w-80 bg-surface-container-low border border-surface-container-high rounded-md p-4 overflow-y-auto space-y-4">
+                        <div class="text-center py-16 text-outline text-xs">
+                            <span class="material-symbols-outlined text-3xl opacity-40 mb-1 block">touch_app</span>
+                            Click any node to open the <strong>Entity Details Panel</strong>.<br>Click any relationship edge to open the <strong>Evidence Panel</strong>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANE 5: AI INVESTIGATOR UI -->
+            <section id="pane-ai-investigator" class="tab-pane hidden space-y-4 h-[calc(100vh-100px)] flex flex-col">
+                <div class="stitch-card flex-1 flex flex-col min-h-0">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-3 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-tertiary">auto_awesome</span>
+                            <span class="text-sm font-bold text-white">AI Investigator Assistant</span>
+                        </div>
+                        <span class="text-[11px] text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                            Aditya AI Engine Integration Adapter
+                        </span>
+                    </div>
+
+                    <!-- Question Presets -->
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "Why are Case 101 and Case 204 connected?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "What connects Person 017 and Person 089?"
+                        </button>
+                        <button class="ai-preset-btn bg-surface-container-high hover:bg-surface-variant px-2.5 py-1 rounded text-xs text-primary border border-outline-variant transition">
+                            "Which entities appear in multiple cases?"
+                        </button>
+                    </div>
+
+                    <!-- Output Area -->
+                    <div id="ai-response-container" class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded p-4 overflow-y-auto space-y-4 text-xs font-mono">
+                        <div class="text-outline text-center py-16">
+                            Select a preset question above or enter a question below to demonstrate the AI Investigator interface.
+                        </div>
+                    </div>
+
+                    <!-- Input Box -->
+                    <div class="flex gap-2 pt-3">
+                        <input type="text" id="ai-input-text" placeholder="Type your investigative question..." class="flex-1 bg-surface-container-lowest border border-surface-container-high rounded px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary font-sans">
+                        <button id="ai-submit-btn" class="px-4 py-2 bg-tertiary-container text-white text-xs font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">send</span> Query
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANE 6: TIMELINE -->
+            <section id="pane-timeline" class="tab-pane hidden space-y-4">
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">history</span> Chronological Investigation Timeline
+                </h2>
+
+                <div class="stitch-card space-y-4" id="timeline-container">
+                    <!-- Events injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 7: EVIDENCE EXPLORER -->
+            <section id="pane-evidence" class="tab-pane hidden space-y-4">
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">description</span> Ingested Evidence Index
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="evidence-grid-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 8: REPORTS -->
+            <section id="pane-reports" class="tab-pane hidden space-y-4">
+                <div class="stitch-card space-y-4">
+                    <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">summarize</span> Evidence-Backed Investigation Report
+                        </h2>
+                        <button onclick="generateReport('CASE_101')" class="px-3 py-1.5 bg-primary-container text-white text-xs font-semibold rounded flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">print</span> Generate Report (Case 101)
+                        </button>
+                    </div>
+
+                    <div id="report-view-box" class="bg-surface-container-lowest border border-surface-container-high rounded p-5 text-xs font-mono leading-relaxed space-y-3">
+                        <div class="text-outline text-center py-10">Click "Generate Report" to preview evidence summary.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANE 9: PATTERNS & ANOMALIES -->
+            <section id="pane-patterns" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-400">pattern</span> Pattern & Anomaly Intelligence (Day 30)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-amber-950/40 text-amber-400 border border-amber-800/40">Deterministic Pattern Mining</span>
+                </div>
+                <div class="stitch-card space-y-4" id="patterns-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 10: KEY PLAYERS -->
+            <section id="pane-key-players" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">person_search</span> Key Player & Influencer Intelligence (Day 28)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-primary-container/30 text-primary border border-primary/40">Eigenvector / Betweenness Centrality</span>
+                </div>
+                <div class="stitch-card space-y-4" id="key-players-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 11: COMMUNITIES -->
+            <section id="pane-communities" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-purple-400">hub</span> Criminal Group & Community Detection (Day 27)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-purple-950/40 text-purple-300 border border-purple-800/40">Louvain Modularisation</span>
+                </div>
+                <div class="stitch-card space-y-4" id="communities-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 12: LINK & PATH ANALYSIS -->
+            <section id="pane-paths" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-emerald-400">alt_route</span> Link Analysis & Multi-Hop Path Discovery (Day 29)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-emerald-950/40 text-emerald-300 border border-emerald-800/40">Shortest Path & Provenance</span>
+                </div>
+                <div class="stitch-card space-y-4" id="paths-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 13: CROSS-CASE INTELLIGENCE -->
+            <section id="pane-cross-case" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-cyan-400">compare_arrows</span> Cross-Case Intelligence Discovery
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-cyan-950/40 text-cyan-300 border border-cyan-800/40">Multi-Case Entity Overlap</span>
+                </div>
+                <div class="stitch-card space-y-4" id="cross-case-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 14: CROSS-SOURCE INTELLIGENCE -->
+            <section id="pane-correlations" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary">insights</span> Cross-Source Correlation Intelligence (Day 32)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-secondary-container/30 text-secondary border border-secondary/40">Multi-Source Provenance Matching</span>
+                </div>
+                <div class="stitch-card space-y-4" id="correlations-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+            <!-- PANE 15: RISK & PRIORITY SCORING -->
+            <section id="pane-risk" class="tab-pane hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-error">priority_high</span> Investigative Risk & Priority Intelligence (Day 33)
+                    </h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold rounded bg-error-container/30 text-error border border-error/40">12D Feature Mining & Statistical Weighting</span>
+                </div>
+                <div class="stitch-card space-y-4" id="risk-container">
+                    <!-- Injected via JS using CrimeGraphDataService -->
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD ENTITY -->
+    <div id="modal-add-entity" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-surface-container border border-surface-container-high rounded-lg shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2 text-white font-bold text-sm">
+                    <span class="material-symbols-outlined text-primary">person_add</span> + Add Knowledge Graph Entity
+                </div>
+                <button onclick="closeAddEntityModal()" class="text-on-surface-variant hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-add-entity" onsubmit="handleCreateEntity(event)" class="space-y-3 text-xs">
+                <!-- Entity Type -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Entity Type *</label>
+                    <select id="entity-type-select" onchange="updateDynamicEntityFields()" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                        <option value="PERSON">Person / Suspect (PERSON)</option>
+                        <option value="PHONE">Phone Number (PHONE)</option>
+                        <option value="VEHICLE">Vehicle (VEHICLE)</option>
+                        <option value="LOCATION">Location (LOCATION)</option>
+                        <option value="ORGANIZATION">Organization (ORGANIZATION)</option>
+                        <option value="ACCOUNT">Bank / Digital Account (ACCOUNT)</option>
+                        <option value="CASE">Case / Incident (CASE)</option>
+                        <option value="EVENT">Event / Sighting (EVENT)</option>
+                    </select>
+                </div>
+
+                <!-- Custom ID (Optional) -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Custom Entity ID <span class="text-outline font-normal">(Optional â€” auto-generated if blank)</span></label>
+                    <input type="text" id="entity-custom-id" placeholder="e.g. PERSON_099 or leave empty" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface font-mono focus:border-primary">
+                </div>
+
+                <!-- Dynamic Fields Container -->
+                <div id="entity-dynamic-fields" class="space-y-3 pt-1 border-t border-surface-container-high">
+                    <!-- Injected via JS based on type -->
+                </div>
+
+                <!-- General Notes / Description -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Context Notes / Description</label>
+                    <textarea id="entity-notes" rows="2" placeholder="Investigation context or role..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary"></textarea>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-surface-container-high">
+                    <button type="button" onclick="closeAddEntityModal()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface rounded font-semibold">Cancel</button>
+                    <button type="submit" id="btn-submit-entity" class="px-4 py-1.5 bg-primary-container hover:bg-blue-600 text-white font-semibold rounded shadow flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">check</span> Create Entity
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADD RELATIONSHIP -->
+    <div id="modal-add-rel" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-surface-container border border-surface-container-high rounded-lg shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2 text-white font-bold text-sm">
+                    <span class="material-symbols-outlined text-tertiary">add_link</span> + Add Relationship Link
+                </div>
+                <button onclick="closeAddRelationshipModal()" class="text-on-surface-variant hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-add-rel" onsubmit="handleCreateRelationship(event)" class="space-y-3 text-xs">
+                <!-- Source Entity -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Source Entity *</label>
+                    <select id="rel-source-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface font-mono focus:border-primary">
+                        <!-- Injected via JS -->
+                    </select>
+                </div>
+
+                <!-- Relationship Type -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Relationship Type *</label>
+                    <select id="rel-type-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-primary font-mono font-semibold focus:border-primary">
+                        <option value="USES">USES (Person â†’ Phone / Vehicle)</option>
+                        <option value="OWNS">OWNS (Person â†’ Vehicle / Property)</option>
+                        <option value="INVOLVED_IN">INVOLVED_IN (Person / Entity â†’ Case)</option>
+                        <option value="ASSOCIATED_WITH">ASSOCIATED_WITH (Person â†’ Person / Org)</option>
+                        <option value="CONTACTED">CONTACTED (Person â†’ Person)</option>
+                        <option value="VISITED">VISITED (Person â†’ Location)</option>
+                        <option value="SEEN_AT">SEEN_AT (Vehicle / Person â†’ Location)</option>
+                        <option value="LOCATED_AT">LOCATED_AT (Entity â†’ Location)</option>
+                        <option value="WORKS_FOR">WORKS_FOR (Person â†’ Organization)</option>
+                        <option value="OWNED_BY">OWNED_BY (Account â†’ Person)</option>
+                        <option value="INVOLVES">INVOLVES (Event â†’ Person)</option>
+                        <option value="OCCURRED_AT">OCCURRED_AT (Event â†’ Location)</option>
+                    </select>
+                </div>
+
+                <!-- Target Entity -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Target Entity *</label>
+                    <select id="rel-target-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface font-mono focus:border-primary">
+                        <!-- Injected via JS -->
+                    </select>
+                </div>
+
+                <!-- Confidence Score Slider -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-on-surface-variant font-semibold">Confidence Score</label>
+                        <span id="rel-confidence-val" class="font-mono text-tertiary font-bold">0.95</span>
+                    </div>
+                    <input type="range" id="rel-confidence-slider" min="0.5" max="1.0" step="0.01" value="0.95" oninput="document.getElementById('rel-confidence-val').innerText = this.value" class="w-full accent-primary-container">
+                </div>
+
+                <!-- Optional Context / Notes -->
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Investigative Evidence Note</label>
+                    <input type="text" id="rel-notes" placeholder="e.g. Surveillance sighting or CDR cross-reference" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-surface-container-high">
+                    <button type="button" onclick="closeAddRelationshipModal()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface rounded font-semibold">Cancel</button>
+                    <button type="submit" id="btn-submit-rel" class="px-4 py-1.5 bg-tertiary-container hover:bg-emerald-600 text-white font-semibold rounded shadow flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">link</span> Establish Link
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: EDIT ENTITY -->
+    <div id="modal-edit-entity" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-surface-container border border-surface-container-high rounded-lg shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2 text-white font-bold text-sm">
+                    <span class="material-symbols-outlined text-amber-400">edit_note</span> Edit Entity Details
+                </div>
+                <button onclick="closeEditEntityModal()" class="text-on-surface-variant hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-edit-entity" onsubmit="handleUpdateEntity(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="edit-entity-id">
+
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Entity ID</label>
+                    <input type="text" id="edit-entity-id-display" disabled class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-outline font-mono cursor-not-allowed">
+                </div>
+
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Name / Identifier *</label>
+                    <input type="text" id="edit-entity-name" required class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                </div>
+
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Description / Role / Notes</label>
+                    <textarea id="edit-entity-details" rows="3" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-surface-container-high">
+                    <button type="button" onclick="closeEditEntityModal()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface rounded font-semibold">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 bg-primary-container hover:bg-blue-600 text-white font-semibold rounded shadow flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">save</span> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: ADD CASE -->
+    <div id="modal-add-case" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-surface-container border border-surface-container-high rounded-lg shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                <div class="flex items-center gap-2 text-white font-bold text-sm">
+                    <span class="material-symbols-outlined text-tertiary">post_add</span> + Add New Investigation Case
+                </div>
+                <button onclick="closeAddCaseModal()" class="text-on-surface-variant hover:text-white">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="form-add-case" onsubmit="handleCreateCase(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Case Title *</label>
+                    <input type="text" id="case-title" required placeholder="e.g. Operation Gold Falcon â€” Bullion Smuggling" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Custom Case ID (Optional)</label>
+                    <input type="text" id="case-custom-id" placeholder="e.g. CASE_601 (Leave blank to auto-generate)" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface font-mono focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Case Type / Crime Domain</label>
+                    <input type="text" id="case-type" placeholder="e.g. CARGO_HIJACK, CYBER_FRAUD, SMUGGLING" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-on-surface-variant font-semibold mb-1">Status</label>
+                        <select id="case-status" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-tertiary font-bold focus:border-primary">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="OPEN">OPEN</option>
+                            <option value="UNDER_INVESTIGATION">UNDER INVESTIGATION</option>
+                            <option value="CLOSED">CLOSED</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-on-surface-variant font-semibold mb-1">Priority</label>
+                        <select id="case-priority" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-error font-bold focus:border-primary">
+                            <option value="HIGH">HIGH</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="LOW">LOW</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Description / Brief Overview</label>
+                    <textarea id="case-description" rows="3" placeholder="Case briefing summary..." class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary"></textarea>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-surface-container-high">
+                    <button type="button" onclick="closeAddCaseModal()" class="px-3 py-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface rounded font-semibold">Cancel</button>
+                    <button type="submit" id="btn-submit-case" class="px-4 py-1.5 bg-tertiary-container hover:bg-emerald-600 text-white font-semibold rounded shadow flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">check</span> Create & Persist Case
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- Frontend Service Layer & Application Logic -->
+    <script src="service.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

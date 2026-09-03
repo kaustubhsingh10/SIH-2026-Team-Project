@@ -5,7 +5,7 @@ Strictly adheres to DATA_SCHEMA.md Section 2 (Relationship Types) and API_CONTRA
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RelationshipType(str, Enum):
@@ -32,21 +32,21 @@ class RelationshipType(str, Enum):
     # Person -> Organization
     WORKS_FOR = "WORKS_FOR"
 
-    # Account -> Person / Account
+    # Account -> Person
     OWNED_BY = "OWNED_BY"
-    LINKED_TO = "LINKED_TO"
-    TRANSFERRED_TO = "TRANSFERRED_TO"
-
-    # Additional custom investigative relationships
-    CALL_RECORDED = "CALL_RECORDED"
-    MEETS = "MEETS"
-    DRIVES = "DRIVES"
 
     # Event -> Person
     INVOLVES = "INVOLVES"
 
     # Event -> Location
     OCCURRED_AT = "OCCURRED_AT"
+
+    # Social / Communication Relationships (Day 25)
+    POSTED_BY = "POSTED_BY"
+    MENTIONS = "MENTIONS"
+    INTERACTS_WITH = "INTERACTS_WITH"
+    LINKED_TO = "LINKED_TO"
+    COMMUNICATES_WITH = "COMMUNICATES_WITH"
 
 
 class Relationship(BaseModel):
@@ -61,6 +61,7 @@ class Relationship(BaseModel):
     - evidence_ids: List of evidence IDs supporting this relationship
     - properties: Optional key-value metadata (e.g. date, call_duration, role)
     """
+    model_config = ConfigDict(use_enum_values=True, extra="allow")
     id: str = Field(..., description="Unique relationship identifier")
     source_id: str = Field(..., description="Source entity ID")
     relationship: RelationshipType = Field(..., description="Relationship type")
@@ -68,6 +69,7 @@ class Relationship(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")
     evidence_ids: List[str] = Field(default_factory=list, description="IDs of supporting evidence records")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Additional contextual properties")
+    origin: str = Field(default="DATASET", description="Origin: DATASET or MANUAL")
 
     @field_validator("confidence")
     @classmethod

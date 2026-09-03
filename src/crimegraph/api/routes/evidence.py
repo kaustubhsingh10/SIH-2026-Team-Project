@@ -4,9 +4,10 @@ Strictly adheres to API_CONTRACT.md and DATA_SCHEMA.md.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from crimegraph.auth.dependencies import get_current_user
 
-router = APIRouter(prefix="/api/evidence", tags=["Evidence"])
+router = APIRouter(prefix="/api/evidence", tags=["Evidence"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=List[Dict[str, Any]])
@@ -14,7 +15,9 @@ def list_evidence(
     request: Request,
     source_document_id: Optional[str] = Query(None, description="Filter by source document ID/filename"),
     min_confidence: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence threshold"),
-    case_id: Optional[str] = Query(None, description="Filter evidence linked to a specific case")
+    case_id: Optional[str] = Query(None, description="Filter evidence linked to a specific case"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Optional limit for pagination"),
+    offset: int = Query(0, ge=0, description="Optional offset for pagination")
 ) -> List[Dict[str, Any]]:
     """List and filter evidence provenance records in the knowledge graph."""
     graph = request.app.state.graph
@@ -37,6 +40,11 @@ def list_evidence(
         for edge in subgraph.get("edges", []):
             case_evid_ids.update(edge.get("evidence_ids", []))
         all_evidence = [ev for ev in all_evidence if ev.evidence_id in case_evid_ids]
+
+    if offset > 0:
+        all_evidence = all_evidence[offset:]
+    if limit is not None:
+        all_evidence = all_evidence[:limit]
         
     return [ev.model_dump() for ev in all_evidence]
 
@@ -45,6 +53,7 @@ def list_evidence(
 def get_evidence_item(request: Request, evidence_id: str) -> Dict[str, Any]:
     """Retrieve detailed provenance for a specific evidence item."""
     graph = request.app.state.graph
+    evidence_id = evidence_id.strip()
     ev = graph.get_evidence(evidence_id)
     if not ev:
         raise HTTPException(status_code=404, detail=f"Evidence with ID '{evidence_id}' not found")

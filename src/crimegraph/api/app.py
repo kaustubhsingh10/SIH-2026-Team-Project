@@ -5,27 +5,84 @@ Strictly adheres to API_CONTRACT.md, DATA_SCHEMA.md, and PROJECT_SPEC.md.
 """
 
 from contextlib import asynccontextmanager
+import logging
+import os
 from typing import Any, Dict
-from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from starlette.requests import Request as StarletteRequest
 
 from crimegraph.data.loader import load_dataset
 from crimegraph.graph.store import KnowledgeGraphStore
-from crimegraph.api.routes import cases, entities, graph, evidence, extract, reports, resolution, investigate, auth, audit
+from crimegraph.auth.store import UserStore
+from crimegraph.audit.logger import AuditLogger
+from crimegraph.audit.models import AuditActorType, AuditResourceType, AuditStatus
+from crimegraph.observability.logging import setup_observability_logging
+from crimegraph.observability.middleware import ObservabilityMiddleware
+from crimegraph.observability.metrics import metrics
+from crimegraph.security.rate_limiter import RateLimitMiddleware
+from crimegraph.api.routes import (
+    audit,
+    auth,
+    cases,
+    communities,
+    entities,
+    graph,
+    evidence,
+    extract,
+    reports,
+    resolution,
+    entity_resolution_legacy,
+    investigate,
+    relationships,
+    patterns,
+    sources,
+    timeline,
+    intelligence,
+    paths,
+    dashboard,
+    correlation,
+    risk,
+)
+
+# Initialize production structured logging
+logger = setup_observability_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager to initialize the knowledge graph store on startup."""
-    # Initialize and load knowledge graph from data/synthetic_data.json
-    app.state.graph = load_dataset()
+    """Application lifespan manager to initialize knowledge graph, users, and audit stores on startup."""
+    logger.info("Initializing CrimeGraph AI application services...")
+    if getattr(app.state, "graph", None) is None:
+        app.state.graph = load_dataset()
+    if getattr(app.state, "user_store", None) is None:
+        app.state.user_store = UserStore()
+    if getattr(app.state, "audit_logger", None) is None:
+        app.state.audit_logger = AuditLogger()
+        app.state.audit_logger.log(
+            action="SYSTEM_STARTUP",
+            actor_id="SYSTEM",
+            actor_type=AuditActorType.SYSTEM,
+            resource_type=AuditResourceType.SYSTEM,
+            status=AuditStatus.SUCCESS,
+            details={"version": "1.0.0"}
+        )
+    logger.info(
+        f"CrimeGraph AI initialization complete. "
+        f"Graph entities: {len(app.state.graph.entities)}, "
+        f"Relationships: {len(app.state.graph.relationships)}, "
+        f"Evidence items: {len(app.state.graph.evidence)}. Server ready."
+    )
     yield
-    # Cleanup if needed on shutdown
+    logger.info("CrimeGraph AI backend shutting down cleanly.")
 
 
-def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
+def create_app(
+    graph_instance: KnowledgeGraphStore = None,
+    user_store: UserStore = None,
+    audit_logger: AuditLogger = None
+) -> FastAPI:
     """Factory to create and configure the FastAPI application."""
     app = FastAPI(
         title="CrimeGraph AI — Investigative Intelligence API",
@@ -36,8 +93,12 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        lifespan=lifespan if graph_instance is None else None
+        lifespan=lifespan if graph_instance is None and user_store is None and audit_logger is None else None
     )
+
+    # Observability & Request Performance Middleware
+    app.add_middleware(ObservabilityMiddleware)
+    app.add_middleware(RateLimitMiddleware)
 
     # If an explicit graph instance is provided, use it, otherwise load dataset
     if graph_instance is not None:
@@ -45,28 +106,61 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
     else:
         app.state.graph = load_dataset()
 
-    # Configure CORS for frontend clients (Stitch, React/Vite, Next.js, etc.)
+    # User store initialization
+    if user_store is not None:
+        app.state.user_store = user_store
+    else:
+        app.state.user_store = UserStore()
+
+    # Audit logger initialization
+    if audit_logger is not None:
+        app.state.audit_logger = audit_logger
+    else:
+        app.state.audit_logger = AuditLogger()
+        app.state.audit_logger.log(
+            action="SYSTEM_STARTUP",
+            actor_id="SYSTEM",
+            actor_type=AuditActorType.SYSTEM,
+            resource_type=AuditResourceType.SYSTEM,
+            status=AuditStatus.SUCCESS,
+            details={"version": "1.0.0"}
+        )
+
+    # Configure CORS for frontend clients (Stitch, React/Vite, Next.js, Netlify, etc.)
+    cors_env = os.environ.get("CORS_ORIGINS") or os.environ.get("CRIMEGRAPH_FRONTEND_ORIGIN") or "*"
+    allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+    if not allowed_origins:
+        allowed_origins = ["*"]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # Observability & Request Tracing Middleware
-    @app.middleware("http")
-    async def add_observability_headers(request, call_next):
-        import time, uuid
-        request_id = request.headers.get("X-Request-ID") or f"req_{uuid.uuid4().hex[:12]}"
-        start_time = time.perf_counter()
-        response = await call_next(request)
-        process_time = (time.perf_counter() - start_time) * 1000
-        response.headers["X-Request-ID"] = request_id
-        response.headers["X-Response-Time"] = f"{process_time:.2f}ms"
-        return response
+    # Global Exception Handler to prevent raw traceback or local path leakage
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: StarletteRequest, exc: Exception):
+        req_id = getattr(request.state, "request_id", "-")
+        logger.error(f"Unhandled error processing {request.method} {request.url.path} [req:{req_id}]: {exc}", exc_info=True)
+        if hasattr(request.app.state, "audit_logger") and request.app.state.audit_logger:
+            request.app.state.audit_logger.log(
+                action="SYSTEM_ERROR",
+                actor_id="SYSTEM",
+                actor_type=AuditActorType.SYSTEM,
+                resource_type=AuditResourceType.SYSTEM,
+                status=AuditStatus.FAILURE,
+                details={"path": str(request.url.path), "method": request.method, "error": str(exc)}
+            )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An internal server error occurred. Please contact the administrator."},
+            headers={"X-Request-ID": req_id} if req_id != "-" else {}
+        )
 
-    # Health & root status endpoints
+    # Health & root status endpoints (conforms strictly to API_CONTRACT.md)
     @app.get("/", tags=["System"])
     def root_status() -> Dict[str, Any]:
         graph_store = getattr(app.state, "graph", None)
@@ -85,25 +179,51 @@ def create_app(graph_instance: KnowledgeGraphStore = None) -> FastAPI:
         }
 
     @app.get("/api/health", tags=["System"])
-    def health_check() -> Dict[str, str]:
-        return {"status": "healthy"}
+    def health_check(metrics_flag: bool = Query(False, alias="metrics", description="Include performance metrics")) -> Dict[str, Any]:
+        graph_store = getattr(app.state, "graph", None)
+        if graph_store is None or len(graph_store.entities) == 0:
+            return {"status": "degraded", "detail": "Knowledge graph store uninitialized"}
+        
+        resp = {"status": "healthy"}
+        if metrics_flag:
+            resp["diagnostics"] = metrics.get_summary()
+        return resp
+
+    @app.get("/api/metrics", tags=["System"])
+    def get_metrics() -> Dict[str, Any]:
+        """Provides in-memory performance and observability summary."""
+        return metrics.get_summary()
 
     # Include modular routers
-    app.include_router(auth.router)
     app.include_router(audit.router)
+    app.include_router(auth.router)
     app.include_router(cases.router)
+    app.include_router(communities.router)
     app.include_router(entities.router)
     app.include_router(graph.router)
     app.include_router(evidence.router)
     app.include_router(extract.router)
     app.include_router(reports.router)
     app.include_router(resolution.router)
+    app.include_router(entity_resolution_legacy.router)
     app.include_router(investigate.router)
+    app.include_router(relationships.router)
+    app.include_router(patterns.router)
+    app.include_router(sources.router)
+    app.include_router(timeline.router)
+    app.include_router(intelligence.router)
+    app.include_router(paths.router)
+    app.include_router(dashboard.router)
+    app.include_router(correlation.router)
+    app.include_router(risk.router)
 
-    # Mount static web frontend directory if present
-    web_dir = Path(__file__).resolve().parent.parent.parent.parent / "web"
-    if web_dir.exists():
-        app.mount("/web", StaticFiles(directory=str(web_dir), html=True), name="web")
+    # Static files mount for UI (serves web directory at /web)
+    app_file = os.path.abspath(__file__)
+    proj_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(app_file))))
+    web_dir = os.path.join(proj_root, "web")
+    if os.path.exists(web_dir):
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/web", StaticFiles(directory=web_dir, html=True), name="web")
 
     return app
 

@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "type": "CRIMEGRAPH_MANUAL_DATA",
+    "entity_count": 1,
+    "relationship_count": 0
+  },
+  "entities": [
+    {
+      "id": "MANUAL_VEH_MASTER_99",
+      "source_ids": [],
+      "origin": "MANUAL",
+      "entity_type": "VEHICLE",
+      "registration_number": "MH-02-FINAL-9999",
+      "type": "SUV",
+      "owner_id": null,
+      "confidence": 1.0,
+      "color": "Black",
+      "make": "Toyota Fortuner"
+    }
+  ],
+  "relationships": []
+}

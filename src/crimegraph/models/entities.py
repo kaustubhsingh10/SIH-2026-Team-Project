@@ -26,8 +26,7 @@ class BaseEntity(BaseModel):
 
     id: str = Field(..., description="Unique entity ID (e.g. PERSON_017, CASE_101)")
     source_ids: List[str] = Field(default_factory=list, description="IDs of source documents / evidence")
-    source: str = Field(default="Dataset", description="Data provenance (Dataset vs Manual)")
-    is_manual: bool = Field(default=False, description="Flag indicating manually created entity")
+    origin: str = Field(default="DATASET", description="Data source origin: DATASET or MANUAL")
 
 
 class Person(BaseEntity):

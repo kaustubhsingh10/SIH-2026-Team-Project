@@ -1,14 +1,22 @@
 """Entity API routes for CrimeGraph AI.
 
 Strictly adheres to API_CONTRACT.md and DATA_SCHEMA.md.
+Supports manual entity creation, updating, and safe deletion.
 """
 
+import time
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from crimegraph.models.entities import EntityType
-from crimegraph.api.routes.auth import verify_bearer_token, verify_write_permission
+from crimegraph.graph.store import ENTITY_TYPE_MAP
+from crimegraph.data.loader import save_manual_data
+from crimegraph.auth.dependencies import get_current_user
+from crimegraph.auth.models import User
+from crimegraph.audit.dependencies import get_audit_logger
+from crimegraph.audit.logger import AuditLogger
+from crimegraph.audit.models import AuditActorType, AuditResourceType, AuditStatus
 
-router = APIRouter(prefix="/api/entities", tags=["Entities"])
+router = APIRouter(prefix="/api/entities", tags=["Entities"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=List[Dict[str, Any]])
@@ -17,7 +25,10 @@ def list_entities(
     type: Optional[str] = Query(None, description="Entity type filter (e.g. PERSON, PHONE, VEHICLE, LOCATION, ACCOUNT, ORGANIZATION, EVENT, CASE)"),
     search: Optional[str] = Query(None, description="Search query string against names, numbers, or identifiers"),
     case_id: Optional[str] = Query(None, description="Filter entities linked to a specific case"),
-    min_confidence: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence score threshold")
+    min_confidence: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence score threshold"),
+    origin: Optional[str] = Query(None, description="Filter by data origin: DATASET or MANUAL"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Maximum number of entities to return (optional pagination)"),
+    offset: int = Query(0, ge=0, description="Offset for pagination")
 ) -> List[Dict[str, Any]]:
     """Search and filter entities across the entire knowledge graph."""
     graph = request.app.state.graph
@@ -29,7 +40,12 @@ def list_entities(
     else:
         entities = graph.get_all_entities()
         
-    # 2. Filter by case_id if specified
+    # 2. Filter by origin
+    if origin:
+        upper_orig = origin.upper()
+        entities = [e for e in entities if getattr(e, "origin", "DATASET") == upper_orig]
+
+    # 3. Filter by case_id if specified
     if case_id:
         if case_id not in graph.entities:
             raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
@@ -37,7 +53,7 @@ def list_entities(
         case_entity_ids = {node["id"] for node in subgraph.get("nodes", [])}
         entities = [e for e in entities if e.id in case_entity_ids]
         
-    # 3. Filter by search text
+    # 4. Filter by search text
     if search:
         search_lower = search.lower()
         filtered = []
@@ -62,28 +78,207 @@ def list_entities(
                 filtered.append(e)
         entities = filtered
         
-    # 4. Filter by minimum confidence
+    # 5. Filter by minimum confidence
     if min_confidence is not None:
         entities = [e for e in entities if getattr(e, "confidence", 1.0) >= min_confidence]
+
+    # 6. Apply pagination if requested
+    if offset > 0:
+        entities = entities[offset:]
+    if limit is not None:
+        entities = entities[:limit]
         
     return [e.model_dump() for e in entities]
 
 
+@router.post("", status_code=201, response_model=Dict[str, Any])
+def create_entity(
+    request: Request,
+    payload: Dict[str, Any],
+    audit_logger: AuditLogger = Depends(get_audit_logger),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Create a new manual entity and persist to storage."""
+    graph = request.app.state.graph
+    raw_type = (payload.get("entity_type") or payload.get("type") or "").strip().upper()
+    if not raw_type or raw_type not in ENTITY_TYPE_MAP:
+        audit_logger.log(
+            action="ENTITY_CREATE_FAILED",
+            actor_id=current_user.username,
+            resource_type=AuditResourceType.ENTITY,
+            status=AuditStatus.FAILURE,
+            details={"reason": f"Invalid entity_type: '{raw_type}'"}
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid or missing entity_type: '{raw_type}'. Supported types: {list(ENTITY_TYPE_MAP.keys())}"
+        )
+
+    # Generate unique ID if not supplied
+    entity_id = payload.get("id")
+    if not entity_id or not str(entity_id).strip():
+        unique_suffix = hex(int(time.time() * 1000))[2:][-6:].upper()
+        entity_id = f"MANUAL_{raw_type}_{unique_suffix}"
+    else:
+        entity_id = str(entity_id).strip()
+        if entity_id in graph.entities:
+            audit_logger.log(
+                action="ENTITY_CREATE_FAILED",
+                actor_id=current_user.username,
+                resource_type=AuditResourceType.ENTITY,
+                resource_id=entity_id,
+                status=AuditStatus.FAILURE,
+                details={"reason": "Entity ID already exists"}
+            )
+            raise HTTPException(status_code=409, detail=f"Entity with ID '{entity_id}' already exists.")
+
+    payload["id"] = entity_id
+    payload["entity_type"] = raw_type
+    payload["origin"] = "MANUAL"
+
+    model_cls = ENTITY_TYPE_MAP[raw_type]
+    try:
+        validated_entity = model_cls(**payload)
+    except Exception as e:
+        audit_logger.log(
+            action="ENTITY_CREATE_FAILED",
+            actor_id=current_user.username,
+            resource_type=AuditResourceType.ENTITY,
+            resource_id=entity_id,
+            status=AuditStatus.FAILURE,
+            details={"error": str(e)}
+        )
+        raise HTTPException(status_code=422, detail=f"Validation error for {raw_type}: {str(e)}")
+
+    graph.add_entity(validated_entity)
+    save_manual_data(graph)
+
+    audit_logger.log(
+        action="ENTITY_CREATE",
+        actor_id=current_user.username,
+        resource_type=AuditResourceType.ENTITY,
+        resource_id=validated_entity.id,
+        status=AuditStatus.SUCCESS,
+        details={
+            "entity_type": raw_type,
+            "name": getattr(validated_entity, "name", getattr(validated_entity, "title", raw_type))
+        }
+    )
+    return validated_entity.model_dump()
+
+
 @router.get("/{entity_id}")
-def get_entity(request: Request, entity_id: str) -> Dict[str, Any]:
+def get_entity(
+    request: Request,
+    entity_id: str,
+    audit_logger: AuditLogger = Depends(get_audit_logger),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
     """Retrieve full entity details, connected relationships, cases, and supporting evidence.
     
     Strictly conforms to API_CONTRACT.md Section 5:
     GET /api/entities/{entity_id}
     """
     graph = request.app.state.graph
+    entity_id = entity_id.strip()
     if entity_id not in graph.entities:
         raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
         
     try:
-        return graph.get_entity_details(entity_id)
+        details = graph.get_entity_details(entity_id)
+        audit_logger.log(
+            action="ENTITY_VIEW",
+            actor_id=current_user.username,
+            actor_type=AuditActorType.USER,
+            resource_type=AuditResourceType.ENTITY,
+            resource_id=entity_id,
+            status=AuditStatus.SUCCESS
+        )
+        return details
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/{entity_id}", response_model=Dict[str, Any])
+def update_entity(
+    request: Request,
+    entity_id: str,
+    payload: Dict[str, Any],
+    audit_logger: AuditLogger = Depends(get_audit_logger),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Update a manual entity's properties."""
+    graph = request.app.state.graph
+    entity_id = entity_id.strip()
+    existing = graph.get_entity(entity_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found")
+
+    existing_dict = existing.model_dump()
+    for k, v in payload.items():
+        if k not in ("id", "entity_type"):
+            existing_dict[k] = v
+
+    raw_type = existing.entity_type
+    model_cls = ENTITY_TYPE_MAP[raw_type]
+    try:
+        updated_entity = model_cls(**existing_dict)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
+
+    graph.add_entity(updated_entity)
+    save_manual_data(graph)
+
+    audit_logger.log(
+        action="ENTITY_UPDATE",
+        actor_id=current_user.username,
+        resource_type=AuditResourceType.ENTITY,
+        resource_id=entity_id,
+        status=AuditStatus.SUCCESS,
+        details={"entity_type": raw_type}
+    )
+    return updated_entity.model_dump()
+
+
+@router.delete("/{entity_id}")
+def delete_entity(
+    request: Request,
+    entity_id: str,
+    audit_logger: AuditLogger = Depends(get_audit_logger),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Delete a manually created entity and connected edges."""
+    graph = request.app.state.graph
+    entity_id = entity_id.strip()
+    existing = graph.get_entity(entity_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_id}' not found")
+
+    if getattr(existing, "origin", "DATASET") == "DATASET":
+        audit_logger.log(
+            action="ENTITY_DELETE_DENIED",
+            actor_id=current_user.username,
+            resource_type=AuditResourceType.ENTITY,
+            resource_id=entity_id,
+            status=AuditStatus.DENIED,
+            details={"reason": "Protected dataset entity cannot be deleted"}
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Protected dataset entity cannot be deleted. Only manually created entities can be deleted."
+        )
+
+    graph.remove_entity(entity_id)
+    save_manual_data(graph)
+
+    audit_logger.log(
+        action="ENTITY_DELETE",
+        actor_id=current_user.username,
+        resource_type=AuditResourceType.ENTITY,
+        resource_id=entity_id,
+        status=AuditStatus.SUCCESS
+    )
+    return {"status": "deleted", "id": entity_id, "message": f"Entity '{entity_id}' deleted successfully."}
 
 
 @router.get("/{entity_id}/neighbors")
@@ -94,6 +289,7 @@ def get_entity_neighbors(
 ) -> Dict[str, Any]:
     """Retrieve immediate 1-hop connected neighbors and relationships for an entity."""
     graph = request.app.state.graph
+    entity_id = entity_id.strip()
     if entity_id not in graph.entities:
         raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
         
@@ -111,168 +307,3 @@ def get_entity_neighbors(
         "neighbor_count": len(results),
         "neighbors": results
     }
-
-
-@router.post("", status_code=201)
-def create_entity(
-    request: Request,
-    data: Dict[str, Any],
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
-    """Manually create a new entity in the knowledge graph store."""
-    if authorization:
-        user = verify_bearer_token(authorization)
-        verify_write_permission(user)
-
-    graph = request.app.state.graph
-    
-    raw_type = (data.get("type") or data.get("entity_type") or "PERSON").upper()
-    if raw_type == "SUSPECT":
-        raw_type = "PERSON"
-    data["type"] = raw_type
-    data["entity_type"] = raw_type
-    
-    if not data.get("id"):
-        prefix_map = {
-            "PERSON": "PERSON",
-            "PHONE": "PHONE",
-            "VEHICLE": "VEHICLE",
-            "LOCATION": "LOC",
-            "ORGANIZATION": "ORG",
-            "ACCOUNT": "ACC",
-            "CASE": "CASE",
-            "EVENT": "EVENT"
-        }
-        prefix = prefix_map.get(raw_type, "ENT")
-        import random
-        num = random.randint(100, 999)
-        candidate_id = f"{prefix}_{num}"
-        while candidate_id in graph.entities:
-            num = random.randint(100, 999)
-            candidate_id = f"{prefix}_{num}"
-        data["id"] = candidate_id
-
-    fallback_name = data.get("name") or data.get("title") or data.get("phone_number") or data.get("registration_number") or data.get("identifier") or data["id"]
-    if raw_type in ["PERSON", "LOCATION", "ORGANIZATION", "EVENT"]:
-        data["name"] = fallback_name
-    elif raw_type == "PHONE":
-        data["phone_number"] = data.get("phone_number") or fallback_name
-    elif raw_type == "VEHICLE":
-        data["registration_number"] = data.get("registration_number") or fallback_name
-    elif raw_type == "ACCOUNT":
-        data["account_type"] = data.get("account_type", "BANK_ACCOUNT")
-        data["identifier"] = data.get("identifier") or fallback_name
-    elif raw_type == "CASE":
-        data["case_number"] = data.get("case_number") or data["id"]
-        data["title"] = data.get("title") or fallback_name
-        
-    data["source"] = data.get("source", "Manual")
-    data["is_manual"] = True
-    
-    try:
-        created = graph.add_entity(data)
-        try:
-            from crimegraph.data.loader import save_dataset
-            save_dataset(graph)
-        except Exception:
-            pass
-
-        from crimegraph.api.routes.audit import log_audit_event
-        actor_name = user.get("username") if 'user' in locals() and user else "OFFICER_VERMA"
-        log_audit_event(
-            actor=actor_name,
-            action="CREATE_ENTITY",
-            resource_type=data.get("type", "ENTITY"),
-            resource_id=data.get("id"),
-            case_id=data.get("case_id"),
-            status="SUCCESS",
-            details={"name": data.get("name"), "is_manual": True}
-        )
-
-        return created.model_dump()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to create entity: {str(e)}")
-
-
-@router.put("/{entity_id}")
-def update_entity(
-    request: Request,
-    entity_id: str,
-    data: Dict[str, Any],
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
-    """Update properties of an existing entity in the knowledge graph store."""
-    if authorization:
-        user = verify_bearer_token(authorization)
-        verify_write_permission(user)
-
-    graph = request.app.state.graph
-    if entity_id not in graph.entities:
-        raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
-        
-    existing = graph.entities[entity_id]
-    existing_dict = existing.model_dump()
-    
-    for k, v in data.items():
-        if k != "id" and v is not None:
-            existing_dict[k] = v
-            
-    existing_dict["source"] = existing_dict.get("source", "Manual")
-    existing_dict["is_manual"] = True
-    
-    try:
-        updated = graph.add_entity(existing_dict)
-        try:
-            from crimegraph.data.loader import save_dataset
-            save_dataset(graph)
-        except Exception:
-            pass
-        return updated.model_dump()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to update entity: {str(e)}")
-
-
-@router.delete("/{entity_id}")
-def delete_entity(
-    request: Request,
-    entity_id: str,
-    authorization: Optional[str] = Header(None)
-) -> Dict[str, Any]:
-    """Delete an entity and all its connected relationships from the graph store."""
-    if authorization:
-        user = verify_bearer_token(authorization)
-        verify_write_permission(user)
-
-    graph = request.app.state.graph
-    if entity_id not in graph.entities:
-        raise HTTPException(status_code=404, detail=f"Entity with ID '{entity_id}' not found")
-        
-    # Remove entity
-    del graph.entities[entity_id]
-    
-    # Remove from type index
-    for t, eids in graph._type_index.items():
-        eids.discard(entity_id)
-        
-    # Remove connected relationships
-    rels_to_delete = [rid for rid, r in graph.relationships.items() if r.source_id == entity_id or r.target_id == entity_id]
-    for rid in rels_to_delete:
-        rel = graph.relationships.pop(rid, None)
-        if rel:
-            if rid in graph._outgoing.get(rel.source_id, []):
-                graph._outgoing[rel.source_id].remove(rid)
-            if rid in graph._incoming.get(rel.target_id, []):
-                graph._incoming[rel.target_id].remove(rid)
-            if rid in graph._undirected.get(rel.source_id, []):
-                graph._undirected[rel.source_id].remove(rid)
-            if rid in graph._undirected.get(rel.target_id, []):
-                graph._undirected[rel.target_id].remove(rid)
-                
-    try:
-        from crimegraph.data.loader import save_dataset
-        save_dataset(graph)
-    except Exception:
-        pass
-
-    return {"success": True, "deleted_id": entity_id}
-
