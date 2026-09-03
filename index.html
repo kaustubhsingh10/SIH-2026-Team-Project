@@ -203,9 +203,9 @@
             <!-- Quick Metrics Footer -->
             <div class="p-3 bg-surface-container-low border border-surface-container-high rounded-md text-[11px] space-y-1.5 text-on-surface-variant font-mono">
                 <div class="flex justify-between"><span>Service Layer:</span><span class="text-tertiary font-bold">Active</span></div>
-                <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold">30</span></div>
-                <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold">24</span></div>
-                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold">19</span></div>
+                <div class="flex justify-between"><span>Graph Nodes:</span><span class="text-primary font-bold" id="sidebar-stat-nodes">34</span></div>
+                <div class="flex justify-between"><span>Edges:</span><span class="text-tertiary font-bold" id="sidebar-stat-edges">24</span></div>
+                <div class="flex justify-between"><span>Evidence Items:</span><span class="text-secondary font-bold" id="sidebar-stat-evidence">19</span></div>
             </div>
         </aside>
 
@@ -222,7 +222,7 @@
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Active Cases</div>
-                            <div class="text-xl font-bold text-white font-mono">4</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-stat-cases">4</div>
                         </div>
                     </div>
 
@@ -232,7 +232,7 @@
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Extracted Entities</div>
-                            <div class="text-xl font-bold text-white font-mono">30</div>
+                            <div class="text-xl font-bold text-white font-mono" id="dash-stat-entities">34</div>
                         </div>
                     </div>
 
@@ -242,7 +242,7 @@
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Cross-Case Links</div>
-                            <div class="text-xl font-bold text-primary font-mono">2</div>
+                            <div class="text-xl font-bold text-primary font-mono" id="dash-stat-links">2</div>
                         </div>
                     </div>
 
@@ -252,7 +252,7 @@
                         </div>
                         <div>
                             <div class="text-[11px] text-on-surface-variant uppercase font-semibold">Resolution Review</div>
-                            <div class="text-xl font-bold text-amber-400 font-mono">1 Pending</div>
+                            <div class="text-xl font-bold text-amber-400 font-mono" id="dash-stat-resolution">1 Pending</div>
                         </div>
                     </div>
                 </div>

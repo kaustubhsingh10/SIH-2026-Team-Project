@@ -120,6 +120,27 @@ async function switchTab(paneId) {
    2. DASHBOARD & CASE EXPLORER
 ---------------------------------------------------- */
 async function renderDashboard() {
+    // Dynamic top metrics update from backend
+    try {
+        const dashRes = await window.dataService.getDashboard();
+        const dashData = (dashRes && dashRes.summary) ? dashRes.summary : dashRes;
+        if (dashData) {
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
+            setTxt("dash-stat-cases", dashData.active_cases ?? dashData.total_cases ?? 4);
+            setTxt("dash-stat-entities", dashData.total_entities ?? dashData.entity_count ?? 34);
+            setTxt("dash-stat-links", dashData.cross_case_links ?? dashData.total_relationships ?? 2);
+            setTxt("dash-stat-resolution", (dashData.pending_resolutions ?? 1) + " Pending");
+            setTxt("sidebar-stat-nodes", dashData.total_entities ?? 34);
+            setTxt("sidebar-stat-edges", dashData.total_relationships ?? 24);
+            setTxt("sidebar-stat-evidence", dashData.total_evidence ?? 19);
+        }
+    } catch (dashErr) {
+        console.warn("Unable to update top dashboard metrics dynamically:", dashErr);
+    }
+
     const container = document.getElementById("dashboard-cases-container");
     if (!container) return;
 
@@ -184,7 +205,7 @@ async function renderCaseExplorer() {
                 <td class="p-3 font-mono text-on-surface-variant">${c.date}</td>
                 <td class="p-3"><span class="px-2 py-0.5 text-[10px] font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">${c.status}</span></td>
                 <td class="p-3 text-on-surface-variant">${c.location}</td>
-                <td class="p-3 font-mono text-primary font-bold">${c.entities_count || 8}</td>
+                <td class="p-3 font-mono text-primary font-bold">${c.entities_count !== undefined ? c.entities_count : (c.entity_count !== undefined ? c.entity_count : (c.nodes_count !== undefined ? c.nodes_count : 0))}</td>
                 <td class="p-3">
                     <button onclick="exploreCase('${c.id}')" class="px-2.5 py-1 rounded bg-primary-container/20 text-primary hover:bg-primary-container hover:text-white border border-primary/30 transition text-xs font-semibold">
                         View Graph
@@ -221,103 +242,61 @@ async function renderCaseDetail(caseId = "CASE_101") {
     const container = document.getElementById("case-detail-container");
     if (!container) return;
 
-    container.innerHTML = `
-        <div class="space-y-4">
-            <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
-                <div>
-                    <span class="font-mono text-xs font-bold text-error px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${caseId}</span>
-                    <h2 class="text-base font-bold text-white mt-1">Operation Midnight Shadow â€” Nhava Sheva Hub Cargo Hijack</h2>
-                    <div class="text-xs text-on-surface-variant">FIR #MH-NAV-2026-8812 â€¢ Lead Investigator: ACP S. Sharma</div>
+    container.innerHTML = `<div class="text-center py-6 text-outline text-xs"><span class="material-symbols-outlined animate-spin text-primary">sync</span> Loading details for ${caseId}...</div>`;
+
+    try {
+        const cDetails = await window.dataService.getCaseDetails(caseId);
+        const title = cDetails.name || cDetails.title || cDetails.id || caseId;
+        const status = cDetails.status || "ACTIVE";
+        const lead = cDetails.lead_investigator ? `Lead Investigator: ${cDetails.lead_investigator}` : (cDetails.location || "Active Investigation");
+        const date = cDetails.incident_date || cDetails.date || "Recorded Incident";
+        const summary = cDetails.description || cDetails.summary || `Investigation case scope for ${caseId}. Connected entities: ${cDetails.nodes_count || cDetails.entities_count || 0}.`;
+
+        container.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
+                    <div>
+                        <span class="font-mono text-xs font-bold text-error px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${caseId}</span>
+                        <h2 class="text-base font-bold text-white mt-1">${title}</h2>
+                        <div class="text-xs text-on-surface-variant">${lead}</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="px-2.5 py-1 text-xs font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40 uppercase">${status}</span>
+                        <div class="text-[11px] text-outline font-mono mt-1">Incident Date: ${date}</div>
+                    </div>
                 </div>
-                <div class="text-right">
-                    <span class="px-2.5 py-1 text-xs font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">ACTIVE INVESTIGATION</span>
-                    <div class="text-[11px] text-outline font-mono mt-1">Incident Date: 2026-08-10</div>
+
+                <!-- Dynamic Case Summary Box -->
+                <div class="bg-surface-container-lowest p-3.5 rounded border border-primary/40 space-y-2">
+                    <div class="flex items-center gap-2 text-primary font-bold text-xs">
+                        <span class="material-symbols-outlined text-sm">hub</span> Case Investigation Summary
+                    </div>
+                    <p class="text-xs text-on-surface leading-relaxed">
+                        ${summary}
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                    <button onclick="exploreCase('${caseId}')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
+                        <div class="flex items-center gap-1.5 text-primary text-xs font-bold"><span class="material-symbols-outlined text-sm">account_tree</span> Network Graph</div>
+                        <div class="text-[11px] text-on-surface-variant">Inspect connected nodes and communication links.</div>
+                    </button>
+
+                    <button onclick="switchTab('pane-timeline')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
+                        <div class="flex items-center gap-1.5 text-tertiary text-xs font-bold"><span class="material-symbols-outlined text-sm">history</span> Incident Timeline</div>
+                        <div class="text-[11px] text-on-surface-variant">View chronological events and timestamps.</div>
+                    </button>
+
+                    <button onclick="switchTab('pane-reports')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
+                        <div class="flex items-center gap-1.5 text-secondary text-xs font-bold"><span class="material-symbols-outlined text-sm">description</span> Evidence Dossier</div>
+                        <div class="text-[11px] text-on-surface-variant">Generate standardized evidence summary report.</div>
+                    </button>
                 </div>
             </div>
-
-            <!-- Key Discovery Box -->
-            <div class="bg-surface-container-lowest p-3.5 rounded border border-primary/40 space-y-2">
-                <div class="flex items-center gap-2 text-primary font-bold text-xs">
-                    <span class="material-symbols-outlined text-sm">hub</span> Automated Multi-Hop Lead Association
-                </div>
-                <p class="text-xs text-on-surface leading-relaxed">
-                    Graph traversal cross-referenced encrypted burner communication <strong>PHONE_042</strong> (+91-9876543210) recovered from <strong>Aarav Verma</strong> (PERSON_017) to bullion receiver <strong>Vikram Malhotra</strong> (PERSON_089) in <strong>CASE_204</strong> (Zaveri Bazaar Syndicate).
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                <button onclick="exploreCase('${caseId}')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
-                    <div class="flex items-center gap-1.5 text-primary text-xs font-bold"><span class="material-symbols-outlined text-sm">account_tree</span> Network Graph</div>
-                    <div class="text-[11px] text-on-surface-variant">Inspect connected nodes, burner lines & bullion trail.</div>
-                </button>
-
-                <button onclick="switchTab('pane-timeline')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
-                    <div class="flex items-center gap-1.5 text-tertiary text-xs font-bold"><span class="material-symbols-outlined text-sm">history</span> Incident Timeline</div>
-                    <div class="text-[11px] text-on-surface-variant">View chronological ANPR logs and CCTV timestamps.</div>
-                </button>
-
-                <button onclick="switchTab('pane-reports')" class="p-3 bg-surface-container hover:bg-surface-container-high rounded border border-surface-container-high text-left space-y-1 transition">
-                    <div class="flex items-center gap-1.5 text-secondary text-xs font-bold"><span class="material-symbols-outlined text-sm">description</span> Evidence Dossier</div>
-                    <div class="text-[11px] text-on-surface-variant">Generate standardized evidence summary report.</div>
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-/* ----------------------------------------------------
-   4. NETWORK GRAPH WORKSPACE & VIS.JS ENGINE
----------------------------------------------------- */
-async function initGraphWorkspace(caseId = "CASE_101") {
-    activeCaseId = caseId;
-    await renderGraphWorkspace(caseId);
-
-    // Zoom & Fit Controls
-    document.getElementById("graph-zoom-in")?.addEventListener("click", () => {
-        if (!networkInstance) return;
-        const scale = networkInstance.getScale() * 1.3;
-        networkInstance.moveTo({ scale: scale, animation: { duration: 300 } });
-    });
-
-    document.getElementById("graph-zoom-out")?.addEventListener("click", () => {
-        if (!networkInstance) return;
-        const scale = networkInstance.getScale() * 0.7;
-        networkInstance.moveTo({ scale: scale, animation: { duration: 300 } });
-    });
-
-    document.getElementById("graph-reset")?.addEventListener("click", () => {
-        networkInstance?.fit({ animation: { duration: 400 } });
-    });
-
-    document.getElementById("graph-clear-selection")?.addEventListener("click", () => {
-        networkInstance?.unselectAll();
-        renderDefaultDrawerPlaceholder();
-    });
-
-    // Highlight Main Demo Path
-    document.getElementById("graph-highlight-path")?.addEventListener("click", highlightMainDemoPath);
-
-    // Graph Type Filters
-    document.querySelectorAll(".filter-type").forEach(chk => {
-        chk.addEventListener("change", applyGraphFilters);
-    });
-
-    // Graph Search
-    const searchInput = document.getElementById("graph-search-input");
-    if (searchInput) {
-        searchInput.addEventListener("input", (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if (!query || !currentVisNodes) {
-                networkInstance?.unselectAll();
-                return;
-            }
-            const match = (rawGraphData && rawGraphData.nodes) ? rawGraphData.nodes.find(n => n.id.toLowerCase().includes(query) || (n.name && n.name.toLowerCase().includes(query))) : null;
-            if (match) {
-                networkInstance.selectNodes([match.id]);
-                networkInstance.focus(match.id, { scale: 1.2, animation: { duration: 300 } });
-                openEntityDetailsPanel(match.id);
-            }
-        });
+        `;
+    } catch (err) {
+        console.error(`Error loading case detail for ${caseId}:`, err);
+        container.innerHTML = `<div class="p-4 text-center text-error text-xs">Unable to load case details for ${caseId}.</div>`;
     }
 }
 
@@ -486,7 +465,7 @@ async function openEntityDetailsPanel(entityId) {
             <div class="space-y-1">
                 <div class="text-[10px] font-bold uppercase text-outline flex items-center justify-between">
                     <span>Contributing Sources (${provList.length || 1})</span>
-                    <span class="text-tertiary font-mono">Conf: <strong>${((ent.confidence || 1.0) * 100).toFixed(0)}%</strong></span>
+                    <span class="text-tertiary font-mono">Conf: <strong>${ent.confidence !== undefined && ent.confidence !== null ? ((ent.confidence) * 100).toFixed(0) : 'N/A'}%</strong></span>
                 </div>
                 <div class="flex flex-wrap gap-1">
                     ${provList.length > 0 ? provList.map(p => `
@@ -526,7 +505,7 @@ async function openEntityDetailsPanel(entityId) {
                     <div class="bg-surface-container-lowest p-2 rounded text-[11px] space-y-0.5 border border-surface-container-high flex justify-between items-center">
                         <div>
                             <div class="text-primary font-mono font-semibold">${r.source || r.source_id} --${r.relationship}--> ${r.target || r.target_id}</div>
-                            <div class="text-[10px] text-on-surface-variant">Confidence: ${((r.confidence || 0.9) * 100).toFixed(0)}%</div>
+                            <div class="text-[10px] text-on-surface-variant">Confidence: ${r.confidence !== undefined && r.confidence !== null ? ((r.confidence) * 100).toFixed(0) : 'N/A'}%</div>
                         </div>
                         ${r.origin === "MANUAL" ? `<button onclick="handleDeleteRelationship('${r.id}')" class="text-error hover:text-red-400 p-1" title="Delete Link"><span class="material-symbols-outlined text-sm">delete</span></button>` : ''}
                     </div>
@@ -634,7 +613,7 @@ async function openEvidencePanel(edge) {
             <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 font-mono">
                 <div>Source Doc: <span class="text-primary font-bold">${evObj.source_document || 'INVESTIGATION_NOTE'}</span></div>
                 <div>Page: <span class="text-white font-bold">${evObj.page_number}</span></div>
-                <div>Conf: <span class="text-tertiary font-bold">${((evObj.confidence || 0.95) * 100).toFixed(0)}%</span></div>
+                <div>Conf: <span class="text-tertiary font-bold">${evObj.confidence !== undefined && evObj.confidence !== null ? ((evObj.confidence) * 100).toFixed(0) : 'N/A'}%</span></div>
             </div>
 
             ${isManual ? `
@@ -1291,7 +1270,7 @@ async function renderEvidenceExplorer() {
         <div class="stitch-card space-y-2 text-xs">
             <div class="flex items-center justify-between font-mono">
                 <span class="text-tertiary font-bold">${ev.evidence_id}</span>
-                <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${((ev.confidence || 0.95) * 100).toFixed(0)}% Confidence</span>
+                <span class="px-2 py-0.5 rounded bg-tertiary-container/30 text-tertiary text-[10px] font-bold">${ev.confidence !== undefined && ev.confidence !== null ? ((ev.confidence) * 100).toFixed(0) : 'N/A'}% Confidence</span>
             </div>
             <p class="text-white italic text-[11px]">"${ev.source_text || ev.excerpt || 'Recorded evidence finding.'}"</p>
             <div class="text-[10px] text-outline font-mono">Source: ${ev.source_document || 'DOC_EXTRACTION'} (Pg. ${ev.page_number || 1})</div>

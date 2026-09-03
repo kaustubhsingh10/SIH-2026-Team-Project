@@ -1160,7 +1160,7 @@ class MockCrimeGraphAdapter {
                     confidence_tier: "MEDIUM",
                     confidence: 0.75,
                     extraction_method: "PATTERN_RELATIONSHIP",
-                    supporting_text: text.slice(0, 100)
+                    supporting_text: text
                 }
             ],
             events: [],
@@ -1168,7 +1168,7 @@ class MockCrimeGraphAdapter {
                 {
                     evidence_id: "EVID_EXT_MOCK_1",
                     source_document_id: sourceDocumentId,
-                    source_text: text.slice(0, 150),
+                    source_text: text,
                     page_number: 1,
                     extraction_method: "NLP_PIPELINE",
                     confidence: 0.85
@@ -1183,7 +1183,7 @@ class MockCrimeGraphAdapter {
                     extraction_method: "REGEX_PHONE",
                     confidence_tier: "HIGH",
                     confidence: 0.92,
-                    source_snippet: text.slice(0, 100),
+                    source_snippet: text,
                     entity_id: "PHONE_042"
                 }
             ],
