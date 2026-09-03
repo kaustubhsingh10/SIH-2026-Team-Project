@@ -93,22 +93,40 @@ def create_app(
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        lifespan=lifespan
+        lifespan=lifespan if graph_instance is None and user_store is None and audit_logger is None else None
     )
 
     # Observability & Request Performance Middleware
     app.add_middleware(ObservabilityMiddleware)
     app.add_middleware(RateLimitMiddleware)
 
-    # User store & audit logger initialization if passed
+    # If an explicit graph instance is provided, use it, otherwise load dataset
     if graph_instance is not None:
         app.state.graph = graph_instance
+    else:
+        app.state.graph = load_dataset()
+
+    # User store initialization
     if user_store is not None:
         app.state.user_store = user_store
+    else:
+        app.state.user_store = UserStore()
+
+    # Audit logger initialization
     if audit_logger is not None:
         app.state.audit_logger = audit_logger
+    else:
+        app.state.audit_logger = AuditLogger()
+        app.state.audit_logger.log(
+            action="SYSTEM_STARTUP",
+            actor_id="SYSTEM",
+            actor_type=AuditActorType.SYSTEM,
+            resource_type=AuditResourceType.SYSTEM,
+            status=AuditStatus.SUCCESS,
+            details={"version": "1.0.0"}
+        )
 
-    # Configure CORS for frontend clients
+    # Configure CORS for frontend clients (Stitch, React/Vite, Next.js, Netlify, etc.)
     cors_env = os.environ.get("CORS_ORIGINS") or os.environ.get("CRIMEGRAPH_FRONTEND_ORIGIN") or "*"
     allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
     if not allowed_origins:
@@ -122,7 +140,7 @@ def create_app(
         allow_headers=["*"],
     )
 
-    # Global Exception Handler
+    # Global Exception Handler to prevent raw traceback or local path leakage
     @app.exception_handler(Exception)
     async def global_exception_handler(request: StarletteRequest, exc: Exception):
         req_id = getattr(request.state, "request_id", "-")
@@ -142,7 +160,7 @@ def create_app(
             headers={"X-Request-ID": req_id} if req_id != "-" else {}
         )
 
-    # Health & root status endpoints
+    # Health & root status endpoints (conforms strictly to API_CONTRACT.md)
     @app.get("/", tags=["System"])
     def root_status() -> Dict[str, Any]:
         graph_store = getattr(app.state, "graph", None)
@@ -173,6 +191,7 @@ def create_app(
 
     @app.get("/api/metrics", tags=["System"])
     def get_metrics() -> Dict[str, Any]:
+        """Provides in-memory performance and observability summary."""
         return metrics.get_summary()
 
     # Include modular routers
@@ -209,5 +228,5 @@ def create_app(
     return app
 
 
-# Default app instance for ASGI servers
+# Default app instance for ASGI servers (e.g. uvicorn crimegraph.api.app:app)
 app = create_app()

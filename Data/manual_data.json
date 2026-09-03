@@ -1,10 +1,5 @@
 {
-  "metadata": {
-    "version": "1.0",
-    "type": "CRIMEGRAPH_MANUAL_DATA",
-    "entity_count": 0,
-    "relationship_count": 0
-  },
   "entities": [],
-  "relationships": []
+  "relationships": [],
+  "cases": []
 }
