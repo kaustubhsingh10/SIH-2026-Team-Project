@@ -1,5 +1,5 @@
 /**
- * CrimeGraph AI — Frontend Application Logic
+ * CrimeGraph AI â€” Frontend Application Logic
  * Architected for SIH 2026.
  *
  * Supports dataset-based visualization + dynamic manual entity & relationship management.
@@ -226,8 +226,8 @@ async function renderCaseDetail(caseId = "CASE_101") {
             <div class="flex items-center justify-between border-b border-surface-container-high pb-3">
                 <div>
                     <span class="font-mono text-xs font-bold text-error px-2 py-0.5 rounded bg-error-container/30 border border-error/40">${caseId}</span>
-                    <h2 class="text-base font-bold text-white mt-1">Operation Midnight Shadow — Nhava Sheva Hub Cargo Hijack</h2>
-                    <div class="text-xs text-on-surface-variant">FIR #MH-NAV-2026-8812 • Lead Investigator: ACP S. Sharma</div>
+                    <h2 class="text-base font-bold text-white mt-1">Operation Midnight Shadow â€” Nhava Sheva Hub Cargo Hijack</h2>
+                    <div class="text-xs text-on-surface-variant">FIR #MH-NAV-2026-8812 â€¢ Lead Investigator: ACP S. Sharma</div>
                 </div>
                 <div class="text-right">
                     <span class="px-2.5 py-1 text-xs font-bold rounded bg-tertiary-container/30 text-tertiary border border-tertiary/40">ACTIVE INVESTIGATION</span>
@@ -352,7 +352,7 @@ async function renderGraphWorkspace(caseId = "CASE_101") {
         const nodeColor = nodeColors[n.type] || { background: "#64748b", border: "#334155" };
         return {
             id: n.id,
-            label: `${n.label || n.name || n.id}\n[${n.id}]${isManual ? ' ✎' : ''}`,
+            label: `${n.label || n.name || n.id}\n[${n.id}]${isManual ? ' âœŽ' : ''}`,
             shape: n.type === "CASE" ? "diamond" : (isManual ? "box" : "box"),
             color: isManual ? { background: nodeColor.background, border: "#fbbf24" } : nodeColor,
             borderWidth: isManual ? 3 : 2,
@@ -1189,7 +1189,7 @@ async function runAIQuery(question) {
     if (res.path && Array.isArray(res.path)) {
         pathHtml = res.path.map((nodeId, idx) => `
             <span class="px-2 py-0.5 rounded bg-surface-container-high text-primary font-bold border border-primary/30">${nodeId}</span>
-            ${idx < res.path.length - 1 ? '<span class="text-outline">→</span>' : ''}
+            ${idx < res.path.length - 1 ? '<span class="text-outline">â†’</span>' : ''}
         `).join(" ");
     }
 
@@ -1426,7 +1426,7 @@ async function renderCommunities() {
         container.innerHTML = list.map(c => `
             <div class="p-3 bg-surface-container-low border border-surface-container-high rounded space-y-1.5 text-xs">
                 <div class="flex items-center justify-between">
-                    <span class="font-bold font-mono text-purple-300 text-xs">${c.community_id} — ${c.classification || 'CRIMINAL_GROUP'}</span>
+                    <span class="font-bold font-mono text-purple-300 text-xs">${c.community_id} â€” ${c.classification || 'CRIMINAL_GROUP'}</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-950/50 text-purple-300 border border-purple-700/50">Density: ${c.density_score || 0.65}</span>
                 </div>
                 <div class="text-[11px] text-on-surface-variant">Members (${c.member_count || (c.member_entity_ids || []).length}): <span class="font-mono text-white">${(c.member_entity_ids || []).join(", ")}</span></div>
@@ -1451,12 +1451,12 @@ async function renderPaths() {
         container.innerHTML = paths.map((p, idx) => `
             <div class="p-3 bg-surface-container-low border border-emerald-800/40 rounded space-y-2 text-xs">
                 <div class="flex items-center justify-between">
-                    <span class="font-bold text-emerald-400 font-mono">Path #${idx + 1} (${p.hop_count} Hops) — Score: ${p.path_score || p.confidence}</span>
+                    <span class="font-bold text-emerald-400 font-mono">Path #${idx + 1} (${p.hop_count} Hops) â€” Score: ${p.path_score || p.confidence}</span>
                     <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-950/40 text-emerald-300 border border-emerald-800/40">Confidence: ${p.confidence || 0.90}</span>
                 </div>
                 <p class="text-on-surface-variant text-[11px]">${p.explanation || 'Path discovered across multiple evidence items.'}</p>
                 <div class="flex items-center gap-1.5 overflow-x-auto py-1 text-[11px] font-mono">
-                    ${(p.path || []).map((node, i) => `<span class="px-2 py-0.5 rounded bg-surface-container-high text-primary border border-primary/30 font-bold">${node}</span>${i < p.path.length - 1 ? '<span class="text-outline">→</span>' : ''}`).join("")}
+                    ${(p.path || []).map((node, i) => `<span class="px-2 py-0.5 rounded bg-surface-container-high text-primary border border-primary/30 font-bold">${node}</span>${i < p.path.length - 1 ? '<span class="text-outline">â†’</span>' : ''}`).join("")}
                 </div>
             </div>
         `).join("");

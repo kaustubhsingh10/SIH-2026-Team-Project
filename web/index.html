@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CrimeGraph AI — Investigative Intelligence Platform (SIH 2026)</title>
+    <title>CrimeGraph AI â€” Investigative Intelligence Platform (SIH 2026)</title>
 
     <!-- Tailwind CSS with custom Stitch theme extensions -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -353,7 +353,7 @@
                         </button>
                         <div class="h-4 w-px bg-surface-container-high"></div>
                         <button id="graph-highlight-path" class="px-2.5 py-1 bg-tertiary-container/30 text-tertiary border border-tertiary/40 rounded text-xs font-semibold flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Path (Case 101 → Case 204)
+                            <span class="material-symbols-outlined text-sm">route</span> Highlight Demo Path (Case 101 â†’ Case 204)
                         </button>
                         <button id="graph-clear-selection" class="px-2 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant rounded text-xs">
                             Clear Selection
@@ -623,7 +623,7 @@
 
                 <!-- Custom ID (Optional) -->
                 <div>
-                    <label class="block text-on-surface-variant font-semibold mb-1">Custom Entity ID <span class="text-outline font-normal">(Optional — auto-generated if blank)</span></label>
+                    <label class="block text-on-surface-variant font-semibold mb-1">Custom Entity ID <span class="text-outline font-normal">(Optional â€” auto-generated if blank)</span></label>
                     <input type="text" id="entity-custom-id" placeholder="e.g. PERSON_099 or leave empty" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface font-mono focus:border-primary">
                 </div>
 
@@ -674,18 +674,18 @@
                 <div>
                     <label class="block text-on-surface-variant font-semibold mb-1">Relationship Type *</label>
                     <select id="rel-type-select" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-primary font-mono font-semibold focus:border-primary">
-                        <option value="USES">USES (Person → Phone / Vehicle)</option>
-                        <option value="OWNS">OWNS (Person → Vehicle / Property)</option>
-                        <option value="INVOLVED_IN">INVOLVED_IN (Person / Entity → Case)</option>
-                        <option value="ASSOCIATED_WITH">ASSOCIATED_WITH (Person → Person / Org)</option>
-                        <option value="CONTACTED">CONTACTED (Person → Person)</option>
-                        <option value="VISITED">VISITED (Person → Location)</option>
-                        <option value="SEEN_AT">SEEN_AT (Vehicle / Person → Location)</option>
-                        <option value="LOCATED_AT">LOCATED_AT (Entity → Location)</option>
-                        <option value="WORKS_FOR">WORKS_FOR (Person → Organization)</option>
-                        <option value="OWNED_BY">OWNED_BY (Account → Person)</option>
-                        <option value="INVOLVES">INVOLVES (Event → Person)</option>
-                        <option value="OCCURRED_AT">OCCURRED_AT (Event → Location)</option>
+                        <option value="USES">USES (Person â†’ Phone / Vehicle)</option>
+                        <option value="OWNS">OWNS (Person â†’ Vehicle / Property)</option>
+                        <option value="INVOLVED_IN">INVOLVED_IN (Person / Entity â†’ Case)</option>
+                        <option value="ASSOCIATED_WITH">ASSOCIATED_WITH (Person â†’ Person / Org)</option>
+                        <option value="CONTACTED">CONTACTED (Person â†’ Person)</option>
+                        <option value="VISITED">VISITED (Person â†’ Location)</option>
+                        <option value="SEEN_AT">SEEN_AT (Vehicle / Person â†’ Location)</option>
+                        <option value="LOCATED_AT">LOCATED_AT (Entity â†’ Location)</option>
+                        <option value="WORKS_FOR">WORKS_FOR (Person â†’ Organization)</option>
+                        <option value="OWNED_BY">OWNED_BY (Account â†’ Person)</option>
+                        <option value="INVOLVES">INVOLVES (Event â†’ Person)</option>
+                        <option value="OCCURRED_AT">OCCURRED_AT (Event â†’ Location)</option>
                     </select>
                 </div>
 
@@ -778,7 +778,7 @@
             <form id="form-add-case" onsubmit="handleCreateCase(event)" class="space-y-3 text-xs">
                 <div>
                     <label class="block text-on-surface-variant font-semibold mb-1">Case Title *</label>
-                    <input type="text" id="case-title" required placeholder="e.g. Operation Gold Falcon — Bullion Smuggling" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
+                    <input type="text" id="case-title" required placeholder="e.g. Operation Gold Falcon â€” Bullion Smuggling" class="w-full bg-surface-container-lowest border border-surface-container-high rounded px-3 py-1.5 text-on-surface focus:border-primary">
                 </div>
                 <div>
                     <label class="block text-on-surface-variant font-semibold mb-1">Custom Case ID (Optional)</label>
